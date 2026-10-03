@@ -488,6 +488,13 @@ input::placeholder {
   height: 2px;
   background: var(--faint);
   border-radius: 50%;
+  flex-shrink: 0;
+}
+.file-course {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .entry-meta .added {
   color: var(--green);

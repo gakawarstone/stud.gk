@@ -372,22 +372,21 @@ function App() {
   const files = (data?.resources ?? []).filter((r) => r.kind === "file");
   const groups = new Map<string, Change[]>();
   if (view === "files") {
-    for (const course of [...(data?.courses ?? [])].sort((a, b) =>
-      a.title.localeCompare(b.title),
-    )) {
-      const entries: Change[] = files
-        .filter((f) => f.courseId === course.id)
-        .sort((a, b) =>
-          a.title.localeCompare(b.title, undefined, { numeric: true }),
-        )
-        .map((f) => ({
-          ...f,
-          occurredAt: f.updatedAt || f.createdAt || "",
-          action: "added",
-          read: true,
-        }));
-      if (entries.length) groups.set(course.id, entries);
-    }
+    const entries: Change[] = files
+      .map<Change>((f) => {
+        const date = [f.updatedAt, f.createdAt].find(
+          (d) => d && Number.isFinite(Date.parse(d)),
+        );
+        return { ...f, occurredAt: date || "", action: "added", read: true };
+      })
+      .sort(
+        (a, b) =>
+          (b.occurredAt ? Date.parse(b.occurredAt) : -Infinity) -
+            (a.occurredAt ? Date.parse(a.occurredAt) : -Infinity) ||
+          a.title.localeCompare(b.title, undefined, { numeric: true }) ||
+          a.id.localeCompare(b.id),
+      );
+    if (entries.length) groups.set("files", entries);
   } else {
     [...(data?.changes ?? [])]
       .sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt))
@@ -502,12 +501,12 @@ function App() {
           >
             {[...groups].map(([label, changes]) => (
               <div className="day-group" key={label}>
-                <h2>
-                  {view === "files"
-                    ? data?.courses.find((c) => c.id === label)?.title
-                    : label}
-                  <span />
-                </h2>
+                {view === "updates" && (
+                  <h2>
+                    {label}
+                    <span />
+                  </h2>
+                )}
                 {changes.map((change) => {
                   const course = data?.courses.find(
                     (c) => c.id === change.courseId,
@@ -569,6 +568,17 @@ function App() {
                             <>
                               <i />
                               {change.location}
+                            </>
+                          )}
+                          {view === "files" && course && (
+                            <>
+                              <i />
+                              <span
+                                className="file-course"
+                                title={course.title}
+                              >
+                                {course.title}
+                              </span>
                             </>
                           )}
                         </div>
