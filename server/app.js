@@ -4,6 +4,8 @@ import { rateLimit } from "express-rate-limit";
 import { CookieJar } from "tough-cookie";
 import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import path from "node:path";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { BASE, createClient, fetchSnapshot, StudipError } from "./studip.js";
 import { loginStudip } from "./login.js";
 import {
@@ -32,6 +34,7 @@ export async function createApp({
   dataDir,
   authenticate = loginStudip,
   getSnapshot = fetchSnapshot,
+  getDownload = (client, file, options) => client.download(file, options),
   autoSync = true,
   sessionName = SESSION_NAME,
 } = {}) {
@@ -257,6 +260,63 @@ export async function createApp({
   app.post("/api/sync", requireLogin, async (req, res) => {
     await sync(req.context);
     res.json({ ok: true });
+  });
+  app.get("/api/files/:id/download", requireLogin, async (req, res) => {
+    const context = req.context;
+    const file = state.accounts[context.user.id]?.resources.find(
+      (r) => r.kind === "file" && r.remoteId === req.params.id,
+    );
+    if (!file) throw new StudipError("Файл не найден в твоих курсах.", 404);
+    const controller = new AbortController();
+    const cancel = () => {
+      if (!res.writableFinished) controller.abort();
+    };
+    res.once("close", cancel);
+    try {
+      const response = await getDownload(context.client, file, {
+        signal: controller.signal,
+        range: req.headers.range,
+      });
+      if (context.revoked || context.expiresAt <= Date.now()) {
+        await response.body.cancel();
+        throw new StudipError("Сессия истекла. Войди заново.", 401);
+      }
+      const filename =
+        file.title.replace(/[\x00-\x1f\x7f/\\]/g, "_").slice(0, 200) || "file";
+      res
+        .status(response.status)
+        .attachment(filename)
+        .type("application/octet-stream");
+      const length = response.headers.get("content-length");
+      if (
+        /^\d+$/.test(length ?? "") &&
+        !response.headers.get("content-encoding")
+      )
+        res.set("Content-Length", length);
+      if (response.status === 206) {
+        const contentRange = response.headers.get("content-range");
+        if (/^bytes \d+-\d+\/\d+$/.test(contentRange ?? ""))
+          res.set("Content-Range", contentRange);
+      }
+      if (response.headers.get("accept-ranges") === "bytes")
+        res.set("Accept-Ranges", "bytes");
+      await pipeline(Readable.fromWeb(response.body), res, {
+        signal: controller.signal,
+      });
+      // Only a completed full download marks related Campus notifications read.
+      if (response.status === 200 && !context.revoked) {
+        const account = state.accounts[context.user.id];
+        for (const change of account.changes)
+          if (change.resourceId === file.id) change.read = true;
+        await save();
+      }
+    } catch (error) {
+      if (error.status === 401) await expire(context);
+      if (!res.headersSent && !controller.signal.aborted) throw error;
+      if (!res.destroyed) res.destroy();
+    } finally {
+      res.off("close", cancel);
+    }
   });
   app.get("/api/changes", requireLogin, (req, res) => {
     const since = req.query.since;

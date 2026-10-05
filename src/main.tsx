@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   CalendarDays,
   Check,
+  Download,
   FileText,
   GraduationCap,
   LoaderCircle,
@@ -11,6 +12,7 @@ import {
   Megaphone,
   RefreshCw,
   ShieldCheck,
+  SlidersHorizontal,
   TriangleAlert,
 } from "lucide-react";
 import "./styles.css";
@@ -206,9 +208,59 @@ function App() {
   const [data, setData] = useState<Feed | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [view, setView] = useState<"files" | "updates">(() =>
     localStorage.getItem("campus-view") === "updates" ? "updates" : "files",
   );
+  const [hiddenCourses, setHiddenCourses] = useState<Set<string>>(() => {
+    try {
+      const saved: unknown = JSON.parse(
+        localStorage.getItem("campus-hidden-courses") || "[]",
+      );
+      return new Set(
+        Array.isArray(saved)
+          ? saved.filter((id): id is string => typeof id === "string")
+          : [],
+      );
+    } catch {
+      return new Set();
+    }
+  });
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+  const hiddenRef = useRef(hiddenCourses);
+  hiddenRef.current = hiddenCourses;
+  const visibleChanges = (data?.changes ?? []).filter(
+    (c) => !hiddenCourses.has(c.courseId),
+  );
+  function toggleCourse(id: string) {
+    setHiddenCourses((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      localStorage.setItem("campus-hidden-courses", JSON.stringify([...next]));
+      return next;
+    });
+  }
+  useEffect(() => {
+    if (!filterOpen) return;
+    function outside(event: PointerEvent) {
+      if (!filterRef.current?.contains(event.target as Node))
+        setFilterOpen(false);
+    }
+    function escape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setFilterOpen(false);
+        filterRef.current?.querySelector("button")?.focus();
+      }
+    }
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [filterOpen]);
   function selectView(next: "files" | "updates") {
     setView(next);
     localStorage.setItem("campus-view", next);
@@ -221,6 +273,8 @@ function App() {
     generation.current++;
     previousSync.current = null;
     setData(null);
+    setFilterOpen(false);
+    setFileError(null);
     setPhase("login");
     setError(message);
   }
@@ -251,6 +305,7 @@ function App() {
         const fresh = feed.changes.filter(
           (c) =>
             !c.read &&
+            !hiddenRef.current.has(c.courseId) &&
             Date.parse(c.occurredAt) > Date.parse(previousSync.current!),
         );
         if (fresh.length)
@@ -283,11 +338,11 @@ function App() {
     return () => clearInterval(timer);
   }, [phase, data?.syncing]);
   useEffect(() => {
-    const unread = data?.changes.filter((c) => !c.read).length || 0;
+    const unread = visibleChanges.filter((c) => !c.read).length;
     document.title = unread
       ? `(${unread}) Campus · Обновления`
       : "Campus · Stud.IP";
-  }, [data]);
+  }, [data, hiddenCourses]);
   async function login(username: string, password: string) {
     setBusy(true);
     setError(null);
@@ -326,6 +381,7 @@ function App() {
   async function refresh() {
     setBusy(true);
     setError(null);
+    setFileError(null);
     try {
       if (phase === "live") await api("/api/sync", {});
       await load();
@@ -369,7 +425,47 @@ function App() {
           void markRead(change);
       }
   }
-  const files = (data?.resources ?? []).filter((r) => r.kind === "file");
+  function downloadFile(entry: Change) {
+    if (phase === "demo") {
+      setFileError("В демо скачивание недоступно.");
+      return;
+    }
+    if (!entry.remoteId) {
+      setFileError("У файла нет ссылки для скачивания.");
+      return;
+    }
+    setFileError(null);
+    const version = generation.current;
+    const frame = document.createElement("iframe");
+    frame.hidden = true;
+    // Native browser downloads stream to disk without buffering videos in JS memory.
+    frame.src = `/api/files/${encodeURIComponent(entry.remoteId)}/download`;
+    const timer = setTimeout(() => frame.remove(), 60000);
+    frame.onload = () => {
+      const text = frame.contentDocument?.body?.textContent;
+      if (!text) return;
+      if (version !== generation.current) {
+        clearTimeout(timer);
+        frame.remove();
+        return;
+      }
+      try {
+        const payload = JSON.parse(text);
+        if (payload.error && version === generation.current) {
+          if (payload.code === "SESSION_EXPIRED") signedOut(payload.error);
+          else setFileError(payload.error);
+        }
+      } catch {
+        setFileError("Не удалось скачать файл.");
+      }
+      clearTimeout(timer);
+      frame.remove();
+    };
+    document.body.append(frame);
+  }
+  const files = (data?.resources ?? []).filter(
+    (r) => r.kind === "file" && !hiddenCourses.has(r.courseId),
+  );
   const groups = new Map<string, Change[]>();
   if (view === "files") {
     const entries: Change[] = files
@@ -388,16 +484,31 @@ function App() {
       );
     if (entries.length) groups.set("files", entries);
   } else {
-    [...(data?.changes ?? [])]
+    [...visibleChanges]
       .sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt))
       .forEach((change) => {
         const label = day(change.occurredAt);
         groups.set(label, [...(groups.get(label) ?? []), change]);
       });
   }
-  const unread = data?.changes.filter((c) => !c.read).length || 0;
+  const unread = visibleChanges.filter((c) => !c.read).length;
   const syncError = error || data?.error;
-  const partial = Boolean(data?.unavailableSources?.length);
+  const partial = Boolean(
+    data?.unavailableSources?.some(
+      (s) =>
+        !hiddenCourses.has(s.courseId) &&
+        (view === "updates" || s.kind === "file"),
+    ),
+  );
+  const syncing = busy || data?.syncing;
+  const syncStatus = syncing
+    ? "Проверяем курсы…"
+    : syncError
+      ? "Проверка не завершена"
+      : lastSync(data?.lastSync ?? null);
+  const allHidden = Boolean(
+    data?.courses.length && data.courses.every((c) => hiddenCourses.has(c.id)),
+  );
   return (
     <div className="page">
       <header className="header">
@@ -444,57 +555,91 @@ function App() {
         />
       ) : (
         <main className="feed-main">
-          <div className="feed-heading">
-            <div>
-              <h1>{view === "files" ? "Файлы" : "Обновления"}</h1>
+          <h1 className="visually-hidden">
+            {view === "files" ? "Файлы" : "Обновления"}
+          </h1>
+          <div className="feed-controls">
+            <div className="view-switch" role="group" aria-label="Показать">
+              <button
+                aria-pressed={view === "files"}
+                onClick={() => selectView("files")}
+              >
+                Все файлы <span>{files.length}</span>
+              </button>
+              <button
+                aria-pressed={view === "updates"}
+                onClick={() => selectView("updates")}
+              >
+                Обновления {unread > 0 && <span>{unread}</span>}
+              </button>
             </div>
-            <button
-              className="refresh-button"
-              aria-label={busy || data?.syncing ? "Обновляем…" : "Обновить"}
-              disabled={busy || data?.syncing}
-              onClick={() => void refresh()}
-            >
-              <RefreshCw
-                size={16}
-                className={busy || data?.syncing ? "spin" : ""}
-              />
-              <span>{busy || data?.syncing ? "Обновляем…" : "Обновить"}</span>
-            </button>
+            <div className="feed-actions">
+              <div className="course-filter" ref={filterRef}>
+                <button
+                  className="filter-button"
+                  aria-expanded={filterOpen}
+                  aria-controls="course-options"
+                  onClick={() => setFilterOpen((open) => !open)}
+                >
+                  <SlidersHorizontal size={15} /> Курсы
+                  {data?.courses.some((c) => hiddenCourses.has(c.id)) && (
+                    <span>
+                      {
+                        data.courses.filter((c) => !hiddenCourses.has(c.id))
+                          .length
+                      }
+                      /{data.courses.length}
+                    </span>
+                  )}
+                </button>
+                {filterOpen && (
+                  <div
+                    className="course-options"
+                    id="course-options"
+                    role="group"
+                    aria-label="Показывать курсы"
+                  >
+                    {data?.courses.map((course) => (
+                      <label key={course.id}>
+                        <input
+                          type="checkbox"
+                          checked={!hiddenCourses.has(course.id)}
+                          onChange={() => toggleCourse(course.id)}
+                        />
+                        <span>{course.title}</span>
+                      </label>
+                    ))}
+                    {!data?.courses.length && <p>Курсы ещё не загружены.</p>}
+                  </div>
+                )}
+              </div>
+              <button
+                className={`refresh-button ${syncError ? "failed" : ""}`}
+                aria-label={`${syncing ? "Обновляем…" : "Обновить"}. ${syncStatus}`}
+                title={`${syncing ? "Обновляем…" : "Обновить"}. ${syncStatus}`}
+                disabled={syncing}
+                onClick={() => void refresh()}
+              >
+                <RefreshCw size={16} className={syncing ? "spin" : ""} />
+              </button>
+              <span className="visually-hidden" role="status">
+                {syncStatus}
+              </span>
+            </div>
           </div>
-          <div className="view-switch" role="group" aria-label="Показать">
-            <button
-              aria-pressed={view === "files"}
-              onClick={() => selectView("files")}
-            >
-              Все файлы <span>{files.length}</span>
-            </button>
-            <button
-              aria-pressed={view === "updates"}
-              onClick={() => selectView("updates")}
-            >
-              Обновления {unread > 0 && <span>{unread}</span>}
-            </button>
-          </div>
-          {syncError && (
+          {(syncError || fileError) && (
             <div className="feed-error" role="alert">
-              {syncError}
+              {syncError || fileError}
             </div>
           )}
-          {partial && !syncError && (
+          {partial && !syncError && !fileError && (
             <div className="feed-warning" role="status">
-              Часть материалов недоступна в Stud.IP.
+              <TriangleAlert size={13} />
+              {view === "files"
+                ? "Часть файлов недоступна в Stud.IP."
+                : "Часть материалов недоступна в Stud.IP."}
             </div>
           )}
-          <div className="sync-status">
-            <span
-              className={`status-dot ${data?.syncing ? "updating" : syncError ? "failed" : partial ? "updating" : !data?.lastSync ? "inactive" : ""}`}
-            />
-            {data?.syncing
-              ? "Проверяем курсы…"
-              : syncError
-                ? "Проверка не завершена"
-                : lastSync(data?.lastSync ?? null)}
-          </div>
           <section
             className={`feed ${view === "files" ? "files-feed" : ""}`}
             aria-label={view === "files" ? "Все файлы" : "Лента обновлений"}
@@ -597,9 +742,12 @@ function App() {
                           )}
                         </time>
                       )}
-                      {phase === "live" && (
-                        <ArrowUpRight className="entry-open" size={16} />
-                      )}
+                      {phase === "live" &&
+                        (change.kind === "file" ? (
+                          <Download className="entry-open" size={16} />
+                        ) : (
+                          <ArrowUpRight className="entry-open" size={16} />
+                        ))}
                     </>
                   );
                   return (
@@ -607,16 +755,21 @@ function App() {
                       key={change.id}
                       className={`entry ${change.read ? "read" : "unread"}`}
                     >
-                      {phase === "live" ? (
+                      {change.kind === "file" ? (
+                        <button
+                          className="entry-link"
+                          aria-label={`Скачать ${change.title}`}
+                          onClick={() => downloadFile(change)}
+                          disabled={change.action === "removed"}
+                        >
+                          {body}
+                        </button>
+                      ) : phase === "live" ? (
                         <a
                           className="entry-link"
                           href={
-                            change.kind === "file" &&
-                            change.action !== "removed" &&
-                            change.remoteId
-                              ? `https://elearning.hs-flensburg.de/dispatch.php/file/details/${encodeURIComponent(change.remoteId)}?cid=${encodeURIComponent(change.courseId)}`
-                              : course?.url ||
-                                `https://elearning.hs-flensburg.de/dispatch.php/course/overview?cid=${encodeURIComponent(change.courseId)}`
+                            course?.url ||
+                            `https://elearning.hs-flensburg.de/dispatch.php/course/overview?cid=${encodeURIComponent(change.courseId)}`
                           }
                           target="_blank"
                           rel="noreferrer"
@@ -653,15 +806,19 @@ function App() {
                     ? "Собираем твои курсы"
                     : syncError || !data?.lastSync
                       ? "Не удалось проверить курсы"
-                      : view === "files"
-                        ? "Файлов пока нет"
-                        : "Пока без изменений"}
+                      : allHidden
+                        ? "Все курсы скрыты"
+                        : view === "files"
+                          ? "Файлов пока нет"
+                          : "Пока без изменений"}
                 </h2>
                 <p>
                   {data?.syncing ? (
                     "Это может занять немного времени."
                   ) : syncError || !data?.lastSync ? (
                     "Нажми «Обновить», чтобы повторить проверку."
+                  ) : allHidden ? (
+                    "Выбери нужные курсы в фильтре «Курсы»."
                   ) : view === "files" ? (
                     "В доступных разделах файлов нет."
                   ) : (

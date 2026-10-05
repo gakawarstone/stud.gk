@@ -67,6 +67,17 @@ input:focus-visible {
 .page {
   min-height: 100dvh;
 }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
 .header {
   max-width: 1056px;
   margin: auto;
@@ -256,50 +267,99 @@ input::placeholder {
 .feed-main {
   max-width: 872px;
   margin: 0 auto;
-  padding: 38px 36px 28px;
-}
-.feed-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
-  margin-bottom: 30px;
-}
-.feed-heading h1 {
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  font-size: 32px;
-  letter-spacing: -1.1px;
-  font-weight: 650;
-  line-height: 1.3;
-  margin: 0;
-}
-.unread-count {
-  font-size: 11px;
-  color: var(--mauve);
-  border: 1px solid #cba6f730;
-  background: #cba6f70e;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-weight: 600;
-  letter-spacing: 0;
+  padding: 18px 36px 28px;
 }
 .view-switch {
   display: flex;
   gap: 4px;
   width: fit-content;
-  margin-bottom: 22px;
+  margin-bottom: 0;
   padding: 4px;
   border: 1px solid var(--surface0);
   border-radius: 9px;
+}
+.feed-controls {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.feed-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.filter-button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  font-size: 11px;
+  color: var(--subtext);
+  padding: 8px;
+  border-radius: 7px;
+}
+.filter-button[aria-expanded="true"],
+.filter-button:hover {
+  background: var(--surface0);
+}
+.filter-button > span {
+  color: var(--mauve);
+  font-size: 10px;
+}
+.course-options {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 350px;
+  max-width: 100%;
+  max-height: 320px;
+  overflow: auto;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--surface1);
+  border-radius: 10px;
+  box-shadow: 0 14px 40px #0004;
+}
+.course-options label {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  padding: 10px 8px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.course-options label:hover {
+  background: var(--surface0);
+}
+.course-options label > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.course-options input {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  margin: 2px 0 0;
+  accent-color: var(--mauve);
+}
+.course-options p {
+  padding: 0 8px;
+  color: var(--muted);
+  font-size: 11px;
 }
 .view-switch button {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 36px;
-  padding: 7px 12px;
+  min-height: 32px;
+  padding: 6px 10px;
   border-radius: 6px;
   font-size: 12px;
   color: var(--muted);
@@ -318,45 +378,20 @@ input::placeholder {
   text-underline-offset: 4px;
 }
 .refresh-button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
   color: var(--subtext);
-  border: 1px solid var(--surface1);
   border-radius: 7px;
-  padding: 10px 13px;
-  font-size: 11px;
   flex-shrink: 0;
-  margin-top: 0;
 }
 .refresh-button:hover:not(:disabled) {
-  background: var(--surface);
+  background: var(--surface0);
   color: var(--mauve);
-  border-color: var(--mauve);
 }
-.sync-status {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 0 0 20px;
-  font-size: 10px;
-  color: var(--muted);
-}
-.status-dot {
-  height: 5px;
-  width: 5px;
-  background: var(--green);
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.status-dot.updating {
-  background: var(--peach);
-}
-.status-dot.failed {
-  background: var(--red);
-}
-.status-dot.inactive {
-  background: var(--muted);
+.refresh-button.failed {
+  color: var(--red);
 }
 .feed {
   border: 1px solid var(--surface0);
@@ -551,8 +586,7 @@ input::placeholder {
   margin-left: auto;
   font-size: 8px;
 }
-.feed-error,
-.feed-warning {
+.feed-error {
   border: 1px solid #f38ba830;
   background: #f38ba807;
   color: var(--red);
@@ -563,9 +597,16 @@ input::placeholder {
   margin-bottom: 20px;
 }
 .feed-warning {
-  border-color: #fab38730;
-  background: #fab38707;
+  display: flex;
+  align-items: center;
+  gap: 7px;
   color: var(--peach);
+  font-size: 10px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+.feed-warning > svg {
+  flex-shrink: 0;
 }
 .empty {
   text-align: center;
@@ -640,31 +681,23 @@ input::placeholder {
     font-size: 25px;
   }
   .feed-main {
-    padding: 33px 22px 24px;
+    padding: 12px 22px 24px;
   }
-  .feed-heading {
-    gap: 12px;
-    margin-bottom: 26px;
-    align-items: center;
+  .view-switch {
+    gap: 2px;
+    padding: 3px;
   }
-  .feed-heading h1 {
-    font-size: 28px;
-    gap: 10px;
+  .view-switch button {
+    gap: 5px;
+    padding-inline: 7px;
+    font-size: 11px;
   }
-  .refresh-button {
-    padding: 10px;
-    border-radius: 7px;
+  .feed-actions {
+    gap: 2px;
   }
-  .refresh-button > span {
-    display: none;
-  }
-  .refresh-button > svg {
-    width: 18px;
-    height: 18px;
-  }
-  .sync-status {
-    font-size: 9px;
-    padding-bottom: 17px;
+  .filter-button {
+    gap: 5px;
+    padding-inline: 5px;
   }
   .feed {
     padding-inline: 16px;
@@ -713,6 +746,14 @@ input::placeholder {
   }
   .footer {
     font-size: 8px;
+  }
+}
+@media (max-width: 380px) {
+  .feed-main {
+    padding-inline: 14px;
+  }
+  .filter-button > svg {
+    display: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -98,7 +98,76 @@ export function createClient(cookie, fetcher = fetch) {
     }
     return items;
   }
-  return { get, list };
+  async function download(file, { signal, range } = {}) {
+    const url = new URL("/sendfile.php", BASE);
+    url.search = new URLSearchParams({
+      type: "0",
+      file_id: file.remoteId,
+      file_name: file.title,
+      force_download: "1",
+    }).toString();
+    const deadline = new AbortController();
+    const timer = setTimeout(() => deadline.abort(), 20000);
+    let response;
+    try {
+      response = await fetcher(url, {
+        method: "GET",
+        redirect: "manual",
+        signal: signal
+          ? AbortSignal.any([signal, deadline.signal])
+          : deadline.signal,
+        headers: {
+          Accept: "*/*",
+          "Accept-Encoding": "identity",
+          Cookie: jar ? await jar.getCookieString(url.href) : cookie,
+          ...(range && /^bytes=\d+-\d*$/.test(range) ? { Range: range } : {}),
+        },
+      });
+    } catch {
+      throw new StudipError(
+        "Не удалось скачать файл из Stud.IP. Попробуй ещё раз.",
+      );
+    } finally {
+      // Only waiting for headers is timed out; large files may take longer to stream.
+      clearTimeout(timer);
+    }
+    if (jar)
+      for (const value of response.headers.getSetCookie())
+        await jar.setCookie(value, url.href);
+    let error;
+    if (response.status >= 300 && response.status < 400) {
+      const target = new URL(response.headers.get("location") || "", url);
+      error =
+        target.origin === BASE &&
+        /(?:login|auth|\/dispatch\.php\/start)/i.test(target.pathname)
+          ? new StudipError("Сессия Stud.IP истекла. Войди заново.", 401)
+          : new StudipError(
+              "Stud.IP перенаправляет скачивание на другой адрес. Этот файл пока недоступен в Campus.",
+            );
+    } else if (response.status === 401)
+      error = new StudipError("Сессия Stud.IP истекла. Войди заново.", 401);
+    else if (response.status === 403)
+      error = new StudipError("Stud.IP не разрешает скачать этот файл.", 403);
+    else if (response.status === 404)
+      error = new StudipError("Файл больше не доступен в Stud.IP.", 404);
+    else if (!response.ok || !response.body)
+      error = new StudipError("Stud.IP не смог отдать файл. Попробуй ещё раз.");
+    else if (
+      /text\/html/i.test(response.headers.get("content-type") || "") &&
+      !response.headers.get("content-disposition")
+    ) {
+      // Do not save a login page as the requested file.
+      await response.body.cancel();
+      await get("users/me");
+      error = new StudipError("Stud.IP вернул страницу вместо файла.");
+    }
+    if (error) {
+      await response.body?.cancel();
+      throw error;
+    }
+    return response;
+  }
+  return { get, list, download };
 }
 
 const plain = (s) =>
