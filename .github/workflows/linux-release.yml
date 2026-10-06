@@ -32,17 +32,11 @@ jobs:
         env:
           CAMPUS_SMOKE_ENTRY: ${{ github.workspace }}/release/linux-unpacked/resources/app.asar/electron/main.cjs
         run: xvfb-run -a npm run test:desktop -- --no-sandbox
-      - name: Checksums
-        working-directory: release
-        run: sha256sum Campus-*.AppImage Campus-*.deb Campus-*.tar.gz > SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
           name: campus-linux-x64
           path: |
             release/Campus-*.AppImage
-            release/Campus-*.deb
-            release/Campus-*.tar.gz
-            release/SHA256SUMS
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/')
         env:
@@ -51,4 +45,4 @@ jobs:
           if ! gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
             gh release create "$GITHUB_REF_NAME" --verify-tag --title "Campus $GITHUB_REF_NAME" --generate-notes
           fi
-          gh release upload "$GITHUB_REF_NAME" release/Campus-*.AppImage release/Campus-*.deb release/Campus-*.tar.gz release/SHA256SUMS --clobber
+          gh release upload "$GITHUB_REF_NAME" release/Campus-*.AppImage --clobber
