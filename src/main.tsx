@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import "./styles.css";
 import { FileThumbnail, clearThumbnailCache } from "./FileThumbnail";
+import { PdfViewer } from "./PdfViewer";
 
 type Course = { id: string; title: string; color: string; url: string | null };
 type Change = {
@@ -250,6 +251,7 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [viewedPdf, setViewedPdf] = useState<Material | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState(courseFromHash);
   const [courseOrder, setCourseOrder] = useState<string[]>(() => {
     try {
@@ -364,16 +366,47 @@ function App() {
       dragCleanup.current?.();
       setSelectedCourseId(courseFromHash());
       setFileError(null);
+      setViewedPdf(null);
       window.scrollTo(0, 0);
     }
     window.addEventListener("hashchange", navigate);
     return () => window.removeEventListener("hashchange", navigate);
   }, []);
   const generation = useRef(0);
+  async function markPdfViewed(file: Material) {
+    const version = generation.current;
+    const changes = fileChanges.filter(
+      (change) => change.resourceId === file.id && !change.read,
+    );
+    if (!changes.length) return;
+    const results = await Promise.allSettled(
+      changes.map(async (change) => {
+        await api("/api/changes/read", { id: change.id });
+        return change.id;
+      }),
+    );
+    if (version !== generation.current) return;
+    const read = new Set(
+      results.flatMap((result) =>
+        result.status === "fulfilled" ? [result.value] : [],
+      ),
+    );
+    setData((current) =>
+      current
+        ? {
+            ...current,
+            changes: current.changes.map((change) =>
+              read.has(change.id) ? { ...change, read: true } : change,
+            ),
+          }
+        : current,
+    );
+  }
   const phaseRef = useRef<Phase>(phase);
   phaseRef.current = phase;
   const previousSync = useRef<string | null>(null);
   function signedOut(message: string | null = null) {
+    setViewedPdf(null);
     clearThumbnailCache();
     dragCleanup.current?.();
     generation.current++;
@@ -398,6 +431,7 @@ function App() {
           : await api<AuthState>("/api/state");
       if (version !== generation.current) return;
       if (!next.authenticated && !("mode" in next)) {
+        setViewedPdf(null);
         setData(null);
         setPhase("login");
         if (next.authExpired)
@@ -749,7 +783,19 @@ function App() {
                     className={`file-card ${unread ? "unread" : ""}`}
                     key={file.id}
                   >
-                    {phase === "live" && file.remoteId ? (
+                    {phase === "live" && file.remoteId && tone === "pdf" ? (
+                      <button
+                        className="file-card-link"
+                        aria-label={previewLabel}
+                        aria-haspopup="dialog"
+                        onClick={() => {
+                          setFileError(null);
+                          setViewedPdf(file);
+                        }}
+                      >
+                        {body}
+                      </button>
+                    ) : phase === "live" && file.remoteId ? (
                       <a
                         className="file-card-link"
                         aria-label={previewLabel}
@@ -819,6 +865,18 @@ function App() {
             )}
           </section>
         </main>
+      )}
+      {phase === "live" && viewedPdf?.remoteId && (
+        <PdfViewer
+          key={viewedPdf.id}
+          title={viewedPdf.title}
+          remoteId={viewedPdf.remoteId}
+          onViewed={() => void markPdfViewed(viewedPdf)}
+          onClose={() => {
+            setViewedPdf(null);
+            void load();
+          }}
+        />
       )}
     </div>
   );

@@ -1,23 +1,8 @@
-import { getDocument, GlobalWorkerOptions, PDFWorker } from "pdfjs-dist";
-import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-
-GlobalWorkerOptions.workerSrc = workerUrl;
-let worker: PDFWorker | undefined;
+import { openPdfDocument } from "./pdf-document";
 
 export async function renderPdfThumbnail(url: string, signal: AbortSignal) {
   signal.throwIfAborted();
-  worker ??= new PDFWorker();
-  const task = getDocument({
-    url,
-    worker,
-    withCredentials: true,
-    disableAutoFetch: true,
-    disableStream: true,
-    cMapUrl: "/pdf-assets/cmaps/",
-    standardFontDataUrl: "/pdf-assets/standard_fonts/",
-    wasmUrl: "/pdf-assets/wasm/",
-    iccUrl: "/pdf-assets/iccs/",
-  });
+  const task = openPdfDocument(url);
   const cancel = () => {
     void task.destroy().catch(() => {});
   };

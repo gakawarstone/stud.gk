@@ -591,6 +591,251 @@ input::placeholder {
   background: var(--surface);
   border-radius: 10px;
 }
+.pdf-viewer {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--text);
+  background: var(--base);
+}
+.pdf-viewer[open] {
+  display: flex;
+  flex-direction: column;
+}
+.pdf-viewer-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  background: var(--base);
+}
+.pdf-viewer-shell:fullscreen {
+  height: 100dvh;
+}
+.pdf-viewer-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  flex-shrink: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--surface0);
+  background: var(--base);
+}
+.pdf-viewer-toolbar h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pdf-viewer-action {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  color: var(--subtext);
+}
+.pdf-viewer-action:hover {
+  color: var(--text);
+  background: var(--surface0);
+}
+.pdf-viewer-action:focus-visible {
+  outline-offset: 0;
+}
+.pdf-viewer-controls {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+.pdf-viewer-actions {
+  display: flex;
+  justify-self: end;
+  gap: 4px;
+}
+.pdf-control-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.pdf-viewer-controls .pdf-viewer-action {
+  width: 32px;
+  height: 32px;
+}
+.pdf-viewer-controls .pdf-viewer-action:hover:not(:disabled) {
+  color: var(--mauve);
+}
+.pdf-page-number {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.pdf-page-number input {
+  width: 36px;
+  height: 26px;
+  padding: 4px;
+  border: 1px solid var(--surface0);
+  border-radius: 6px;
+  background: var(--mantle);
+  color: var(--text);
+  text-align: center;
+  appearance: textfield;
+}
+.pdf-page-number input::-webkit-inner-spin-button,
+.pdf-page-number input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.pdf-zoom-value {
+  width: 44px;
+  color: var(--subtext);
+  font-size: 12px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  padding: 0;
+  height: 26px;
+  border-radius: 6px;
+}
+.pdf-zoom-value:hover:not(:disabled) {
+  color: var(--mauve);
+  background: var(--surface0);
+}
+.pdf-viewer-notice {
+  padding: 8px 12px;
+  color: var(--peach);
+  font-size: 11px;
+}
+.pdf-viewer-document {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 12px 24px 24px;
+  background: var(--mantle);
+}
+.pdf-viewer-document:focus-visible {
+  outline: 2px solid var(--mauve);
+  outline-offset: -2px;
+}
+.pdf-pages {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: fit-content;
+  margin: 0 auto;
+}
+.pdf-page {
+  position: relative;
+  flex-shrink: 0;
+  background: white;
+}
+.pdf-page-content {
+  position: absolute;
+  inset: 0;
+}
+.pdf-page > .pdf-viewer-status {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+}
+.pdf-page-surface {
+  position: relative;
+  background: white;
+  box-shadow: 0 8px 32px #0005;
+}
+.pdf-page-surface canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.pdf-viewer-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 240px;
+  color: var(--muted);
+}
+.pdf-viewer-status > p {
+  margin: 0;
+}
+.pdf-viewer-status .text-button {
+  color: var(--mauve);
+}
+/* PDF.js positions transparent text over the rendered page for selection. */
+.pdf-text-layer {
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  color-scheme: only light;
+  line-height: 1;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-align: initial;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+}
+.pdf-text-layer :is(span, br) {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0 0;
+  user-select: text;
+}
+.pdf-text-layer > :not(.markedContent),
+.pdf-text-layer .markedContent span:not(.markedContent) {
+  --font-height: 0;
+  --scale-x: 1;
+  --rotate: 0deg;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x))
+    scale(var(--min-font-size-inv));
+}
+.pdf-text-layer .markedContent {
+  display: contents;
+}
+.pdf-text-layer[data-main-rotation="90"] {
+  transform: rotate(90deg) translateY(-100%);
+}
+.pdf-text-layer[data-main-rotation="180"] {
+  transform: rotate(180deg) translate(-100%, -100%);
+}
+.pdf-text-layer[data-main-rotation="270"] {
+  transform: rotate(270deg) translateX(-100%);
+}
+.pdf-text-layer span::selection {
+  color: transparent;
+  background: #cba6f766;
+}
 .empty-link {
   color: var(--mauve);
   text-decoration: underline;
@@ -668,6 +913,35 @@ input::placeholder {
   }
 }
 @media (max-width: 600px) {
+  .pdf-viewer-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 6px 8px;
+  }
+  .pdf-viewer-toolbar h2 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .pdf-viewer-controls {
+    justify-content: start;
+    gap: 8px;
+  }
+  .pdf-control-group {
+    gap: 2px;
+  }
+  .pdf-viewer-toolbar .pdf-viewer-action {
+    width: 28px;
+    height: 32px;
+  }
+  .pdf-page-number input {
+    width: 28px;
+  }
+  .pdf-zoom-value {
+    width: 40px;
+  }
   .header {
     padding: 23px 22px;
   }
@@ -748,6 +1022,9 @@ input::placeholder {
   }
 }
 @media (max-width: 380px) {
+  .pdf-zoom-value {
+    display: none;
+  }
   .feed-main {
     padding-inline: 14px;
   }
