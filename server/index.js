@@ -5,6 +5,12 @@ import { createApp } from "./app.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const { app, close } = await createApp({ dataDir: path.join(root, ".data") });
+for (const directory of ["cmaps", "standard_fonts", "wasm", "iccs"]) {
+  app.use(
+    `/pdf-assets/${directory}`,
+    express.static(path.join(root, "node_modules/pdfjs-dist", directory)),
+  );
+}
 let vite;
 const isDev = process.argv.includes("--dev");
 if (isDev) {

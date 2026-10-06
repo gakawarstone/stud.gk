@@ -19,6 +19,7 @@
     "express-rate-limit": "^8.7.0",
     "express-session": "^1.19.0",
     "lucide-react": "^1.49.0",
+    "pdfjs-dist": "^6.4.299",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "tough-cookie": "^6.0.2"

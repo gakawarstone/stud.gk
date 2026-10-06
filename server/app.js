@@ -316,10 +316,15 @@ export async function createApp({
     res.json({ ok: true });
   });
   app.get(
-    ["/api/files/:id/download", "/api/files/:id/preview"],
+    [
+      "/api/files/:id/download",
+      "/api/files/:id/preview",
+      "/api/files/:id/content",
+    ],
     requireLogin,
     async (req, res) => {
-      const preview = req.path.endsWith("/preview");
+      const thumbnail = req.path.endsWith("/content");
+      const preview = thumbnail || req.path.endsWith("/preview");
       const context = req.context;
       const file = state.accounts[context.user.id]?.resources.find(
         (r) => r.kind === "file" && r.remoteId === req.params.id,
@@ -389,7 +394,7 @@ export async function createApp({
           signal: controller.signal,
         });
         // Only a completed full transfer marks related Campus notifications read.
-        if (response.status === 200 && !context.revoked) {
+        if (!thumbnail && response.status === 200 && !context.revoked) {
           const account = state.accounts[context.user.id];
           for (const change of account.changes)
             if (change.resourceId === file.id) change.read = true;

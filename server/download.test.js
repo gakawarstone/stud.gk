@@ -201,6 +201,7 @@ test("local downloads enforce account ownership, stream bytes and mark only comp
   try {
     assert.equal((await request("/api/files/alice-ref/download")).status, 401);
     assert.equal((await request("/api/files/alice-ref/preview")).status, 401);
+    assert.equal((await request("/api/files/alice-ref/content")).status, 401);
     const alice = await login("alice"),
       bob = await login("bob");
     assert.equal(
@@ -213,7 +214,31 @@ test("local downloads enforce account ownership, stream bytes and mark only comp
       404,
     );
     assert.equal(calls, 0);
+    assert.equal(
+      (await request("/api/files/alice-ref/content", bob)).status,
+      404,
+    );
+    assert.equal(calls, 0);
     await request("/api/sync", alice, {});
+    assert.equal((await state(alice)).changes[0].read, false);
+    const thumbnail = await request("/api/files/alice-ref/content", alice);
+    assert.equal(thumbnail.status, 200);
+    assert.equal(thumbnail.headers.get("content-type"), "application/pdf");
+    assert.match(thumbnail.headers.get("content-disposition"), /^inline;/);
+    assert.deepEqual(new Uint8Array(await thumbnail.arrayBuffer()), bytes);
+    assert.equal((await state(alice)).changes[0].read, false);
+    const thumbnailRange = await request(
+      "/api/files/alice-ref/content",
+      alice,
+      null,
+      { Range: "bytes=0-1" },
+    );
+    assert.equal(thumbnailRange.status, 206);
+    assert.equal(thumbnailRange.headers.get("content-range"), "bytes 0-1/7");
+    assert.deepEqual(
+      new Uint8Array(await thumbnailRange.arrayBuffer()),
+      bytes.slice(0, 2),
+    );
     assert.equal((await state(alice)).changes[0].read, false);
     const partial = await request("/api/files/alice-ref/preview", alice, null, {
       Range: "bytes=0-1",

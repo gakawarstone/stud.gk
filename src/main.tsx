@@ -24,6 +24,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import "./styles.css";
+import { FileThumbnail, clearThumbnailCache } from "./FileThumbnail";
 
 type Course = { id: string; title: string; color: string; url: string | null };
 type Change = {
@@ -373,6 +374,7 @@ function App() {
   phaseRef.current = phase;
   const previousSync = useRef<string | null>(null);
   function signedOut(message: string | null = null) {
+    clearThumbnailCache();
     dragCleanup.current?.();
     generation.current++;
     previousSync.current = null;
@@ -452,6 +454,7 @@ function App() {
     document.title = `${unread ? `(${unread}) ` : ""}Campus · ${selectedCourse?.title || "Курсы"}`;
   }, [data, selectedCourse?.title]);
   async function login(username: string, password: string) {
+    clearThumbnailCache();
     setBusy(true);
     setError(null);
     try {
@@ -468,6 +471,7 @@ function App() {
     }
   }
   async function showDemo() {
+    clearThumbnailCache();
     generation.current++;
     previousSync.current = null;
     phaseRef.current = "demo";
@@ -537,14 +541,15 @@ function App() {
               </>
             ) : (
               <>
-                <span className="account-name">{data?.user?.name}</span>
                 <button
-                  className="text-button"
+                  className="text-button account-button"
                   onClick={() => void logout()}
                   disabled={busy}
+                  aria-label={`Выйти из аккаунта ${data?.user?.name || ""}`}
+                  title="Выйти"
                 >
                   <LogOut size={15} />
-                  Выйти
+                  <span className="account-name">{data?.user?.name}</span>
                 </button>
               </>
             )}
@@ -706,28 +711,26 @@ function App() {
                 const { Icon, label, tone } = fileAppearance(file.title);
                 const date = materialDate(file);
                 const unread = unreadFiles.get(file.id);
+                const previewLabel = `Открыть ${file.title}${unread ? (unread.action === "added" ? ". Новый файл" : ". Обновлённый файл") : ""}`;
                 const body = (
                   <>
-                    <div className={`file-preview ${tone}`}>
-                      <Icon size={44} strokeWidth={1.4} />
-                      <span className="file-type">{label}</span>
-                      {unread && (
-                        <span className={`file-status ${unread.action}`}>
-                          <i />
-                          {unread.action === "added" ? "Новый" : "Обновлён"}
-                        </span>
-                      )}
-                    </div>
+                    {phase === "live" &&
+                    file.remoteId &&
+                    (tone === "pdf" || tone === "image") ? (
+                      <FileThumbnail
+                        url={`/api/files/${encodeURIComponent(file.remoteId)}/content`}
+                        version={`${generation.current}:${file.updatedAt || file.createdAt || ""}`}
+                        kind={tone}
+                      />
+                    ) : (
+                      <div className={`file-preview ${tone}`}>
+                        <Icon size={44} strokeWidth={1.4} />
+                        <span className="file-type">{label}</span>
+                      </div>
+                    )}
                     <div className="file-info">
                       <h2>{file.title}</h2>
                       <div className="file-meta">
-                        <span>
-                          {file.size == null
-                            ? "Размер неизвестен"
-                            : file.size >= 1000000
-                              ? `${(file.size / 1000000).toFixed(1)} МБ`
-                              : `${Math.round(file.size / 1000)} КБ`}
-                        </span>
                         {date && (
                           <time dateTime={date}>
                             {new Date(date).toLocaleDateString("ru-RU", {
@@ -749,7 +752,7 @@ function App() {
                     {phase === "live" && file.remoteId ? (
                       <a
                         className="file-card-link"
-                        aria-label={`Открыть ${file.title}`}
+                        aria-label={previewLabel}
                         href={`/api/files/${encodeURIComponent(file.remoteId)}/preview`}
                         target="_blank"
                         rel="noreferrer"
@@ -760,7 +763,7 @@ function App() {
                     ) : (
                       <button
                         className="file-card-link"
-                        aria-label={`Открыть ${file.title}`}
+                        aria-label={previewLabel}
                         onClick={() =>
                           setFileError(
                             phase === "demo"
