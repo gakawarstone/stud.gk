@@ -1,0 +1,25 @@
+{
+  "appId": "io.github.gakawarstone.campus",
+  "productName": "Campus",
+  "directories": { "output": "release", "buildResources": "build" },
+  "asar": true,
+  "files": [
+    "electron/main.cjs",
+    "server/**/*.js",
+    "!server/**/*.test.js",
+    "dist/**/*",
+    "build/icon.png",
+    "package.json"
+  ],
+  "linux": {
+    "target": ["AppImage", "deb", "tar.gz"],
+    "category": "Education",
+    "icon": "build/icon.png",
+    "executableName": "campus",
+    "syncDesktopName": true,
+    "artifactName": "Campus-${version}-linux-${arch}.${ext}",
+    "desktop": { "entry": { "StartupWMClass": "Campus", "Comment": "Stud.IP courses and files" } }
+  },
+  "deb": { "maintainer": "gakawarstone <gakawarstone@users.noreply.github.com>" },
+  "publish": null
+}
