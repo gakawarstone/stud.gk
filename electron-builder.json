@@ -20,6 +20,7 @@
     "artifactName": "Campus-${version}-linux-${arch}.${ext}",
     "desktop": { "entry": { "StartupWMClass": "Campus", "Comment": "Stud.IP courses and files" } }
   },
+  "appImage": { "executableArgs": [] },
   "deb": { "maintainer": "gakawarstone <gakawarstone@users.noreply.github.com>" },
   "publish": null
 }
