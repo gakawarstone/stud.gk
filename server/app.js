@@ -29,6 +29,60 @@ const empty = () => ({
   lastSync: null,
   semester: "",
 });
+const previewTypes = new Set([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "image/avif",
+  "image/bmp",
+  "audio/mpeg",
+  "audio/ogg",
+  "audio/wav",
+  "audio/mp4",
+  "video/mp4",
+  "video/webm",
+  "video/ogg",
+]);
+function previewType(file, response) {
+  for (const value of [file.mime, response.headers.get("content-type")]) {
+    const type = value?.split(";")[0].trim().toLowerCase();
+    if (previewTypes.has(type)) return type;
+    if (
+      type?.startsWith("text/") ||
+      type === "image/svg+xml" ||
+      type === "application/json"
+    )
+      return "text/plain";
+  }
+  const extensions = {
+    ".pdf": "application/pdf",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".avif": "image/avif",
+    ".bmp": "image/bmp",
+    ".mp3": "audio/mpeg",
+    ".ogg": "audio/ogg",
+    ".wav": "audio/wav",
+    ".m4a": "audio/mp4",
+    ".mp4": "video/mp4",
+    ".webm": "video/webm",
+    ".txt": "text/plain",
+    ".md": "text/plain",
+    ".csv": "text/plain",
+    ".json": "text/plain",
+    ".html": "text/plain",
+    ".htm": "text/plain",
+    ".svg": "text/plain",
+    ".js": "text/plain",
+    ".css": "text/plain",
+  };
+  return extensions[path.extname(file.title).toLowerCase()] || null;
+}
 
 export async function createApp({
   dataDir,
@@ -261,63 +315,95 @@ export async function createApp({
     await sync(req.context);
     res.json({ ok: true });
   });
-  app.get("/api/files/:id/download", requireLogin, async (req, res) => {
-    const context = req.context;
-    const file = state.accounts[context.user.id]?.resources.find(
-      (r) => r.kind === "file" && r.remoteId === req.params.id,
-    );
-    if (!file) throw new StudipError("Файл не найден в твоих курсах.", 404);
-    const controller = new AbortController();
-    const cancel = () => {
-      if (!res.writableFinished) controller.abort();
-    };
-    res.once("close", cancel);
-    try {
-      const response = await getDownload(context.client, file, {
-        signal: controller.signal,
-        range: req.headers.range,
-      });
-      if (context.revoked || context.expiresAt <= Date.now()) {
-        await response.body.cancel();
-        throw new StudipError("Сессия истекла. Войди заново.", 401);
+  app.get(
+    ["/api/files/:id/download", "/api/files/:id/preview"],
+    requireLogin,
+    async (req, res) => {
+      const preview = req.path.endsWith("/preview");
+      const context = req.context;
+      const file = state.accounts[context.user.id]?.resources.find(
+        (r) => r.kind === "file" && r.remoteId === req.params.id,
+      );
+      if (!file) throw new StudipError("Файл не найден в твоих курсах.", 404);
+      const controller = new AbortController();
+      const cancel = () => {
+        if (!res.writableFinished) controller.abort();
+      };
+      res.once("close", cancel);
+      try {
+        const response = await getDownload(context.client, file, {
+          signal: controller.signal,
+          range: req.headers.range,
+        });
+        if (context.revoked || context.expiresAt <= Date.now()) {
+          await response.body.cancel();
+          throw new StudipError("Сессия истекла. Войди заново.", 401);
+        }
+        const contentType = preview
+          ? previewType(file, response)
+          : "application/octet-stream";
+        if (!contentType) {
+          await response.body.cancel();
+          const title = file.title.replace(
+            /[&<>"']/g,
+            (char) =>
+              ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#39;",
+              })[char],
+          );
+          return res
+            .status(415)
+            .type("html")
+            .send(
+              `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Просмотр файла</title><style>body{margin:0;padding:48px 24px;background:#1e1e2e;color:#cdd6f4;font:16px/1.6 system-ui}main{max-width:600px;margin:auto}h1{font-size:24px;overflow-wrap:anywhere}p{color:#a6adc8}a{display:inline-block;padding:10px 18px;border-radius:8px;background:#cba6f7;color:#181825;text-decoration:none}</style></head><body><main><h1>${title}</h1><p>Браузер не поддерживает просмотр этого формата.</p><a href="/api/files/${encodeURIComponent(file.remoteId)}/download">Скачать файл</a></main></body></html>`,
+            );
+        }
+        const filename =
+          file.title.replace(/[\x00-\x1f\x7f/\\]/g, "_").slice(0, 200) ||
+          "file";
+        res.status(response.status).attachment(filename).type(contentType);
+        if (preview) {
+          res.set(
+            "Content-Disposition",
+            res.get("Content-Disposition").replace(/^attachment/, "inline"),
+          );
+        }
+        const length = response.headers.get("content-length");
+        if (
+          /^\d+$/.test(length ?? "") &&
+          !response.headers.get("content-encoding")
+        )
+          res.set("Content-Length", length);
+        if (response.status === 206) {
+          const contentRange = response.headers.get("content-range");
+          if (/^bytes \d+-\d+\/\d+$/.test(contentRange ?? ""))
+            res.set("Content-Range", contentRange);
+        }
+        if (response.headers.get("accept-ranges") === "bytes")
+          res.set("Accept-Ranges", "bytes");
+        await pipeline(Readable.fromWeb(response.body), res, {
+          signal: controller.signal,
+        });
+        // Only a completed full transfer marks related Campus notifications read.
+        if (response.status === 200 && !context.revoked) {
+          const account = state.accounts[context.user.id];
+          for (const change of account.changes)
+            if (change.resourceId === file.id) change.read = true;
+          await save();
+        }
+      } catch (error) {
+        if (error.status === 401) await expire(context);
+        if (!res.headersSent && !controller.signal.aborted) throw error;
+        if (!res.destroyed) res.destroy();
+      } finally {
+        res.off("close", cancel);
       }
-      const filename =
-        file.title.replace(/[\x00-\x1f\x7f/\\]/g, "_").slice(0, 200) || "file";
-      res
-        .status(response.status)
-        .attachment(filename)
-        .type("application/octet-stream");
-      const length = response.headers.get("content-length");
-      if (
-        /^\d+$/.test(length ?? "") &&
-        !response.headers.get("content-encoding")
-      )
-        res.set("Content-Length", length);
-      if (response.status === 206) {
-        const contentRange = response.headers.get("content-range");
-        if (/^bytes \d+-\d+\/\d+$/.test(contentRange ?? ""))
-          res.set("Content-Range", contentRange);
-      }
-      if (response.headers.get("accept-ranges") === "bytes")
-        res.set("Accept-Ranges", "bytes");
-      await pipeline(Readable.fromWeb(response.body), res, {
-        signal: controller.signal,
-      });
-      // Only a completed full download marks related Campus notifications read.
-      if (response.status === 200 && !context.revoked) {
-        const account = state.accounts[context.user.id];
-        for (const change of account.changes)
-          if (change.resourceId === file.id) change.read = true;
-        await save();
-      }
-    } catch (error) {
-      if (error.status === 401) await expire(context);
-      if (!res.headersSent && !controller.signal.aborted) throw error;
-      if (!res.destroyed) res.destroy();
-    } finally {
-      res.off("close", cancel);
-    }
-  });
+    },
+  );
   app.get("/api/changes", requireLogin, (req, res) => {
     const since = req.query.since;
     if (since && Number.isNaN(Date.parse(String(since))))

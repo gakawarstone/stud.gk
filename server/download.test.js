@@ -109,6 +109,20 @@ test("local downloads enforce account ownership, stream bytes and mark only comp
             courseId: user.id,
             size: version,
           },
+          {
+            ...file,
+            id: `${user.id}-html`,
+            remoteId: `${user.id}-html`,
+            title: "example.html",
+            courseId: user.id,
+          },
+          {
+            ...file,
+            id: `${user.id}-zip`,
+            remoteId: `${user.id}-zip`,
+            title: "archive.zip",
+            courseId: user.id,
+          },
         ],
         semester: "WS",
       };
@@ -116,6 +130,14 @@ test("local downloads enforce account ownership, stream bytes and mark only comp
     getDownload: async (client, resource, { signal, range }) => {
       calls++;
       if (failure) throw new StudipError("download failed", failure);
+      if (resource.remoteId.endsWith("-html"))
+        return new Response("<script>alert('fixture')</script>", {
+          headers: { "Content-Type": "text/html" },
+        });
+      if (resource.remoteId.endsWith("-zip"))
+        return new Response(bytes, {
+          headers: { "Content-Type": "application/zip" },
+        });
       if (range === "bytes=0-1")
         return new Response(bytes.slice(0, 2), {
           status: 206,
@@ -143,6 +165,7 @@ test("local downloads enforce account ownership, stream bytes and mark only comp
         );
       return new Response(bytes, {
         headers: {
+          "Content-Type": "application/pdf",
           "Content-Length": String(bytes.length),
           "Set-Cookie": "PHPSESSID=private",
         },
@@ -177,6 +200,7 @@ test("local downloads enforce account ownership, stream bytes and mark only comp
   }
   try {
     assert.equal((await request("/api/files/alice-ref/download")).status, 401);
+    assert.equal((await request("/api/files/alice-ref/preview")).status, 401);
     const alice = await login("alice"),
       bob = await login("bob");
     assert.equal(
@@ -184,15 +208,19 @@ test("local downloads enforce account ownership, stream bytes and mark only comp
       404,
     );
     assert.equal(calls, 0);
+    assert.equal(
+      (await request("/api/files/alice-ref/preview", bob)).status,
+      404,
+    );
+    assert.equal(calls, 0);
     await request("/api/sync", alice, {});
     assert.equal((await state(alice)).changes[0].read, false);
-    const partial = await request(
-      "/api/files/alice-ref/download",
-      alice,
-      null,
-      { Range: "bytes=0-1" },
-    );
+    const partial = await request("/api/files/alice-ref/preview", alice, null, {
+      Range: "bytes=0-1",
+    });
     assert.equal(partial.status, 206);
+    assert.match(partial.headers.get("content-disposition"), /^inline;/);
+    assert.equal(partial.headers.get("content-type"), "application/pdf");
     assert.equal(partial.headers.get("content-range"), "bytes 0-1/7");
     assert.deepEqual(
       new Uint8Array(await partial.arrayBuffer()),
@@ -230,6 +258,26 @@ test("local downloads enforce account ownership, stream bytes and mark only comp
     for (let i = 0; i < 50 && !(await state(alice)).changes[0].read; i++)
       await new Promise((resolve) => setTimeout(resolve, 5));
     assert.equal((await state(alice)).changes[0].read, true);
+    await request("/api/sync", alice, {});
+    assert.equal((await state(alice)).changes[0].read, false);
+    const preview = await request("/api/files/alice-ref/preview", alice);
+    assert.equal(preview.status, 200);
+    assert.match(preview.headers.get("content-disposition"), /^inline;/);
+    assert.equal(preview.headers.get("content-type"), "application/pdf");
+    assert.equal(preview.headers.get("x-content-type-options"), "nosniff");
+    assert.deepEqual(new Uint8Array(await preview.arrayBuffer()), bytes);
+    for (let i = 0; i < 50 && !(await state(alice)).changes[0].read; i++)
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.equal((await state(alice)).changes[0].read, true);
+    const htmlPreview = await request("/api/files/alice-html/preview", alice);
+    assert.match(htmlPreview.headers.get("content-type"), /^text\/plain/);
+    assert.equal(await htmlPreview.text(), "<script>alert('fixture')</script>");
+    const zipPreview = await request("/api/files/alice-zip/preview", alice);
+    assert.equal(zipPreview.status, 415);
+    assert.equal(zipPreview.headers.get("content-disposition"), null);
+    const zipPage = await zipPreview.text();
+    assert.match(zipPage, /Браузер не поддерживает просмотр/);
+    assert.match(zipPage, /href="\/api\/files\/alice-zip\/download"/);
     failure = 403;
     assert.equal(
       (await request("/api/files/alice-ref/download", alice)).status,

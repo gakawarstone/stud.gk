@@ -1,18 +1,26 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { createRoot } from "react-dom/client";
 import {
+  ArrowLeft,
   ArrowUpRight,
-  CalendarDays,
-  Check,
-  Download,
+  ChevronRight,
+  FileArchive,
+  FileAudio,
+  FileCode,
+  FileImage,
+  FileVideo,
   FileText,
   GraduationCap,
+  GripVertical,
   LoaderCircle,
   LogOut,
-  Megaphone,
-  RefreshCw,
   ShieldCheck,
-  SlidersHorizontal,
   TriangleAlert,
 } from "lucide-react";
 import "./styles.css";
@@ -78,30 +86,62 @@ async function api<T>(url: string, body?: unknown): Promise<T> {
     );
   return payload;
 }
-function day(date: string) {
-  const value = new Date(date),
-    today = new Date(),
-    yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-  if (value.toDateString() === today.toDateString()) return "Сегодня";
-  if (value.toDateString() === yesterday.toDateString()) return "Вчера";
-  return value.toLocaleDateString("ru-RU", {
-    day: "numeric",
-    month: "long",
-    ...(value.getFullYear() !== today.getFullYear() ? { year: "numeric" } : {}),
-  });
-}
-function lastSync(date: string | null) {
-  if (!date) return "Курсы ещё не проверены";
-  const minutes = Math.max(
-    0,
-    Math.floor((Date.now() - Date.parse(date)) / 60000),
+function materialDate(file: Material) {
+  return (
+    [file.updatedAt, file.createdAt].find(
+      (date) => date && Number.isFinite(Date.parse(date)),
+    ) || ""
   );
-  return minutes === 0
-    ? "Обновлено только что"
-    : minutes < 60
-      ? `Обновлено ${minutes} мин. назад`
-      : `Обновлено ${new Date(date).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`;
+}
+function fileAppearance(title: string) {
+  const extension = title.includes(".")
+    ? title.split(".").pop()!.toLowerCase()
+    : "";
+  if (extension === "pdf") return { Icon: FileText, label: "PDF", tone: "pdf" };
+  if (
+    ["png", "jpg", "jpeg", "gif", "webp", "avif", "svg", "bmp"].includes(
+      extension,
+    )
+  )
+    return { Icon: FileImage, label: extension.toUpperCase(), tone: "image" };
+  if (["zip", "rar", "7z", "gz", "tar"].includes(extension))
+    return {
+      Icon: FileArchive,
+      label: extension.toUpperCase(),
+      tone: "archive",
+    };
+  if (["mp3", "ogg", "wav", "m4a", "flac"].includes(extension))
+    return { Icon: FileAudio, label: extension.toUpperCase(), tone: "audio" };
+  if (["mp4", "webm", "mov", "avi"].includes(extension))
+    return { Icon: FileVideo, label: extension.toUpperCase(), tone: "video" };
+  if (
+    ["js", "ts", "py", "java", "c", "cpp", "html", "css", "json"].includes(
+      extension,
+    )
+  )
+    return { Icon: FileCode, label: extension.toUpperCase(), tone: "code" };
+  return {
+    Icon: FileText,
+    label:
+      extension && extension.length <= 8 ? extension.toUpperCase() : "Файл",
+    tone: "document",
+  };
+}
+function courseFromHash() {
+  return new URLSearchParams(window.location.hash.slice(1)).get("course");
+}
+function fileCountLabel(count: number) {
+  const last = count % 10;
+  const lastTwo = count % 100;
+  const word =
+    lastTwo >= 11 && lastTwo <= 14
+      ? "файлов"
+      : last === 1
+        ? "файл"
+        : last >= 2 && last <= 4
+          ? "файла"
+          : "файлов";
+  return `${count} ${word}`;
 }
 function Login({
   error,
@@ -209,72 +249,141 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [view, setView] = useState<"files" | "updates">(() =>
-    localStorage.getItem("campus-view") === "updates" ? "updates" : "files",
-  );
-  const [hiddenCourses, setHiddenCourses] = useState<Set<string>>(() => {
+  const [selectedCourseId, setSelectedCourseId] = useState(courseFromHash);
+  const [courseOrder, setCourseOrder] = useState<string[]>(() => {
     try {
       const saved: unknown = JSON.parse(
-        localStorage.getItem("campus-hidden-courses") || "[]",
+        localStorage.getItem("campus-course-order") || "[]",
       );
-      return new Set(
-        Array.isArray(saved)
-          ? saved.filter((id): id is string => typeof id === "string")
-          : [],
-      );
+      return Array.isArray(saved)
+        ? [
+            ...new Set(
+              saved.filter((id): id is string => typeof id === "string"),
+            ),
+          ]
+        : [];
     } catch {
-      return new Set();
+      return [];
     }
   });
-  const [filterOpen, setFilterOpen] = useState(false);
-  const filterRef = useRef<HTMLDivElement>(null);
-  const hiddenRef = useRef(hiddenCourses);
-  hiddenRef.current = hiddenCourses;
-  const visibleChanges = (data?.changes ?? []).filter(
-    (c) => !hiddenCourses.has(c.courseId),
+  const [courseDrag, setCourseDrag] = useState<{
+    id: string;
+    targetId: string | null;
+    x: number;
+    y: number;
+  } | null>(null);
+  const dragCleanup = useRef<(() => void) | null>(null);
+  const suppressCardClickUntil = useRef(0);
+  const ranks = new Map(courseOrder.map((id, index) => [id, index]));
+  const orderedCourses = [...(data?.courses ?? [])].sort(
+    (a, b) => (ranks.get(a.id) ?? Infinity) - (ranks.get(b.id) ?? Infinity),
   );
-  function toggleCourse(id: string) {
-    setHiddenCourses((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      localStorage.setItem("campus-hidden-courses", JSON.stringify([...next]));
-      return next;
-    });
+  const selectedCourse = orderedCourses.find((c) => c.id === selectedCourseId);
+  const fileChanges = (data?.changes ?? []).filter(
+    (c) => c.kind === "file" && c.action !== "removed",
+  );
+  const currentFileIds = new Set(
+    (data?.resources ?? []).filter((r) => r.kind === "file").map((r) => r.id),
+  );
+  const unreadFiles = new Map<string, Change>();
+  for (const change of [...fileChanges].sort(
+    (a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt),
+  )) {
+    if (
+      !change.read &&
+      change.resourceId &&
+      currentFileIds.has(change.resourceId) &&
+      !unreadFiles.has(change.resourceId)
+    )
+      unreadFiles.set(change.resourceId, change);
   }
+  function moveCourse(id: string, targetId: string) {
+    const ids = orderedCourses.map((c) => c.id);
+    const from = ids.indexOf(id);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0 || from === to) return;
+    ids.splice(from, 1);
+    ids.splice(to, 0, id);
+    setCourseOrder(ids);
+    localStorage.setItem("campus-course-order", JSON.stringify(ids));
+  }
+  function startCourseDrag(event: ReactPointerEvent<HTMLElement>, id: string) {
+    if (event.button !== 0 || !event.isPrimary) return;
+    const onHandle = (event.target as Element).closest(".course-drag-handle");
+    if (event.pointerType !== "mouse" && !onHandle) return;
+    dragCleanup.current?.();
+    const { clientX: startX, clientY: startY, pointerId } = event;
+    let started = false;
+    let targetId: string | null = null;
+    function move(e: PointerEvent) {
+      if (e.pointerId !== pointerId) return;
+      if (!started && Math.hypot(e.clientX - startX, e.clientY - startY) < 6)
+        return;
+      started = true;
+      e.preventDefault();
+      targetId =
+        document
+          .elementFromPoint(e.clientX, e.clientY)
+          ?.closest<HTMLElement>("[data-course-id]")?.dataset.courseId || null;
+      setCourseDrag({ id, targetId, x: e.clientX, y: e.clientY });
+      if (e.clientY < 60) window.scrollBy(0, -20);
+      else if (e.clientY > window.innerHeight - 60) window.scrollBy(0, 20);
+    }
+    function cleanup() {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", cancel);
+      window.removeEventListener("keydown", escape);
+      window.removeEventListener("blur", cancel);
+      dragCleanup.current = null;
+      setCourseDrag(null);
+      if (started) suppressCardClickUntil.current = Date.now() + 400;
+    }
+    function end(e: PointerEvent) {
+      if (e.pointerId !== pointerId) return;
+      if (started && targetId) moveCourse(id, targetId);
+      cleanup();
+    }
+    function cancel() {
+      cleanup();
+    }
+    function escape(e: KeyboardEvent) {
+      if (e.key === "Escape") cleanup();
+    }
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", cancel);
+    window.addEventListener("keydown", escape);
+    window.addEventListener("blur", cancel);
+    dragCleanup.current = cleanup;
+  }
+  useEffect(() => () => dragCleanup.current?.(), []);
   useEffect(() => {
-    if (!filterOpen) return;
-    function outside(event: PointerEvent) {
-      if (!filterRef.current?.contains(event.target as Node))
-        setFilterOpen(false);
+    function navigate() {
+      dragCleanup.current?.();
+      setSelectedCourseId(courseFromHash());
+      setFileError(null);
+      window.scrollTo(0, 0);
     }
-    function escape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setFilterOpen(false);
-        filterRef.current?.querySelector("button")?.focus();
-      }
-    }
-    document.addEventListener("pointerdown", outside);
-    document.addEventListener("keydown", escape);
-    return () => {
-      document.removeEventListener("pointerdown", outside);
-      document.removeEventListener("keydown", escape);
-    };
-  }, [filterOpen]);
-  function selectView(next: "files" | "updates") {
-    setView(next);
-    localStorage.setItem("campus-view", next);
-  }
+    window.addEventListener("hashchange", navigate);
+    return () => window.removeEventListener("hashchange", navigate);
+  }, []);
   const generation = useRef(0);
   const phaseRef = useRef<Phase>(phase);
   phaseRef.current = phase;
   const previousSync = useRef<string | null>(null);
   function signedOut(message: string | null = null) {
+    dragCleanup.current?.();
     generation.current++;
     previousSync.current = null;
     setData(null);
-    setFilterOpen(false);
     setFileError(null);
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname + window.location.search,
+    );
+    setSelectedCourseId(null);
     setPhase("login");
     setError(message);
   }
@@ -305,7 +414,8 @@ function App() {
         const fresh = feed.changes.filter(
           (c) =>
             !c.read &&
-            !hiddenRef.current.has(c.courseId) &&
+            c.kind === "file" &&
+            c.action !== "removed" &&
             Date.parse(c.occurredAt) > Date.parse(previousSync.current!),
         );
         if (fresh.length)
@@ -338,11 +448,9 @@ function App() {
     return () => clearInterval(timer);
   }, [phase, data?.syncing]);
   useEffect(() => {
-    const unread = visibleChanges.filter((c) => !c.read).length;
-    document.title = unread
-      ? `(${unread}) Campus · Обновления`
-      : "Campus · Stud.IP";
-  }, [data, hiddenCourses]);
+    const unread = unreadFiles.size;
+    document.title = `${unread ? `(${unread}) ` : ""}Campus · ${selectedCourse?.title || "Курсы"}`;
+  }, [data, selectedCourse?.title]);
   async function login(username: string, password: string) {
     setBusy(true);
     setError(null);
@@ -393,122 +501,24 @@ function App() {
       setBusy(false);
     }
   }
-  async function markRead(change: Change) {
-    if (change.read) return;
-    setData((current) =>
-      current
-        ? {
-            ...current,
-            changes: current.changes.map((c) =>
-              c.id === change.id ? { ...c, read: true } : c,
-            ),
-          }
-        : current,
+  const allFiles = (data?.resources ?? []).filter((r) => r.kind === "file");
+  const files = allFiles
+    .filter((f) => f.courseId === selectedCourse?.id)
+    .sort(
+      (a, b) =>
+        (materialDate(b) ? Date.parse(materialDate(b)) : -Infinity) -
+          (materialDate(a) ? Date.parse(materialDate(a)) : -Infinity) ||
+        a.title.localeCompare(b.title, undefined, { numeric: true }) ||
+        a.id.localeCompare(b.id),
     );
-    if (phase === "demo") return;
-    try {
-      await api("/api/changes/read", { id: change.id });
-    } catch (e) {
-      if ((e as ApiError).status === 401)
-        signedOut("Сессия истекла. Войди в Stud.IP заново.");
-      else {
-        setError((e as Error).message);
-        void load();
-      }
-    }
-  }
-  function markEntryRead(entry: Change) {
-    if (view === "updates") void markRead(entry);
-    else
-      for (const change of data?.changes ?? []) {
-        if (change.resourceId === entry.id && !change.read)
-          void markRead(change);
-      }
-  }
-  function downloadFile(entry: Change) {
-    if (phase === "demo") {
-      setFileError("В демо скачивание недоступно.");
-      return;
-    }
-    if (!entry.remoteId) {
-      setFileError("У файла нет ссылки для скачивания.");
-      return;
-    }
-    setFileError(null);
-    const version = generation.current;
-    const frame = document.createElement("iframe");
-    frame.hidden = true;
-    // Native browser downloads stream to disk without buffering videos in JS memory.
-    frame.src = `/api/files/${encodeURIComponent(entry.remoteId)}/download`;
-    const timer = setTimeout(() => frame.remove(), 60000);
-    frame.onload = () => {
-      const text = frame.contentDocument?.body?.textContent;
-      if (!text) return;
-      if (version !== generation.current) {
-        clearTimeout(timer);
-        frame.remove();
-        return;
-      }
-      try {
-        const payload = JSON.parse(text);
-        if (payload.error && version === generation.current) {
-          if (payload.code === "SESSION_EXPIRED") signedOut(payload.error);
-          else setFileError(payload.error);
-        }
-      } catch {
-        setFileError("Не удалось скачать файл.");
-      }
-      clearTimeout(timer);
-      frame.remove();
-    };
-    document.body.append(frame);
-  }
-  const files = (data?.resources ?? []).filter(
-    (r) => r.kind === "file" && !hiddenCourses.has(r.courseId),
-  );
-  const groups = new Map<string, Change[]>();
-  if (view === "files") {
-    const entries: Change[] = files
-      .map<Change>((f) => {
-        const date = [f.updatedAt, f.createdAt].find(
-          (d) => d && Number.isFinite(Date.parse(d)),
-        );
-        return { ...f, occurredAt: date || "", action: "added", read: true };
-      })
-      .sort(
-        (a, b) =>
-          (b.occurredAt ? Date.parse(b.occurredAt) : -Infinity) -
-            (a.occurredAt ? Date.parse(a.occurredAt) : -Infinity) ||
-          a.title.localeCompare(b.title, undefined, { numeric: true }) ||
-          a.id.localeCompare(b.id),
-      );
-    if (entries.length) groups.set("files", entries);
-  } else {
-    [...visibleChanges]
-      .sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt))
-      .forEach((change) => {
-        const label = day(change.occurredAt);
-        groups.set(label, [...(groups.get(label) ?? []), change]);
-      });
-  }
-  const unread = visibleChanges.filter((c) => !c.read).length;
   const syncError = error || data?.error;
   const partial = Boolean(
-    data?.unavailableSources?.some(
-      (s) =>
-        !hiddenCourses.has(s.courseId) &&
-        (view === "updates" || s.kind === "file"),
-    ),
+    selectedCourse &&
+      data?.unavailableSources?.some(
+        (s) => s.courseId === selectedCourse.id && s.kind === "file",
+      ),
   );
   const syncing = busy || data?.syncing;
-  const syncStatus = syncing
-    ? "Проверяем курсы…"
-    : syncError
-      ? "Проверка не завершена"
-      : lastSync(data?.lastSync ?? null);
-  const allHidden = Boolean(
-    data?.courses.length && data.courses.every((c) => hiddenCourses.has(c.id)),
-  );
   return (
     <div className="page">
       <header className="header">
@@ -555,242 +565,217 @@ function App() {
         />
       ) : (
         <main className="feed-main">
-          <h1 className="visually-hidden">
-            {view === "files" ? "Файлы" : "Обновления"}
-          </h1>
-          <div className="feed-controls">
-            <div className="view-switch" role="group" aria-label="Показать">
-              <button
-                aria-pressed={view === "files"}
-                onClick={() => selectView("files")}
-              >
-                Все файлы <span>{files.length}</span>
-              </button>
-              <button
-                aria-pressed={view === "updates"}
-                onClick={() => selectView("updates")}
-              >
-                Обновления {unread > 0 && <span>{unread}</span>}
-              </button>
-            </div>
-            <div className="feed-actions">
-              <div className="course-filter" ref={filterRef}>
-                <button
-                  className="filter-button"
-                  aria-expanded={filterOpen}
-                  aria-controls="course-options"
-                  onClick={() => setFilterOpen((open) => !open)}
-                >
-                  <SlidersHorizontal size={15} /> Курсы
-                  {data?.courses.some((c) => hiddenCourses.has(c.id)) && (
-                    <span>
-                      {
-                        data.courses.filter((c) => !hiddenCourses.has(c.id))
-                          .length
-                      }
-                      /{data.courses.length}
-                    </span>
-                  )}
-                </button>
-                {filterOpen && (
-                  <div
-                    className="course-options"
-                    id="course-options"
-                    role="group"
-                    aria-label="Показывать курсы"
-                  >
-                    {data?.courses.map((course) => (
-                      <label key={course.id}>
-                        <input
-                          type="checkbox"
-                          checked={!hiddenCourses.has(course.id)}
-                          onChange={() => toggleCourse(course.id)}
-                        />
-                        <span>{course.title}</span>
-                      </label>
-                    ))}
-                    {!data?.courses.length && <p>Курсы ещё не загружены.</p>}
-                  </div>
-                )}
-              </div>
-              <button
-                className={`refresh-button ${syncError ? "failed" : ""}`}
-                aria-label={`${syncing ? "Обновляем…" : "Обновить"}. ${syncStatus}`}
-                title={`${syncing ? "Обновляем…" : "Обновить"}. ${syncStatus}`}
-                disabled={syncing}
-                onClick={() => void refresh()}
-              >
-                <RefreshCw size={16} className={syncing ? "spin" : ""} />
-              </button>
-              <span className="visually-hidden" role="status">
-                {syncStatus}
-              </span>
-            </div>
-          </div>
+          {selectedCourse ? (
+            <nav className="course-path" aria-label="Навигация по курсам">
+              <a className="back-to-courses" href="#">
+                <ArrowLeft size={16} /> Все курсы
+              </a>
+              <ChevronRight className="path-separator" size={16} />
+              <h1 className="course-heading">{selectedCourse.title}</h1>
+            </nav>
+          ) : (
+            <h1 className="visually-hidden">Курсы</h1>
+          )}
           {(syncError || fileError) && (
             <div className="feed-error" role="alert">
               {syncError || fileError}
             </div>
           )}
-          {partial && !syncError && !fileError && (
+          {selectedCourse && partial && !syncError && !fileError && (
             <div className="feed-warning" role="status">
               <TriangleAlert size={13} />
-              {view === "files"
-                ? "Часть файлов недоступна в Stud.IP."
-                : "Часть материалов недоступна в Stud.IP."}
+              Часть файлов недоступна в Stud.IP.
+            </div>
+          )}
+          {!selectedCourse && (
+            <p id="course-sort-help" className="visually-hidden">
+              Перетащи карточку за ручку, чтобы изменить порядок. На клавиатуре
+              используй стрелки на ручке.
+            </p>
+          )}
+          {courseDrag && (
+            <div
+              className="course-drag-preview"
+              aria-hidden="true"
+              style={{
+                left: Math.max(
+                  8,
+                  Math.min(courseDrag.x + 14, window.innerWidth - 248),
+                ),
+                top: Math.max(
+                  8,
+                  Math.min(courseDrag.y + 14, window.innerHeight - 90),
+                ),
+              }}
+            >
+              <GripVertical size={16} />
+              {data?.courses.find((c) => c.id === courseDrag.id)?.title}
             </div>
           )}
           <section
-            className={`feed ${view === "files" ? "files-feed" : ""}`}
-            aria-label={view === "files" ? "Все файлы" : "Лента обновлений"}
+            className={selectedCourse ? "file-grid" : "course-grid"}
+            aria-label={selectedCourse ? "Файлы курса" : "Курсы"}
           >
-            {[...groups].map(([label, changes]) => (
-              <div className="day-group" key={label}>
-                {view === "updates" && (
-                  <h2>
-                    {label}
-                    <span />
-                  </h2>
-                )}
-                {changes.map((change) => {
-                  const course = data?.courses.find(
-                    (c) => c.id === change.courseId,
-                  );
-                  const Icon =
-                    change.kind === "file"
-                      ? FileText
-                      : change.kind === "news"
-                        ? Megaphone
-                        : change.kind === "schedule"
-                          ? CalendarDays
-                          : GraduationCap;
-                  const action =
-                    change.action === "removed"
-                      ? "Исчезло из курса"
-                      : change.action === "updated"
-                        ? "Обновлено"
-                        : change.kind === "file"
-                          ? "Новый файл"
-                          : change.kind === "news"
-                            ? "Объявление"
-                            : "Добавлено";
-                  const body = (
-                    <>
-                      <span className={`entry-icon ${change.kind}`}>
-                        <Icon size={20} strokeWidth={1.6} />
-                      </span>
-                      <div className="entry-body">
-                        {view === "updates" && (
-                          <div className="entry-course">
-                            <i className={course?.color || "mauve"} />
-                            {course?.title || "Курс"}
-                          </div>
-                        )}
-                        <h3>
-                          {change.title}
-                          {!change.read && <i className="new-dot" />}
-                        </h3>
-                        {change.kind !== "file" && change.description && (
-                          <p className="entry-description">
-                            {change.description.length > 240
-                              ? `${change.description.slice(0, 240)}…`
-                              : change.description}
-                          </p>
-                        )}
-                        <div className="entry-meta">
-                          {view === "updates" && (
-                            <span className={change.action}>{action}</span>
-                          )}
-                          {change.kind === "file" && (
-                            <>
-                              {view === "updates" && <i />}
-                              {(change.size || 0) >= 1000000
-                                ? `${((change.size || 0) / 1000000).toFixed(1)} МБ`
-                                : `${Math.round((change.size || 0) / 1000)} КБ`}
-                            </>
-                          )}
-                          {change.location && (
-                            <>
-                              <i />
-                              {change.location}
-                            </>
-                          )}
-                          {view === "files" && course && (
-                            <>
-                              <i />
-                              <span
-                                className="file-course"
-                                title={course.title}
-                              >
-                                {course.title}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      {change.occurredAt && (
-                        <time dateTime={change.occurredAt}>
-                          {new Date(change.occurredAt).toLocaleString(
-                            "ru-RU",
-                            view === "files"
-                              ? {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                }
-                              : { hour: "2-digit", minute: "2-digit" },
-                          )}
-                        </time>
-                      )}
-                      {phase === "live" &&
-                        (change.kind === "file" ? (
-                          <Download className="entry-open" size={16} />
-                        ) : (
-                          <ArrowUpRight className="entry-open" size={16} />
-                        ))}
-                    </>
-                  );
-                  return (
-                    <article
-                      key={change.id}
-                      className={`entry ${change.read ? "read" : "unread"}`}
+            {!selectedCourse &&
+              orderedCourses.map((course) => {
+                const count = allFiles.filter(
+                  (f) => f.courseId === course.id,
+                ).length;
+                const newCount = allFiles.filter(
+                  (f) => f.courseId === course.id && unreadFiles.has(f.id),
+                ).length;
+                const unavailable = data?.unavailableSources?.some(
+                  (s) => s.courseId === course.id && s.kind === "file",
+                );
+                return (
+                  <article
+                    className={`course-card ${course.color || "mauve"} ${courseDrag?.id === course.id ? "dragging" : ""} ${courseDrag?.targetId === course.id && courseDrag.id !== course.id ? "drop-target" : ""}`}
+                    key={course.id}
+                    data-course-id={course.id}
+                    onPointerDown={(event) => startCourseDrag(event, course.id)}
+                    onDragStart={(event) => event.preventDefault()}
+                    onClickCapture={(event) => {
+                      if (Date.now() < suppressCardClickUntil.current) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                      }
+                    }}
+                  >
+                    <a
+                      className="course-card-link"
+                      href={`#${new URLSearchParams({ course: course.id })}`}
+                      draggable={false}
                     >
-                      {change.kind === "file" ? (
-                        <button
-                          className="entry-link"
-                          aria-label={`Скачать ${change.title}`}
-                          onClick={() => downloadFile(change)}
-                          disabled={change.action === "removed"}
-                        >
-                          {body}
-                        </button>
-                      ) : phase === "live" ? (
-                        <a
-                          className="entry-link"
-                          href={
-                            course?.url ||
-                            `https://elearning.hs-flensburg.de/dispatch.php/course/overview?cid=${encodeURIComponent(change.courseId)}`
-                          }
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={() => markEntryRead(change)}
-                        >
-                          {body}
-                        </a>
-                      ) : (
-                        <button
-                          className="entry-link"
-                          onClick={() => markEntryRead(change)}
-                        >
-                          {body}
-                        </button>
+                      <div className="course-card-top">
+                        <span className="course-card-icon">
+                          <GraduationCap size={24} strokeWidth={1.6} />
+                        </span>
+                      </div>
+                      <h2>{course.title}</h2>
+                      <div className="course-card-meta">
+                        <span>
+                          <FileText size={14} /> {fileCountLabel(count)}
+                        </span>
+                        {newCount > 0 && (
+                          <span className="course-new-count">
+                            Обновлений: {newCount}
+                          </span>
+                        )}
+                      </div>
+                      {unavailable && (
+                        <p className="course-card-warning">
+                          <TriangleAlert size={13} /> Часть файлов недоступна
+                        </p>
                       )}
-                    </article>
-                  );
-                })}
-              </div>
-            ))}
-            {!groups.size && (
+                    </a>
+                    <button
+                      className="course-drag-handle"
+                      aria-label={`Изменить порядок: ${course.title}`}
+                      aria-describedby="course-sort-help"
+                      title="Перетащить курс"
+                      onKeyDown={(event) => {
+                        const direction =
+                          event.key === "ArrowUp" || event.key === "ArrowLeft"
+                            ? -1
+                            : event.key === "ArrowDown" ||
+                                event.key === "ArrowRight"
+                              ? 1
+                              : 0;
+                        if (!direction) return;
+                        event.preventDefault();
+                        const target =
+                          orderedCourses[
+                            orderedCourses.findIndex(
+                              (c) => c.id === course.id,
+                            ) + direction
+                          ];
+                        if (target) {
+                          const handle = event.currentTarget;
+                          moveCourse(course.id, target.id);
+                          requestAnimationFrame(() => handle.focus());
+                        }
+                      }}
+                    >
+                      <GripVertical size={18} />
+                    </button>
+                  </article>
+                );
+              })}
+            {selectedCourse &&
+              files.map((file) => {
+                const { Icon, label, tone } = fileAppearance(file.title);
+                const date = materialDate(file);
+                const unread = unreadFiles.get(file.id);
+                const body = (
+                  <>
+                    <div className={`file-preview ${tone}`}>
+                      <Icon size={44} strokeWidth={1.4} />
+                      <span className="file-type">{label}</span>
+                      {unread && (
+                        <span className={`file-status ${unread.action}`}>
+                          <i />
+                          {unread.action === "added" ? "Новый" : "Обновлён"}
+                        </span>
+                      )}
+                    </div>
+                    <div className="file-info">
+                      <h2>{file.title}</h2>
+                      <div className="file-meta">
+                        <span>
+                          {file.size == null
+                            ? "Размер неизвестен"
+                            : file.size >= 1000000
+                              ? `${(file.size / 1000000).toFixed(1)} МБ`
+                              : `${Math.round(file.size / 1000)} КБ`}
+                        </span>
+                        {date && (
+                          <time dateTime={date}>
+                            {new Date(date).toLocaleDateString("ru-RU", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </time>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                );
+                return (
+                  <article
+                    className={`file-card ${unread ? "unread" : ""}`}
+                    key={file.id}
+                  >
+                    {phase === "live" && file.remoteId ? (
+                      <a
+                        className="file-card-link"
+                        aria-label={`Открыть ${file.title}`}
+                        href={`/api/files/${encodeURIComponent(file.remoteId)}/preview`}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => setFileError(null)}
+                      >
+                        {body}
+                      </a>
+                    ) : (
+                      <button
+                        className="file-card-link"
+                        aria-label={`Открыть ${file.title}`}
+                        onClick={() =>
+                          setFileError(
+                            phase === "demo"
+                              ? "В демо просмотр файлов недоступен."
+                              : "У файла нет ссылки для просмотра.",
+                          )
+                        }
+                      >
+                        {body}
+                      </button>
+                    )}
+                  </article>
+                );
+              })}
+            {(selectedCourse ? !files.length : !orderedCourses.length) && (
               <div className="empty">
                 <span>
                   {data?.syncing ? (
@@ -798,7 +783,7 @@ function App() {
                   ) : syncError || !data?.lastSync ? (
                     <TriangleAlert size={28} />
                   ) : (
-                    <Check size={28} />
+                    <FileText size={28} />
                   )}
                 </span>
                 <h2>
@@ -806,28 +791,25 @@ function App() {
                     ? "Собираем твои курсы"
                     : syncError || !data?.lastSync
                       ? "Не удалось проверить курсы"
-                      : allHidden
-                        ? "Все курсы скрыты"
-                        : view === "files"
-                          ? "Файлов пока нет"
-                          : "Пока без изменений"}
+                      : selectedCourse
+                        ? "Файлов пока нет"
+                        : "Курсов пока нет"}
                 </h2>
                 <p>
                   {data?.syncing ? (
                     "Это может занять немного времени."
                   ) : syncError || !data?.lastSync ? (
-                    "Нажми «Обновить», чтобы повторить проверку."
-                  ) : allHidden ? (
-                    "Выбери нужные курсы в фильтре «Курсы»."
-                  ) : view === "files" ? (
-                    "В доступных разделах файлов нет."
-                  ) : (
                     <button
                       className="empty-link"
-                      onClick={() => selectView("files")}
+                      onClick={() => void refresh()}
+                      disabled={syncing}
                     >
-                      Посмотреть все файлы
+                      Повторить проверку
                     </button>
+                  ) : selectedCourse ? (
+                    "В доступных разделах файлов нет."
+                  ) : (
+                    "Курсы появятся здесь после проверки Stud.IP."
                   )}
                 </p>
               </div>
