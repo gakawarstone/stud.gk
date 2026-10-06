@@ -6,7 +6,8 @@ import { createApp } from "./app.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const { app, close } = await createApp({ dataDir: path.join(root, ".data") });
 let vite;
-if (process.argv.includes("--dev")) {
+const isDev = process.argv.includes("--dev");
+if (isDev) {
   const { createServer } = await import("vite");
   vite = await createServer({
     root,
@@ -21,9 +22,13 @@ if (process.argv.includes("--dev")) {
   );
 }
 const port = Number(process.env.PORT || 5173);
-const server = app.listen(port, "127.0.0.1", () =>
-  console.log(`Campus is ready at http://localhost:${port}`),
-);
+const host = process.env.HOST || (isDev ? "0.0.0.0" : "127.0.0.1");
+const server = app.listen(port, host, () => {
+  console.log(`Campus is ready at http://localhost:${port}`);
+  if (host === "0.0.0.0") {
+    console.log(`LAN access is enabled on port ${port}`);
+  }
+});
 async function shutdown() {
   server.close();
   await vite?.close();
