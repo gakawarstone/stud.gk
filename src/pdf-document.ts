@@ -6,6 +6,7 @@ import {
 } from "pdfjs-dist";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { adaptPdfColors } from "./pdf-colors";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 let worker: PDFWorker | undefined;
@@ -25,11 +26,30 @@ export function openPdfDocument(url: string) {
   });
 }
 
+export function applyPdfTheme(canvas: HTMLCanvasElement, pixelScale: number) {
+  const theme = getComputedStyle(document.documentElement);
+  const color = (property: string): [number, number, number] => {
+    const hex = theme.getPropertyValue(property).trim().slice(1);
+    return [0, 2, 4].map((index) => parseInt(hex.slice(index, index + 2), 16)) as [number, number, number];
+  };
+  const context = canvas.getContext("2d")!;
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+  adaptPdfColors(pixels, {
+    base: color("--base"),
+    text: color("--text"),
+    subtext: color("--subtext"),
+    surface: color("--surface0"),
+    accents: ["--red", "--peach", "--yellow", "--green", "--teal", "--sky", "--blue", "--mauve", "--pink"].map(color),
+  }, pixelScale);
+  context.putImageData(pixels, 0, 0);
+}
+
 export async function renderPdfPage(
   pdf: PDFDocumentProxy,
   number: number,
   width: number,
   signal: AbortSignal,
+  themed: boolean = true,
 ) {
   signal.throwIfAborted();
   const page = await pdf.getPage(number);
@@ -72,6 +92,10 @@ export async function renderPdfPage(
   try {
     await Promise.all([rendering.promise, layer.render()]);
     signal.throwIfAborted();
+    if (themed) {
+      applyPdfTheme(canvas, density);
+      signal.throwIfAborted();
+    }
     return surface;
   } finally {
     signal.removeEventListener("abort", cancel);

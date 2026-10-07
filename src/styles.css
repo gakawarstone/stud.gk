@@ -1,6 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;650;700;750;800&display=swap");
 :root {
   color-scheme: dark;
+  scrollbar-width: none;
   --base: #1e1e2e;
   --mantle: #181825;
   --surface: #242436;
@@ -15,6 +16,10 @@
   --peach: #fab387;
   --green: #a6e3a1;
   --red: #f38ba8;
+  --yellow: #f9e2af;
+  --teal: #94e2d5;
+  --sky: #89dceb;
+  --pink: #f5c2e7;
   --content-width: 1440px;
   font-family: "Manrope", system-ui, sans-serif;
   font-synthesis: none;
@@ -592,6 +597,7 @@ input::placeholder {
   border-radius: 10px;
 }
 .pdf-viewer {
+  --pdf-page-background: var(--base);
   position: fixed;
   inset: 0;
   width: 100%;
@@ -603,6 +609,9 @@ input::placeholder {
   border: 0;
   color: var(--text);
   background: var(--base);
+}
+.pdf-viewer[data-themed="false"] {
+  --pdf-page-background: white;
 }
 .pdf-viewer[open] {
   display: flex;
@@ -650,6 +659,10 @@ input::placeholder {
 }
 .pdf-viewer-action:hover {
   color: var(--text);
+  background: var(--surface0);
+}
+.pdf-viewer-action[aria-pressed="true"] {
+  color: var(--mauve);
   background: var(--surface0);
 }
 .pdf-viewer-action:focus-visible {
@@ -729,6 +742,7 @@ input::placeholder {
   width: 100%;
   border: 0;
   overflow: auto;
+  scrollbar-width: none;
   overscroll-behavior: contain;
   padding: 12px 24px 24px;
   background: var(--mantle);
@@ -748,7 +762,7 @@ input::placeholder {
 .pdf-page {
   position: relative;
   flex-shrink: 0;
-  background: white;
+  background: var(--pdf-page-background);
 }
 .pdf-page-content {
   position: absolute;
@@ -761,7 +775,7 @@ input::placeholder {
 }
 .pdf-page-surface {
   position: relative;
-  background: white;
+  background: var(--pdf-page-background);
   box-shadow: 0 8px 32px #0005;
 }
 .pdf-page-surface canvas {
@@ -834,7 +848,7 @@ input::placeholder {
 }
 .pdf-text-layer span::selection {
   color: transparent;
-  background: #cba6f766;
+  background: color-mix(in srgb, var(--mauve) 40%, transparent);
 }
 .empty-link {
   color: var(--mauve);
@@ -927,6 +941,7 @@ input::placeholder {
   }
   .pdf-viewer-controls {
     justify-content: start;
+    flex-wrap: wrap;
     gap: 8px;
   }
   .pdf-control-group {

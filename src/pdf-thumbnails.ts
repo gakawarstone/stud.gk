@@ -1,4 +1,4 @@
-import { openPdfDocument } from "./pdf-document";
+import { applyPdfTheme, openPdfDocument } from "./pdf-document";
 
 export async function renderPdfThumbnail(url: string, signal: AbortSignal) {
   signal.throwIfAborted();
@@ -23,6 +23,8 @@ export async function renderPdfThumbnail(url: string, signal: AbortSignal) {
     canvas.width = Math.ceil(viewport.width);
     canvas.height = Math.ceil(viewport.height);
     await page.render({ canvas, viewport, background: "white" }).promise;
+    signal.throwIfAborted();
+    applyPdfTheme(canvas, 2);
     signal.throwIfAborted();
     return canvas.toDataURL("image/webp", 0.85);
   } finally {

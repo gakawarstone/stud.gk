@@ -8,6 +8,7 @@ import {
   Maximize2,
   Minimize2,
   Minus,
+  Palette,
   Plus,
   TriangleAlert,
   X,
@@ -17,6 +18,7 @@ function PdfPage({
   pdf,
   number,
   width,
+  themed,
   initialRatio,
   scrollRoot,
   onRendered,
@@ -24,6 +26,7 @@ function PdfPage({
   pdf: PDFDocumentProxy;
   number: number;
   width: number;
+  themed: boolean;
   initialRatio: number;
   scrollRoot: HTMLElement | null;
   onRendered: () => void;
@@ -72,7 +75,7 @@ function PdfPage({
     setStatus("loading");
     void import("./pdf-document")
       .then(({ renderPdfPage }) =>
-        renderPdfPage(pdf, number, width, controller.signal),
+        renderPdfPage(pdf, number, width, controller.signal, themed),
       )
       .then((surface) => {
         if (controller.signal.aborted) return;
@@ -84,7 +87,7 @@ function PdfPage({
         if (!controller.signal.aborted) setStatus("error");
       });
     return () => controller.abort();
-  }, [pdf, number, width, visible]);
+  }, [pdf, number, width, visible, themed]);
 
   return (
     <div
@@ -137,6 +140,7 @@ export function PdfViewer({
   const [page, setPage] = useState(1);
   const [pageInput, setPageInput] = useState("1");
   const [zoom, setZoom] = useState(1);
+  const [themed, setThemed] = useState(true);
   const [width, setWidth] = useState(800);
   const [initialRatio, setInitialRatio] = useState(1.4);
   const [fullscreen, setFullscreen] = useState(false);
@@ -298,6 +302,7 @@ export function PdfViewer({
   return (
     <dialog
       className="pdf-viewer"
+      data-themed={themed}
       ref={dialog}
       aria-labelledby="pdf-viewer-title"
       onCancel={(event) => {
@@ -405,6 +410,19 @@ export function PdfViewer({
             </div>
           </nav>
           <div className="pdf-viewer-actions">
+            <button
+              className="pdf-viewer-action"
+              onClick={() => setThemed((value) => !value)}
+              aria-label="Цвета Catppuccin"
+              aria-pressed={themed}
+              title={
+                themed
+                  ? "Показать исходные цвета"
+                  : "Применить цвета Catppuccin"
+              }
+            >
+              <Palette size={18} />
+            </button>
             <a
               className="pdf-viewer-action"
               href={`${fileUrl}/download`}
@@ -443,6 +461,7 @@ export function PdfViewer({
                   pdf={pdf}
                   number={index + 1}
                   width={width * zoom}
+                  themed={themed}
                   initialRatio={initialRatio}
                   scrollRoot={documentArea.current}
                   onRendered={() => {
