@@ -2,7 +2,7 @@ name: Linux desktop release
 
 on:
   push:
-    tags: ["v*"]
+    branches: ["master"]
   workflow_dispatch:
 
 permissions:
@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   linux:
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -22,12 +23,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libarchive-tools libfuse2t64 xvfb
           npm ci
-      - name: Check tag version
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Set release version
+        id: release
         run: |
-          test "$GITHUB_REF_NAME" = "v$(node -p 'require("./package.json").version')"
+          base_version="$(node -p 'require("./package.json").version')"
+          version="${base_version}-build.${GITHUB_RUN_NUMBER}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
       - run: npm test
-      - run: npm run dist:linux
+      - name: Build AppImage
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: npm run dist:linux -- --config.extraMetadata.version="$RELEASE_VERSION"
       - name: Smoke test packaged desktop app
         env:
           CAMPUS_SMOKE_ENTRY: ${{ github.workspace }}/release/linux-unpacked/resources/app.asar/electron/main.cjs
@@ -35,14 +42,21 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: campus-linux-x64
+          if-no-files-found: error
           path: |
             release/Campus-*.AppImage
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
-          if ! gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            gh release create "$GITHUB_REF_NAME" --verify-tag --title "Campus $GITHUB_REF_NAME" --generate-notes
+          if ! gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --title "Campus $RELEASE_TAG" --generate-notes --draft
           fi
-          gh release upload "$GITHUB_REF_NAME" release/Campus-*.AppImage --clobber
+          gh release upload "$RELEASE_TAG" release/Campus-*.AppImage --clobber
+          # An older build must not replace the latest release after a newer push.
+          latest=false
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/master" --jq '.object.sha')" = "$GITHUB_SHA" ]; then
+            latest=true
+          fi
+          gh release edit "$RELEASE_TAG" --draft=false --latest="$latest"
