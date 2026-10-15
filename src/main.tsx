@@ -9,6 +9,7 @@ import { createRoot } from "react-dom/client";
 import {
   ArrowLeft,
   ArrowUpRight,
+  BellDot,
   ChevronRight,
   FileArchive,
   FileAudio,
@@ -26,6 +27,7 @@ import {
 import "./styles.css";
 import { FileThumbnail, clearThumbnailCache } from "./FileThumbnail";
 import { PdfViewer } from "./PdfViewer";
+import { courseIcon } from "./course-icons";
 
 type Course = { id: string; title: string; color: string; url: string | null };
 type Change = {
@@ -657,6 +659,7 @@ function App() {
           >
             {!selectedCourse &&
               orderedCourses.map((course) => {
+                const CourseIcon = courseIcon(course.title);
                 const count = allFiles.filter(
                   (f) => f.courseId === course.id,
                 ).length;
@@ -686,26 +689,43 @@ function App() {
                       draggable={false}
                     >
                       <div className="course-card-top">
-                        <span className="course-card-icon">
-                          <GraduationCap size={24} strokeWidth={1.6} />
+                        <span className="course-card-icon" aria-hidden="true">
+                          <CourseIcon size={24} strokeWidth={1.6} />
                         </span>
+                        <h2 title={course.title}>{course.title}</h2>
                       </div>
-                      <h2>{course.title}</h2>
-                      <div className="course-card-meta">
-                        <span>
-                          <FileText size={14} /> {fileCountLabel(count)}
-                        </span>
-                        {newCount > 0 && (
-                          <span className="course-new-count">
-                            Обновлений: {newCount}
+                      <div className="course-card-footer">
+                        <div className="course-card-meta">
+                          <span
+                            className="course-file-count"
+                            role="img"
+                            aria-label={fileCountLabel(count)}
+                            title={fileCountLabel(count)}
+                          >
+                            <FileText size={14} aria-hidden="true" /> {count}
                           </span>
-                        )}
+                          {newCount > 0 && (
+                            <span
+                              className="course-new-count"
+                              role="img"
+                              aria-label={`Обновлений: ${newCount}`}
+                              title={`Обновлений: ${newCount}`}
+                            >
+                              <BellDot size={14} aria-hidden="true" /> {newCount}
+                            </span>
+                          )}
+                          {unavailable && (
+                            <span
+                              className="course-card-warning"
+                              role="img"
+                              aria-label="Часть файлов недоступна"
+                              title="Часть файлов недоступна"
+                            >
+                              <TriangleAlert size={14} aria-hidden="true" />
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      {unavailable && (
-                        <p className="course-card-warning">
-                          <TriangleAlert size={13} /> Часть файлов недоступна
-                        </p>
-                      )}
                     </a>
                     <button
                       className="course-drag-handle"
