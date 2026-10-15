@@ -47,8 +47,10 @@ async function waitFor(window, expression) {
   assert.equal(courseCount, demo.courses.length);
   const persisted = await window.webContents.executeJavaScript(`localStorage.getItem('campus-smoke-origin')`);
   if (process.env.CAMPUS_SMOKE_RESTART === "1") assert.equal(persisted, runtime.url);
-  await window.webContents.executeJavaScript(`localStorage.setItem('campus-smoke-origin', location.origin); document.querySelector('a[href^="#course="]').click()`);
+  await window.webContents.executeJavaScript(`Object.keys(localStorage).filter(key => key.startsWith('stud-gk-course-tabs:')).forEach(key => localStorage.removeItem(key)); localStorage.setItem('campus-smoke-origin', location.origin); document.querySelector('a[href^="#course="]').click()`);
   await waitFor(window, `document.querySelector('.back-to-courses') !== null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-sidebar [aria-current="page"]').getAttribute('aria-label')`), "Dateien");
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('[data-course-tab]').length`), 1);
   // The folder mode uses real hierarchy data and survives a renderer reload.
   await window.webContents.executeJavaScript(`document.querySelectorAll('.file-view-switch button')[1].click()`);
   await waitFor(window, `document.querySelector('.folder-explorer-sidebar') !== null`);
@@ -73,6 +75,70 @@ async function waitFor(window, expression) {
   await waitFor(window, `document.querySelectorAll('.file-card').length === 2`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.folder-explorer-sidebar')`), null);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.file-preview').length`), 2);
+  // Course tabs retain their settings and use the same snapshot as the files.
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Ankündigungen"]').click()`);
+  await waitFor(window, `document.querySelector('.course-section-title')?.textContent === 'Ankündigungen'`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.file-view-switch')`), null);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-section-notice').textContent`), "Объявлений пока нет.");
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Убрать Ankündigungen"]').getAttribute('aria-checked')`), "true");
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Kursinfo"]').click()`);
+  await waitFor(window, `document.querySelector('.course-info') !== null`);
+  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.course-info').textContent.includes(${JSON.stringify(demo.courses[0].description)})`));
+  assert.equal(await window.webContents.executeJavaScript(`new URLSearchParams(location.hash.slice(1)).get('tab')`), "course");
+  await window.webContents.executeJavaScript(`history.back()`);
+  await waitFor(window, `document.querySelector('.course-section-title')?.textContent === 'Ankündigungen'`);
+  await window.webContents.executeJavaScript(`history.forward()`);
+  await waitFor(window, `document.querySelector('.course-info') !== null`);
+  window.webContents.reload();
+  await waitFor(window, `document.querySelector('.demo-link') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('.demo-link').click()`);
+  await waitFor(window, `document.querySelector('.course-info') !== null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('[data-course-tab]').length`), 3);
+  await window.webContents.executeJavaScript(`document.querySelector('[data-course-tab="files"]').click()`);
+  await waitFor(window, `document.querySelector('.file-grid') !== null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.file-card').length`), 2);
+  const news = demo.resources.find((item) => item.kind === "news");
+  await window.webContents.executeJavaScript(`location.hash = ${JSON.stringify(`#course=${news.courseId}`)}`);
+  await waitFor(window, `document.querySelectorAll('[data-course-tab]').length === 1`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-sidebar [aria-current="page"]').getAttribute('aria-label')`), "Dateien");
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Ankündigungen"]').click()`);
+  await waitFor(window, `document.querySelector('.course-news h3') !== null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news h3').textContent`), news.title);
+  await window.webContents.executeJavaScript(`document.querySelector('.course-news summary').click()`);
+  await waitFor(window, `document.querySelector('.course-news[open]') !== null && document.querySelector('.course-rail-dot') === null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-resource-body').textContent`), news.description);
+  window.setSize(480, 700);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
+  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('[role="menu"]').getBoundingClientRect().right <= innerWidth`));
+  await window.webContents.executeJavaScript(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+  await waitFor(window, `document.querySelector('[role="menu"]') === null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.activeElement.getAttribute('aria-label')`), "Добавить вкладку");
+  window.setSize(1280, 850);
+  if (process.env.CAMPUS_SMOKE_SIDEBAR_SCREENSHOT) {
+    await writeFile(process.env.CAMPUS_SMOKE_SIDEBAR_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
+  }
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Убрать Ankündigungen"]').click()`);
+  await waitFor(window, `document.querySelectorAll('[data-course-tab]').length === 1 && document.querySelector('.file-grid') !== null`);
+  const event = demo.resources.find((item) => item.kind === "schedule");
+  await window.webContents.executeJavaScript(`location.hash = ${JSON.stringify(`#course=${event.courseId}`)}`);
+  await waitFor(window, `document.querySelector('.course-heading').textContent === ${JSON.stringify(demo.courses.find((course) => course.id === event.courseId).title)}`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Termine"]').click()`);
+  await waitFor(window, `document.querySelector('.course-event') !== null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-event h3').textContent`), event.title);
+  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.course-event').textContent.includes(${JSON.stringify(event.location)})`));
+  await window.webContents.executeJavaScript(`location.hash = ${JSON.stringify(`#course=${demo.courses[0].id}`)}`);
+  await waitFor(window, `document.querySelector('.file-grid') !== null && document.querySelectorAll('[data-course-tab]').length === 3`);
   // Same-origin preview windows must share authentication and remain sandboxed.
   const previewReady = new Promise((resolve) => app.once("browser-window-created", (_, child) => {
     child.webContents.once("did-finish-load", () => resolve(child));

@@ -33,8 +33,11 @@ import { courseIcon } from "./course-icons";
 import { listFolder, type CourseFolders } from "./course-folders";
 import { FolderExplorer } from "./FolderExplorer";
 import { PdfFileIcon } from "./PdfFileIcon";
+import { CourseSidebar } from "./CourseSidebar";
+import { CourseSections, type CourseDetails, type CourseResource } from "./CourseSections";
+import { courseTabFromHash, courseTabLink } from "./course-tabs";
 
-type Course = { id: string; title: string; color: string; url: string | null };
+type Course = CourseDetails & { color: string };
 type Change = {
   id: string;
   remoteId?: string;
@@ -52,7 +55,7 @@ type Change = {
 type Material = Omit<Change, "occurredAt" | "action" | "read"> & {
   createdAt?: string | null;
   updatedAt?: string | null;
-};
+} & Pick<CourseResource, "start" | "end" | "cancelled">;
 type Feed = {
   authenticated: boolean;
   mode: "live" | "demo";
@@ -63,7 +66,7 @@ type Feed = {
   syncing: boolean;
   error: string | null;
   unavailableSources?: { courseId: string; kind: string }[];
-  user: { name: string } | null;
+  user: { id: string; name: string } | null;
 };
 type AuthState = Feed | { authenticated: false; authExpired: boolean };
 type Phase = "loading" | "login" | "live" | "demo";
@@ -266,6 +269,7 @@ function App() {
   const [fileError, setFileError] = useState<string | null>(null);
   const [viewedPdf, setViewedPdf] = useState<Material | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState(courseFromHash);
+  const [selectedTab, setSelectedTab] = useState(() => courseTabFromHash());
   const [selectedFolderId, setSelectedFolderId] = useState(folderFromHash);
   const [fileView, setFileView] = useState<"all" | "folders">(() => {
     if (folderFromHash()) return "folders";
@@ -394,6 +398,7 @@ function App() {
     function navigate() {
       dragCleanup.current?.();
       setSelectedCourseId(courseFromHash());
+      setSelectedTab(courseTabFromHash());
       setSelectedFolderId(folderFromHash());
       if (folderFromHash()) setFileView("folders");
       setFileError(null);
@@ -411,7 +416,7 @@ function App() {
   }, [fileView]);
   useEffect(() => {
     const courseId = selectedCourse?.id;
-    if (!courseId || fileView !== "folders" || (phase !== "live" && phase !== "demo")) return;
+    if (!courseId || selectedTab !== "files" || fileView !== "folders" || (phase !== "live" && phase !== "demo")) return;
     let cancelled = false;
     const version = generation.current;
     setFolderState({ courseId, data: null, error: null });
@@ -444,16 +449,16 @@ function App() {
         });
       });
     return () => { cancelled = true; };
-  }, [selectedCourse?.id, fileView, phase, data?.lastSync, folderRevision]);
-  async function markPdfViewed(file: Material) {
+  }, [selectedCourse?.id, selectedTab, fileView, phase, data?.lastSync, folderRevision]);
+  async function markResourceViewed(resourceId: string) {
     const version = generation.current;
-    const changes = fileChanges.filter(
-      (change) => change.resourceId === file.id && !change.read,
+    const changes = (data?.changes ?? []).filter(
+      (change) => change.resourceId === resourceId && !change.read,
     );
     if (!changes.length) return;
     const results = await Promise.allSettled(
       changes.map(async (change) => {
-        await api("/api/changes/read", { id: change.id });
+        if (phase === "live") await api("/api/changes/read", { id: change.id });
         return change.id;
       }),
     );
@@ -493,6 +498,7 @@ function App() {
       window.location.pathname + window.location.search,
     );
     setSelectedCourseId(null);
+    setSelectedTab("files");
     setSelectedFolderId(null);
     setPhase("login");
     setError(message);
@@ -702,12 +708,12 @@ function App() {
               </a>
               <ChevronRight className="path-separator" size={16} />
               <h1 className="course-heading" title={selectedCourse.title}>
-                {fileView === "folders" ? (
+                {selectedTab === "files" && fileView === "folders" ? (
                   <a href={folderLink(selectedCourse.id)}>{selectedCourse.title}</a>
                 ) : selectedCourse.title}
               </h1>
             </nav>
-              <div className="file-view-switch" role="group" aria-label="Вид файлов">
+              {selectedTab === "files" && <div className="file-view-switch" role="group" aria-label="Вид файлов">
                 <button type="button" aria-pressed={fileView === "all"}
                   aria-label="Все файлы" title="Все файлы"
                   onClick={() => changeFileView("all")}>
@@ -718,7 +724,7 @@ function App() {
                   onClick={() => changeFileView("folders")}>
                   <FolderTree size={15} aria-hidden="true" />
                 </button>
-              </div>
+              </div>}
             </div>
           ) : (
             <h1 className="visually-hidden">Курсы</h1>
@@ -728,7 +734,7 @@ function App() {
               {syncError || fileError}
             </div>
           )}
-          {selectedCourse && partial && !syncError && !fileError && (
+          {selectedCourse && selectedTab === "files" && partial && !syncError && !fileError && (
             <div className="feed-warning" role="status">
               <TriangleAlert size={13} />
               Часть файлов недоступна в Stud.IP.
@@ -759,7 +765,21 @@ function App() {
               {data?.courses.find((c) => c.id === courseDrag.id)?.title}
             </div>
           )}
-          <div className={selectedCourse && fileView === "folders" && folderData ? "course-explorer" : undefined}>
+          <div className={selectedCourse ? "course-workspace" : undefined}>
+            {selectedCourse && <CourseSidebar
+              key={JSON.stringify([phase, data?.user?.id || "", selectedCourse.id])}
+              storageKey={`stud-gk-course-tabs:${JSON.stringify([phase, data?.user?.id || "", selectedCourse.id])}`}
+              activeTab={selectedTab}
+              unreadNews={(data?.changes ?? []).some((change) => change.courseId === selectedCourse.id && change.kind === "news" && !change.read && change.action !== "removed" && data?.resources.some((item) => item.id === change.resourceId))}
+              onSelect={(tab) => { window.location.hash = courseTabLink(selectedCourse.id, tab, selectedFolderId); }}
+            />}
+            <div className={selectedCourse ? "course-content" : undefined}>
+            {selectedCourse && selectedTab !== "files" ? <CourseSections
+              key={`${selectedCourse.id}:${selectedTab}`}
+              course={selectedCourse} tab={selectedTab} resources={data?.resources ?? []}
+              unavailable={Boolean(data?.unavailableSources?.some((source) => source.courseId === selectedCourse.id && source.kind === selectedTab))}
+              onRead={(id) => void markResourceViewed(id)}
+            /> : <div className={selectedCourse && fileView === "folders" && folderData ? "course-explorer" : undefined}>
             {selectedCourse && fileView === "folders" && folderData && (
               <FolderExplorer key={selectedCourse.id} data={folderData}
                 currentId={folderListing?.currentId ?? null} courseId={selectedCourse.id} />
@@ -1007,6 +1027,8 @@ function App() {
               </div>
             )}
           </section>
+          </div>}
+            </div>
           </div>
         </main>
       )}
@@ -1015,7 +1037,7 @@ function App() {
           key={viewedPdf.id}
           title={viewedPdf.title}
           remoteId={viewedPdf.remoteId}
-          onViewed={() => void markPdfViewed(viewedPdf)}
+          onViewed={() => void markResourceViewed(viewedPdf.id)}
           onClose={() => {
             setViewedPdf(null);
             void load();

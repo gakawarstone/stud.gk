@@ -101,7 +101,9 @@ export async function createApp({
   } catch (e) {
     if (e.code !== "ENOENT") throw new Error("Cannot read saved course data.");
   }
-  state ??= { demo: createDemo(), accounts: {} };
+  state ??= { accounts: {} };
+  // Demo fixtures are not account data and must follow the current UI schema.
+  state.demo = createDemo();
   state.accounts = Object.assign(Object.create(null), state.accounts);
   const store = await EncryptedSessionStore.open(dataDir);
   let saveQueue = Promise.resolve();
@@ -252,7 +254,7 @@ export async function createApp({
       ...(state.accounts[context.user.id] ?? empty()),
       authenticated: true,
       mode: "live",
-      user: { name: context.user.name },
+      user: { id: context.user.id, name: context.user.name },
       syncing: status.syncing,
       error: status.error,
       source: BASE,
