@@ -49,6 +49,30 @@ async function waitFor(window, expression) {
   if (process.env.CAMPUS_SMOKE_RESTART === "1") assert.equal(persisted, runtime.url);
   await window.webContents.executeJavaScript(`localStorage.setItem('campus-smoke-origin', location.origin); document.querySelector('a[href^="#course="]').click()`);
   await waitFor(window, `document.querySelector('.back-to-courses') !== null`);
+  // The folder mode uses real hierarchy data and survives a renderer reload.
+  await window.webContents.executeJavaScript(`document.querySelectorAll('.file-view-switch button')[1].click()`);
+  await waitFor(window, `document.querySelector('.folder-explorer-sidebar') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Открыть папку Übungen"]').click()`);
+  await waitFor(window, `document.querySelector('button[aria-label="Открыть папку Projekt"]') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Свернуть папку Übungen"]').click()`);
+  await waitFor(window, `document.querySelector('button[aria-label="Открыть папку Projekt"]') === null`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Развернуть папку Übungen"]').click()`);
+  await waitFor(window, `document.querySelector('button[aria-label="Открыть папку Projekt"]') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Открыть папку Projekt"]').click()`);
+  await waitFor(window, `document.querySelectorAll('.file-card').length === 1`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.explorer-file-icon').length`), 1);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.file-preview').length`), 0);
+  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Открыть папку Vorlesungen"]') !== null`));
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.folder-explorer-sidebar [aria-current="page"]').textContent`), "Projekt");
+  window.webContents.reload();
+  await waitFor(window, `document.querySelector('.demo-link') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('.demo-link').click()`);
+  await waitFor(window, `document.querySelectorAll('.file-card').length === 1 && document.querySelector('.folder-explorer-sidebar [aria-current="page"]')?.textContent === 'Projekt'`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.file-view-switch button')[1].getAttribute('aria-pressed')`), "true");
+  await window.webContents.executeJavaScript(`document.querySelectorAll('.file-view-switch button')[0].click()`);
+  await waitFor(window, `document.querySelectorAll('.file-card').length === 2`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.folder-explorer-sidebar')`), null);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.file-preview').length`), 2);
   // Same-origin preview windows must share authentication and remain sandboxed.
   const previewReady = new Promise((resolve) => app.once("browser-window-created", (_, child) => {
     child.webContents.once("did-finish-load", () => resolve(child));

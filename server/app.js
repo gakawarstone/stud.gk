@@ -6,7 +6,7 @@ import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { BASE, createClient, fetchSnapshot, StudipError } from "./studip.js";
+import { BASE, createClient, fetchSnapshot, fetchCourseFolders, StudipError } from "./studip.js";
 import { loginStudip } from "./login.js";
 import {
   EncryptedSessionStore,
@@ -14,7 +14,7 @@ import {
   SESSION_LIFETIME,
 } from "./sessions.js";
 import { reconcile } from "./changes.js";
-import { createDemo } from "./demo.js";
+import { createDemo, createDemoFolders } from "./demo.js";
 
 const call = (object, method, ...args) =>
   new Promise((resolve, reject) =>
@@ -88,6 +88,7 @@ export async function createApp({
   dataDir,
   authenticate = loginStudip,
   getSnapshot = fetchSnapshot,
+  getFolders = fetchCourseFolders,
   getDownload = (client, file, options) => client.download(file, options),
   autoSync = true,
   sessionName = SESSION_NAME,
@@ -268,6 +269,11 @@ export async function createApp({
       source: BASE,
     }),
   );
+  app.get("/api/demo/courses/:id/folders", (req, res) => {
+    if (!state.demo.courses.some((course) => course.id === req.params.id))
+      throw new StudipError("Курс не найден.", 404);
+    res.json(createDemoFolders(req.params.id, state.demo.resources));
+  });
   const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 10,
@@ -314,6 +320,27 @@ export async function createApp({
   app.post("/api/sync", requireLogin, async (req, res) => {
     await sync(req.context);
     res.json({ ok: true });
+  });
+  app.get("/api/courses/:id/folders", requireLogin, async (req, res) => {
+    const context = req.context;
+    const account = state.accounts[context.user.id];
+    if (!account?.courses.some((course) => course.id === req.params.id))
+      throw new StudipError("Курс не найден в твоих курсах.", 404);
+    try {
+      const result = await getFolders(context.client, req.params.id);
+      if (context.revoked || context.expiresAt <= Date.now())
+        throw new StudipError("Сессия истекла. Войди в Stud.IP заново.", 401);
+      const allowedFiles = new Set(account.resources
+        .filter((file) => file.kind === "file" && file.courseId === req.params.id)
+        .map((file) => file.remoteId));
+      res.json({
+        ...result,
+        fileFolders: result.fileFolders.filter((file) => allowedFiles.has(file.fileRefId)),
+      });
+    } catch (error) {
+      if (error.status === 401) await expire(context);
+      throw error;
+    }
   });
   app.get(
     [

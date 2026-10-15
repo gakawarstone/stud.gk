@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { FileText, LoaderCircle } from "lucide-react";
+import { PdfFileIcon } from "./PdfFileIcon";
 
 const cache = new Map<string, string>();
 export function clearThumbnailCache() {
@@ -63,7 +64,7 @@ export function FileThumbnail({
     <div className={`file-preview thumbnail-preview ${kind}`} ref={container}>
       {failed ? (
         <span className="thumbnail-fallback">
-          <FileText size={28} strokeWidth={1.4} />
+          {kind === "pdf" ? <PdfFileIcon size={28} /> : <FileText size={28} strokeWidth={1.4} />}
           <span>Превью недоступно</span>
         </span>
       ) : visible && (kind === "image" || src) ? (
