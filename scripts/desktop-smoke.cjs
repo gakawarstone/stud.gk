@@ -18,7 +18,7 @@ async function waitFor(window, expression) {
 }
 
 (async () => {
-  // Never use or alter the developer's Campus profile in a smoke test.
+  // Never use or alter the developer's Stud.GK profile in a smoke test.
   const profile = process.env.CAMPUS_SMOKE_PROFILE || await mkdtemp(path.join(os.tmpdir(), "campus-smoke-"));
   app.setPath("appData", profile);
   const entry = process.env.CAMPUS_SMOKE_ENTRY || path.resolve(__dirname, "../electron/main.cjs");

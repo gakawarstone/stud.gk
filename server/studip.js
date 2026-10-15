@@ -142,7 +142,7 @@ export function createClient(cookie, fetcher = fetch) {
         /(?:login|auth|\/dispatch\.php\/start)/i.test(target.pathname)
           ? new StudipError("Сессия Stud.IP истекла. Войди заново.", 401)
           : new StudipError(
-              "Stud.IP перенаправляет скачивание на другой адрес. Этот файл пока недоступен в Campus.",
+              "Stud.IP перенаправляет скачивание на другой адрес. Этот файл пока недоступен в Stud.GK.",
             );
     } else if (response.status === 401)
       error = new StudipError("Сессия Stud.IP истекла. Войди заново.", 401);

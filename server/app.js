@@ -393,7 +393,7 @@ export async function createApp({
         await pipeline(Readable.fromWeb(response.body), res, {
           signal: controller.signal,
         });
-        // Only a completed full transfer marks related Campus notifications read.
+        // Only a completed full transfer marks related Stud.GK notifications read.
         if (!thumbnail && response.status === 200 && !context.revoked) {
           const account = state.accounts[context.user.id];
           for (const change of account.changes)

@@ -1,9 +1,9 @@
 {
-  "name": "studipapi",
+  "name": "stud.gk",
   "version": "1.0.0",
-  "description": "A local read-only Stud.IP companion in Catppuccin Mocha",
+  "description": "Stud.GK, a local read-only Stud.IP companion in Catppuccin Mocha",
   "main": "electron/main.cjs",
-  "desktopName": "campus.desktop",
+  "desktopName": "stud-gk.desktop",
   "homepage": "https://github.com/gakawarstone/studip",
   "scripts": {
     "dev": "node --env-file-if-exists=.env server/index.js --dev",

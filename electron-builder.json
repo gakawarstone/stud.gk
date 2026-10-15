@@ -1,6 +1,6 @@
 {
   "appId": "io.github.gakawarstone.campus",
-  "productName": "Campus",
+  "productName": "Stud.GK",
   "directories": { "output": "release", "buildResources": "build" },
   "asar": true,
   "files": [
@@ -15,10 +15,10 @@
     "target": ["AppImage"],
     "category": "Education",
     "icon": "build/icon.png",
-    "executableName": "campus",
+    "executableName": "stud-gk",
     "syncDesktopName": true,
-    "artifactName": "Campus-${version}-linux-${arch}.${ext}",
-    "desktop": { "entry": { "StartupWMClass": "Campus", "Comment": "Stud.IP courses and files" } }
+    "artifactName": "Stud.GK-${version}-linux-${arch}.${ext}",
+    "desktop": { "entry": { "StartupWMClass": "Stud.GK", "Comment": "Stud.IP courses and files" } }
   },
   "appImage": { "executableArgs": [] },
   "publish": null

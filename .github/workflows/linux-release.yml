@@ -41,19 +41,19 @@ jobs:
         run: xvfb-run -a npm run test:desktop -- --no-sandbox
       - uses: actions/upload-artifact@v4
         with:
-          name: campus-linux-x64
+          name: stud-gk-linux-x64
           if-no-files-found: error
           path: |
-            release/Campus-*.AppImage
+            release/Stud.GK-*.AppImage
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
           if ! gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
-            gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --title "Campus $RELEASE_TAG" --generate-notes --draft
+            gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --title "Stud.GK $RELEASE_TAG" --generate-notes --draft
           fi
-          gh release upload "$RELEASE_TAG" release/Campus-*.AppImage --clobber
+          gh release upload "$RELEASE_TAG" release/Stud.GK-*.AppImage --clobber
           # An older build must not replace the latest release after a newer push.
           latest=false
           if [ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/master" --jq '.object.sha')" = "$GITHUB_SHA" ]; then

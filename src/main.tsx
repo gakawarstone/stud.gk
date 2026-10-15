@@ -455,7 +455,7 @@ function App() {
             Date.parse(c.occurredAt) > Date.parse(previousSync.current!),
         );
         if (fresh.length)
-          new Notification("Campus · Новые изменения", {
+          new Notification("Stud.GK · Новые изменения", {
             body: `${fresh.length} обновлений в твоих курсах.`,
             icon: "/favicon.svg",
           });
@@ -485,7 +485,7 @@ function App() {
   }, [phase, data?.syncing]);
   useEffect(() => {
     const unread = unreadFiles.size;
-    document.title = `${unread ? `(${unread}) ` : ""}Campus · ${selectedCourse?.title || "Курсы"}`;
+    document.title = `${unread ? `(${unread}) ` : ""}Stud.GK · ${selectedCourse?.title || "Курсы"}`;
   }, [data, selectedCourse?.title]);
   async function login(username: string, password: string) {
     clearThumbnailCache();
@@ -562,7 +562,7 @@ function App() {
       <header className="header">
         <div className="brand">
           <GraduationCap size={24} strokeWidth={1.7} />
-          <span>campus</span>
+          <span>Stud.GK</span>
         </div>
         {(phase === "live" || phase === "demo") && (
           <div className="account">
