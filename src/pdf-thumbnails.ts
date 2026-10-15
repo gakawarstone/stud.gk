@@ -24,7 +24,7 @@ export async function renderPdfThumbnail(url: string, signal: AbortSignal) {
     canvas.height = Math.ceil(viewport.height);
     await page.render({ canvas, viewport, background: "white" }).promise;
     signal.throwIfAborted();
-    applyPdfTheme(canvas, 2);
+    applyPdfTheme(canvas);
     signal.throwIfAborted();
     return canvas.toDataURL("image/webp", 0.85);
   } finally {

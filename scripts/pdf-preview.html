@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF rendering fixture</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import React from "react";
+      import { createRoot } from "react-dom/client";
+      import { PdfViewer } from "/src/PdfViewer.tsx";
+      import "/src/styles.css";
+
+      createRoot(document.getElementById("root")).render(
+        React.createElement(PdfViewer, {
+          title: "PDF color rendering fixture.pdf",
+          remoteId: "color-fixture",
+          onClose: () => location.assign("/"),
+          onViewed: () => {},
+        }),
+      );
+    </script>
+  </body>
+</html>

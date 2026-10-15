@@ -62,7 +62,8 @@ input {
 }
 button:focus-visible,
 a:focus-visible,
-input:focus-visible {
+input:focus-visible,
+select:focus-visible {
   outline: 2px solid var(--mauve);
   outline-offset: 4px;
 }
@@ -627,8 +628,11 @@ input::placeholder {
   color: var(--text);
   background: var(--base);
 }
-.pdf-viewer[data-themed="false"] {
+.pdf-viewer[data-color-mode="original"] {
   --pdf-page-background: white;
+}
+.pdf-viewer[data-color-mode="invert-lightness"] {
+  --pdf-page-background: black;
 }
 .pdf-viewer[open] {
   display: flex;
@@ -678,9 +682,28 @@ input::placeholder {
   color: var(--text);
   background: var(--surface0);
 }
-.pdf-viewer-action[aria-pressed="true"] {
+.pdf-color-mode {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.pdf-color-mode > svg {
+  position: absolute;
+  left: 8px;
+  pointer-events: none;
+  color: var(--mauve);
+}
+.pdf-color-mode select {
+  height: 32px;
+  width: 170px;
+  padding: 0 6px 0 32px;
+  border: 0;
+  border-radius: 8px;
   color: var(--mauve);
   background: var(--surface0);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
 }
 .pdf-viewer-action:focus-visible {
   outline-offset: 0;
@@ -944,6 +967,15 @@ input::placeholder {
   }
 }
 @media (max-width: 600px) {
+  .pdf-color-mode select {
+    width: 32px;
+    padding: 0;
+    font-size: 0;
+    appearance: none;
+  }
+  .pdf-color-mode option {
+    font-size: 14px;
+  }
   .pdf-viewer-toolbar {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 8px;

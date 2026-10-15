@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from "pdfjs-dist";
+import type { PdfColorMode } from "./pdf-colors";
 import {
   ChevronLeft,
   ChevronRight,
@@ -18,7 +19,7 @@ function PdfPage({
   pdf,
   number,
   width,
-  themed,
+  colorMode,
   initialRatio,
   scrollRoot,
   onRendered,
@@ -26,13 +27,17 @@ function PdfPage({
   pdf: PDFDocumentProxy;
   number: number;
   width: number;
-  themed: boolean;
+  colorMode: PdfColorMode;
   initialRatio: number;
   scrollRoot: HTMLElement | null;
   onRendered: () => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const slot = useRef<HTMLDivElement>(null);
+  const originalPixels = useRef<ImageData | null>(null);
+  const paintTheme = useRef<
+    ((canvas: HTMLCanvasElement, mode: PdfColorMode) => void) | null
+  >(null);
   const [ratio, setRatio] = useState(initialRatio);
   const [visible, setVisible] = useState(number === 1);
   const renderedCallback = useRef(onRendered);
@@ -67,18 +72,25 @@ function PdfPage({
   useEffect(() => {
     if (!visible) {
       container.current?.replaceChildren();
+      originalPixels.current = null;
       return;
     }
     const controller = new AbortController();
     const element = container.current!;
     element.replaceChildren();
+    originalPixels.current = null;
     setStatus("loading");
     void import("./pdf-document")
-      .then(({ renderPdfPage }) =>
-        renderPdfPage(pdf, number, width, controller.signal, themed),
-      )
+      .then(({ renderPdfPage, applyPdfTheme }) => {
+        paintTheme.current = applyPdfTheme;
+        return renderPdfPage(pdf, number, width, controller.signal);
+      })
       .then((surface) => {
         if (controller.signal.aborted) return;
+        const canvas = surface.querySelector("canvas")!;
+        originalPixels.current = canvas
+          .getContext("2d")!
+          .getImageData(0, 0, canvas.width, canvas.height);
         element.replaceChildren(surface);
         setStatus("ready");
         renderedCallback.current();
@@ -86,8 +98,19 @@ function PdfPage({
       .catch(() => {
         if (!controller.signal.aborted) setStatus("error");
       });
-    return () => controller.abort();
-  }, [pdf, number, width, visible, themed]);
+    return () => {
+      controller.abort();
+      originalPixels.current = null;
+    };
+  }, [pdf, number, width, visible]);
+
+  useLayoutEffect(() => {
+    const canvas = container.current?.querySelector("canvas");
+    if (status !== "ready" || !canvas || !originalPixels.current) return;
+    // Always start from the source pixels, so mode changes cannot accumulate.
+    canvas.getContext("2d")!.putImageData(originalPixels.current, 0, 0);
+    paintTheme.current?.(canvas, colorMode);
+  }, [status, colorMode]);
 
   return (
     <div
@@ -140,7 +163,7 @@ export function PdfViewer({
   const [page, setPage] = useState(1);
   const [pageInput, setPageInput] = useState("1");
   const [zoom, setZoom] = useState(1);
-  const [themed, setThemed] = useState(true);
+  const [colorMode, setColorMode] = useState<PdfColorMode>("catppuccin");
   const [width, setWidth] = useState(800);
   const [initialRatio, setInitialRatio] = useState(1.4);
   const [fullscreen, setFullscreen] = useState(false);
@@ -302,7 +325,7 @@ export function PdfViewer({
   return (
     <dialog
       className="pdf-viewer"
-      data-themed={themed}
+      data-color-mode={colorMode}
       ref={dialog}
       aria-labelledby="pdf-viewer-title"
       onCancel={(event) => {
@@ -310,7 +333,7 @@ export function PdfViewer({
         onClose();
       }}
       onKeyDown={(event) => {
-        if (!pdf || (event.target as Element).closest("input, button, a"))
+        if (!pdf || (event.target as Element).closest("input, select, button, a"))
           return;
         if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
           event.preventDefault();
@@ -410,19 +433,18 @@ export function PdfViewer({
             </div>
           </nav>
           <div className="pdf-viewer-actions">
-            <button
-              className="pdf-viewer-action"
-              onClick={() => setThemed((value) => !value)}
-              aria-label="Цвета Catppuccin"
-              aria-pressed={themed}
-              title={
-                themed
-                  ? "Показать исходные цвета"
-                  : "Применить цвета Catppuccin"
-              }
-            >
-              <Palette size={18} />
-            </button>
+            <label className="pdf-color-mode" title="Цвета PDF">
+              <Palette size={18} aria-hidden="true" />
+              <select
+                aria-label="Цвета PDF"
+                value={colorMode}
+                onChange={(event) => setColorMode(event.target.value as PdfColorMode)}
+              >
+                <option value="catppuccin">Catppuccin</option>
+                <option value="invert-lightness">Инверсия светлоты</option>
+                <option value="original">Исходные цвета</option>
+              </select>
+            </label>
             <a
               className="pdf-viewer-action"
               href={`${fileUrl}/download`}
@@ -461,7 +483,7 @@ export function PdfViewer({
                   pdf={pdf}
                   number={index + 1}
                   width={width * zoom}
-                  themed={themed}
+                  colorMode={colorMode}
                   initialRatio={initialRatio}
                   scrollRoot={documentArea.current}
                   onRendered={() => {
