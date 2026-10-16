@@ -126,13 +126,22 @@ async function saveNextcloudLink(window, url) {
   await waitFor(window, `document.querySelectorAll('[data-course-tab]').length === 4 && document.querySelector('[data-course-tab="schedule"]').getAttribute('aria-current') === 'page'`);
   // Mock share data in the renderer; the API's real WebDAV and streaming behavior
   // is covered by server/nextcloud.test.js without a network-dependent smoke test.
+  const videoFixture = `data:video/webm;base64,${(await readFile(path.join(__dirname, "fixtures/video-thumbnail.webm"))).toString("base64")}`;
   const installNextcloudFixture = () => window.webContents.executeJavaScript(`(() => {
+    const source = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'src');
+    Object.defineProperty(HTMLMediaElement.prototype, 'src', {
+      ...source,
+      set(value) {
+        const fixture = String(value).includes('/api/nextcloud/file/preview?') && new URL(value, location.origin).searchParams.get('path') === 'lecture.mp4';
+        source.set.call(this, fixture ? (window.nextcloudThumbnailBroken ? 'data:video/webm;base64,broken' : ${JSON.stringify(videoFixture)}) : value);
+      }
+    });
     const originalFetch = window.fetch.bind(window);
     window.fetch = async (url, options) => {
       if (String(url) === '/api/nextcloud/list') {
         if (window.nextcloudFixtureError) return new Response(JSON.stringify({ error: 'Share unavailable' }), { status: 403 });
         const path = JSON.parse(options.body).path;
-        const file = (name, mime, directory = false) => ({ name, mime, directory, path: path ? path + '/' + name : name, size: 1024, modified: null, etag: 'fixture' });
+        const file = (name, mime, directory = false) => ({ name, mime, directory, path: path ? path + '/' + name : name, size: 1024, modified: null, etag: String(window.nextcloudFixtureVersion || 'fixture') });
         return new Response(JSON.stringify({ title: 'Course videos', path, backend: 'dav', entries: path ? [file('notes.txt', 'text/plain')] : [file('Lectures', '', true), file('lecture.mp4', 'video/mp4')] }));
       }
       if (String(url).startsWith('/api/nextcloud/file/preview?') && new URL(String(url), location.origin).searchParams.get('path').endsWith('notes.txt')) {
@@ -155,6 +164,13 @@ async function saveNextcloudLink(window, url) {
   await saveNextcloudLink(window, shareUrl);
   await waitFor(window, `document.querySelectorAll('.nextcloud-file').length === 2`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.nextcloud-form')`), null);
+  await waitFor(window, `document.querySelector('.thumbnail-preview.video img')?.naturalWidth > 0`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.thumbnail-preview.video img').naturalWidth`), 160);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.thumbnail-preview.video img').naturalHeight`), 90);
+  await window.webContents.executeJavaScript(`window.nextcloudThumbnailBroken = true; window.nextcloudFixtureVersion = 'broken'; document.querySelector('button[aria-label="Обновить файлы Nextcloud"]').click()`);
+  await waitFor(window, `document.querySelector('.thumbnail-preview.video .thumbnail-fallback') !== null`);
+  await window.webContents.executeJavaScript(`window.nextcloudThumbnailBroken = false; window.nextcloudFixtureVersion = 'repaired'; document.querySelector('button[aria-label="Обновить файлы Nextcloud"]').click()`);
+  await waitFor(window, `document.querySelector('.thumbnail-preview.video img')?.naturalWidth > 0`);
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Открыть папку Lectures"]').click()`);
   await waitFor(window, `document.querySelector('button[aria-label="Открыть notes.txt"]') !== null`);
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Открыть notes.txt"]').click()`);

@@ -934,6 +934,7 @@ input::placeholder {
   object-fit: cover;
   object-position: top center;
 }
+.thumbnail-preview.video .file-thumbnail { object-fit: contain; object-position: center; }
 .thumbnail-loading {
   color: var(--muted);
 }

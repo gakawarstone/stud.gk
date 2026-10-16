@@ -101,7 +101,7 @@ export function NextcloudSection({ storageKey, toolbarTarget }: { storageKey: st
           return <article className="file-card nextcloud-file" key={file.path}>
             <button type="button" className="file-card-link" aria-label={`${file.directory ? "Открыть папку" : "Открыть"} ${file.name}`}
               aria-haspopup={file.directory ? undefined : "dialog"} onClick={() => file.directory ? setPath(file.path) : setViewed(file)}>
-              {!file.directory && (kind === "pdf" || kind === "image") ? <FileThumbnail url={fileUrl(file, "preview")} version={file.etag} kind={kind} />
+              {!file.directory && (kind === "pdf" || kind === "image" || kind === "video") ? <FileThumbnail url={fileUrl(file, "preview")} version={file.etag} kind={kind} />
                 : <div className={`file-preview ${file.directory ? "folder" : kind}`}><Icon size={42} strokeWidth={1.4} />
                   <span className="file-type">{file.directory ? "Папка" : kind === "video" ? "Видео" : kind === "audio" ? "Аудио" : file.name.split(".").pop()?.toUpperCase()}</span>
                 </div>}
