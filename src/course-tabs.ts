@@ -1,4 +1,4 @@
-export const extraCourseTabs = ["news", "schedule", "course"] as const;
+export const extraCourseTabs = ["news", "schedule", "course", "nextcloud"] as const;
 export type ExtraCourseTab = (typeof extraCourseTabs)[number];
 export type CourseTab = "files" | ExtraCourseTab;
 

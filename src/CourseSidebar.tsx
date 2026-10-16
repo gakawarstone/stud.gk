@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CalendarDays, FolderClosed, Info, Megaphone, Plus, Trash2, X } from "lucide-react";
+import { CalendarDays, Cloud, FolderClosed, Info, Megaphone, Plus, Trash2, X } from "lucide-react";
 import { extraCourseTabs, isExtraCourseTab, type CourseTab, type ExtraCourseTab } from "./course-tabs";
 
 export const courseTabs = {
@@ -7,6 +7,7 @@ export const courseTabs = {
   news: { label: "Ankündigungen", Icon: Megaphone },
   schedule: { label: "Termine", Icon: CalendarDays },
   course: { label: "Kursinfo", Icon: Info },
+  nextcloud: { label: "Nextcloud", Icon: Cloud },
 };
 
 export function CourseSidebar({

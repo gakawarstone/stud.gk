@@ -645,6 +645,24 @@ input::placeholder {
 .course-event.cancelled h3 { text-decoration: line-through; color: var(--muted); }
 .course-info .course-resource-body { margin-top: 20px; }
 .course-original-link { display: inline-block; margin-top: 12px; color: var(--mauve); font-size: 12px; }
+.nextcloud-form { display: grid; gap: 12px; max-width: 600px; }
+.nextcloud-form label { color: var(--subtext); font-size: 12px; }
+.nextcloud-form input {
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--surface1);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--mantle);
+}
+.nextcloud-form input[aria-invalid="true"] { border-color: var(--red); }
+.nextcloud-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; }
+.nextcloud-save { padding: 11px 16px; border-radius: 8px; background: var(--surface0); }
+.nextcloud-save:hover { background: var(--surface1); }
+.nextcloud-actions .course-original-link { display: inline-flex; align-items: center; gap: 7px; margin: 0; }
+.nextcloud-error { color: var(--red); margin: 0; line-height: 1.6; }
+.nextcloud-status { min-height: 1.6em; color: var(--green); margin: 0; font-size: 12px; }
 @media (max-width: 650px) {
   .course-workspace { grid-template-columns: 44px minmax(0, 1fr); gap: 12px; }
   .course-sidebar { padding-right: 7px; }
@@ -916,6 +934,7 @@ input::placeholder {
   object-fit: cover;
   object-position: top center;
 }
+.thumbnail-preview.video .file-thumbnail { object-fit: cover; object-position: center; }
 .thumbnail-loading {
   color: var(--muted);
 }
@@ -1420,3 +1439,53 @@ input::placeholder {
     transition-duration: 0.01ms !important;
   }
 }
+
+.nextcloud-toolbar { flex-shrink: 0; }
+.nextcloud-tools { position: relative; }
+.nextcloud-tools > button { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; color: var(--subtext); }
+.nextcloud-tools > button:hover, .nextcloud-tools > button[aria-expanded="true"] { color: var(--text); background: var(--surface0); }
+.nextcloud-settings-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(224px, calc(100vw - 32px));
+  padding: 5px;
+  border: 1px solid var(--surface1);
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: 0 10px 30px #11111b60;
+}
+.nextcloud-settings-menu > * { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 10px; border-radius: 5px; color: var(--subtext); font-size: 12px; text-align: left; }
+.nextcloud-settings-menu > *:hover { color: var(--text); background: var(--surface0); }
+.nextcloud-settings-menu > *:focus-visible { outline-offset: -2px; }
+.nextcloud-settings-menu svg { flex-shrink: 0; }
+.nextcloud-form { margin-bottom: 24px; }
+.nextcloud-form .course-section-notice { margin: 0; }
+.nextcloud-breadcrumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; color: var(--subtext); }
+.nextcloud-breadcrumbs span { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.nextcloud-breadcrumbs button { padding: 5px 0; overflow-wrap: anywhere; text-align: left; }
+.nextcloud-breadcrumbs button:disabled { opacity: 1; color: var(--text); }
+.nextcloud-loading { display: flex; align-items: center; gap: 10px; color: var(--muted); }
+.nextcloud-load-error { color: var(--subtext); }
+.nextcloud-file { position: relative; }
+.nextcloud-file .file-info { padding-right: 44px; }
+.nextcloud-download { position: absolute; display: grid; place-items: center; right: 8px; bottom: 16px; width: 32px; height: 32px; border-radius: 7px; color: var(--muted); }
+.nextcloud-download:hover { color: var(--text); background: var(--surface0); }
+.nextcloud-file .file-preview.video, .nextcloud-file .file-preview.audio { color: var(--blue); background: color-mix(in srgb, var(--blue) 7%, var(--mantle)); }
+.nextcloud-file .file-preview.folder { color: var(--mauve); background: var(--mantle); }
+.nextcloud-viewer { width: min(1200px, 96vw); max-width: 96vw; max-height: 94dvh; padding: 0; border: 1px solid var(--surface1); border-radius: 12px; color: var(--text); background: var(--base); }
+.nextcloud-viewer::backdrop { background: #11111bcc; }
+.nextcloud-viewer-toolbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--surface0); }
+.nextcloud-viewer-toolbar h2 { flex: 1; min-width: 0; margin: 0; overflow-wrap: anywhere; font-size: 14px; font-weight: 500; }
+.nextcloud-viewer-toolbar > a, .nextcloud-viewer-toolbar > button { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 8px; }
+.nextcloud-viewer-toolbar > a:hover, .nextcloud-viewer-toolbar > button:hover { background: var(--surface0); }
+.nextcloud-viewer-body { display: grid; place-items: center; min-height: 200px; max-height: calc(94dvh - 64px); overflow: auto; }
+.nextcloud-viewer-body video { display: block; width: 100%; max-height: calc(94dvh - 66px); background: #000; }
+.nextcloud-viewer-body audio { width: min(600px, 90%); }
+.nextcloud-viewer-body img { max-width: 100%; max-height: calc(94dvh - 66px); object-fit: contain; }
+.nextcloud-viewer-body pre { justify-self: stretch; align-self: start; white-space: pre-wrap; overflow-wrap: anywhere; padding: 20px; margin: 0; font-size: 13px; line-height: 1.7; }
+.nextcloud-viewer-body > p { padding: 24px; color: var(--subtext); }
+.nextcloud-viewer-body a { color: var(--mauve); }
+@media (max-width: 650px) { .nextcloud-files { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
+@media (max-width: 420px) { .nextcloud-files { grid-template-columns: minmax(0, 1fr); } }
