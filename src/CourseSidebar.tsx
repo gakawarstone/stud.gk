@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CalendarDays, Cloud, FolderClosed, GitFork, Info, Megaphone, Plus, Trash2, X } from "lucide-react";
 import { extraCourseTabs, isExtraCourseTab, type CourseTab, type ExtraCourseTab } from "./course-tabs";
 
@@ -31,6 +31,7 @@ export function CourseSidebar({
   const sidebar = useRef<HTMLElement>(null);
   const addButton = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
+  const pendingFocus = useRef<CourseTab | null>(null);
   const visibleTabs: CourseTab[] = ["files", ...tabs];
   if (activeTab !== "files" && !tabs.includes(activeTab)) visibleTabs.push(activeTab);
   const availableTabs = extraCourseTabs.filter((tab) => !visibleTabs.includes(tab));
@@ -40,6 +41,12 @@ export function CourseSidebar({
       localStorage.setItem(storageKey, JSON.stringify(tabs));
     } catch { /* Navigation also works without persistent storage. */ }
   }, [storageKey, tabs]);
+
+  useLayoutEffect(() => {
+    const tab = pendingFocus.current;
+    pendingFocus.current = null;
+    if (tab) sidebar.current?.querySelector<HTMLButtonElement>(`[data-course-tab="${tab}"]`)?.focus();
+  }, [tabs]);
 
   useEffect(() => { setOpenMenu(null); }, [activeTab]);
   useEffect(() => {
@@ -64,9 +71,9 @@ export function CourseSidebar({
   }, [openMenu]);
 
   function select(tab: CourseTab) {
+    pendingFocus.current = tab;
     setOpenMenu(null);
     onSelect(tab);
-    requestAnimationFrame(() => sidebar.current?.querySelector<HTMLButtonElement>(`[data-course-tab="${tab}"]`)?.focus());
   }
 
   function add(tab: ExtraCourseTab) {

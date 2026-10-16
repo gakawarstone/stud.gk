@@ -273,7 +273,10 @@ async function nextcloudShareUrl(window) {
   await openTabContextMenu(window, "schedule");
   await window.webContents.executeJavaScript(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
   await waitFor(window, `document.querySelector('[role="menu"]') === null`);
-  assert.equal(await window.webContents.executeJavaScript(`document.activeElement.dataset.courseTab`), "schedule");
+  // Focus must stay on the tab after rendering, including after a preceding removal.
+  assert.equal(await window.webContents.executeJavaScript(`new Promise(resolve => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve(document.activeElement.dataset.courseTab)));
+  })`), "schedule");
   window.webContents.sendInputEvent({ type: "keyDown", keyCode: "F10", modifiers: ["shift"] });
   window.webContents.sendInputEvent({ type: "keyUp", keyCode: "F10", modifiers: ["shift"] });
   await waitFor(window, `document.querySelector('button[aria-label="Удалить Termine из панели"]') !== null`);
