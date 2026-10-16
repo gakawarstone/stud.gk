@@ -934,7 +934,8 @@ input::placeholder {
   object-fit: cover;
   object-position: top center;
 }
-.thumbnail-preview.video .file-thumbnail { object-fit: contain; object-position: center; }
+.thumbnail-preview.video { aspect-ratio: 16 / 9; }
+.thumbnail-preview.video .file-thumbnail { object-fit: cover; object-position: center; }
 .thumbnail-loading {
   color: var(--muted);
 }
