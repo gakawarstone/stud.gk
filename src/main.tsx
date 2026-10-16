@@ -34,6 +34,8 @@ import { listFolder, type CourseFolders } from "./course-folders";
 import { FolderExplorer } from "./FolderExplorer";
 import { PdfFileIcon } from "./PdfFileIcon";
 import { CourseSidebar } from "./CourseSidebar";
+import { GitlabProject } from "./GitlabProject";
+import type { GitlabProject as Project } from "../server/gitlab.js";
 import { NextcloudSection } from "./NextcloudSection";
 import { CourseSections, type CourseDetails, type CourseResource } from "./CourseSections";
 import { courseTabFromHash, courseTabLink } from "./course-tabs";
@@ -61,6 +63,7 @@ type Feed = {
   authenticated: boolean;
   mode: "live" | "demo";
   courses: Course[];
+  gitlabProjects?: Record<string, Project>;
   changes: Change[];
   resources: Material[];
   lastSync: string | null;
@@ -280,6 +283,7 @@ function App() {
   const [fileError, setFileError] = useState<string | null>(null);
   const [viewedPdf, setViewedPdf] = useState<Material | null>(null);
   const [nextcloudToolbar, setNextcloudToolbar] = useState<HTMLDivElement | null>(null);
+  const [gitlabToolbar, setGitlabToolbar] = useState<HTMLDivElement | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState(courseFromHash);
   const [selectedTab, setSelectedTab] = useState(() => courseTabFromHash());
   const [selectedFolderId, setSelectedFolderId] = useState(folderFromHash);
@@ -422,6 +426,7 @@ function App() {
     return () => window.removeEventListener("hashchange", navigate);
   }, []);
   const generation = useRef(0);
+  const gitlabRevision = useRef(0);
   useEffect(() => {
     try {
       localStorage.setItem("stud-gk-file-view", fileView);
@@ -518,6 +523,7 @@ function App() {
   }
   async function load() {
     const version = generation.current;
+    const projectVersion = gitlabRevision.current;
     try {
       const next =
         phaseRef.current === "demo"
@@ -555,7 +561,8 @@ function App() {
           });
       }
       previousSync.current = feed.lastSync;
-      setData(feed);
+      setData((current) => gitlabRevision.current === projectVersion
+        ? feed : { ...feed, gitlabProjects: current?.gitlabProjects });
       setPhase(feed.mode);
       setError(null);
     } catch (e) {
@@ -633,6 +640,27 @@ function App() {
       setBusy(false);
     }
   }
+  async function saveGitlabProject(url: string | null) {
+    if (!selectedCourse) return;
+    const courseId = selectedCourse.id;
+    const version = generation.current;
+    try {
+      const result = await api<{ project: Project | null }>(`/api/courses/${encodeURIComponent(courseId)}/gitlab`, { url });
+      if (version !== generation.current) return;
+      gitlabRevision.current++;
+      setData((current) => {
+        if (!current) return current;
+        const projects = { ...current.gitlabProjects,
+          ...(result.project ? { [courseId]: result.project } : {}) };
+        if (!result.project) delete projects[courseId];
+        return { ...current, gitlabProjects: projects };
+      });
+    } catch (error) {
+      if (version === generation.current && error instanceof ApiError && error.status === 401)
+        signedOut("Сессия истекла. Войди в Stud.IP заново.");
+      throw error;
+    }
+  }
   const allFiles = (data?.resources ?? []).filter((r) => r.kind === "file");
   const courseFiles = allFiles
     .filter((f) => f.courseId === selectedCourse?.id)
@@ -648,6 +676,8 @@ function App() {
   const folderListing = folderData ? listFolder(folderData, selectedFolderId, courseFiles) : null;
   const folders = fileView === "folders" ? folderListing?.folders ?? [] : [];
   const files = fileView === "folders" ? folderListing?.files ?? [] : courseFiles;
+  const linkedProject = selectedCourse && data?.gitlabProjects && Object.hasOwn(data.gitlabProjects, selectedCourse.id)
+    ? data.gitlabProjects[selectedCourse.id] : null;
   function changeFileView(view: "all" | "folders") {
     if (view === "folders" && fileView !== "folders") initialFolderCourse.current = null;
     setFileView(view);
@@ -741,6 +771,7 @@ function App() {
                 </button>
               </div>}
               {selectedTab === "nextcloud" && <div className="nextcloud-toolbar" ref={setNextcloudToolbar} />}
+              {selectedTab === "gitlab" && <div className="gitlab-toolbar" ref={setGitlabToolbar} />}
             </div>
           ) : (
             <h1 className="visually-hidden">Курсы</h1>
@@ -790,7 +821,10 @@ function App() {
               onSelect={(tab) => { window.location.hash = courseTabLink(selectedCourse.id, tab, selectedFolderId); }}
             />}
             <div className={selectedCourse ? "course-content" : undefined}>
-            {selectedCourse && selectedTab !== "files" ? selectedTab === "nextcloud" ? <NextcloudSection
+            {selectedCourse && selectedTab !== "files" ? selectedTab === "gitlab" ? <GitlabProject
+              key={`${phase}:${selectedCourse.id}`} courseId={selectedCourse.id}
+              project={linkedProject} demo={phase === "demo"} onSave={saveGitlabProject} toolbarTarget={gitlabToolbar}
+            /> : selectedTab === "nextcloud" ? <NextcloudSection
               key={courseSettingsScope} storageKey={`stud-gk-nextcloud:${courseSettingsScope}`} toolbarTarget={nextcloudToolbar}
             /> : <CourseSections
               key={`${selectedCourse.id}:${selectedTab}`}

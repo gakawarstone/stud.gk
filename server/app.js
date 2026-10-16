@@ -14,6 +14,8 @@ import {
   SESSION_LIFETIME,
 } from "./sessions.js";
 import { reconcile } from "./changes.js";
+import { normalizeGitlabProject } from "./gitlab.js";
+import { createGitlabClient, GitlabError, validateGitlabToken } from "./gitlab-client.js";
 import { createDemo, createDemoFolders } from "./demo.js";
 import { previewType } from "./file-preview.js";
 import { nextcloudRoutes } from "./nextcloud-routes.js";
@@ -38,6 +40,11 @@ export async function createApp({
   getSnapshot = fetchSnapshot,
   getFolders = fetchCourseFolders,
   getDownload = (client, file, options) => client.download(file, options),
+  getGitlabReadme = createGitlabClient().readme,
+  getGitlabTree = createGitlabClient().list,
+  getGitlabBranches = createGitlabClient().branches,
+  getGitlabFile = createGitlabClient().file,
+  getGitlabContent = createGitlabClient().content,
   nextcloudClient,
   autoSync = true,
   sessionName = SESSION_NAME,
@@ -110,10 +117,11 @@ export async function createApp({
     try {
       const snapshot = await getSnapshot(context.client, context.user);
       if (context.revoked) return;
-      state.accounts[context.user.id] = reconcile(
-        state.accounts[context.user.id],
-        snapshot,
-      );
+      const previous = state.accounts[context.user.id];
+      state.accounts[context.user.id] = {
+        ...reconcile(previous, snapshot),
+        gitlabProjects: previous?.gitlabProjects ?? {},
+      };
       await save();
       const saved = await call(store, "get", context.sessionId);
       if (saved?.auth && !context.revoked) {
@@ -272,6 +280,92 @@ export async function createApp({
     await sync(req.context);
     res.json({ ok: true });
   });
+  app.post("/api/courses/:id/gitlab", requireLogin, async (req, res) => {
+    const account = state.accounts[req.context.user.id];
+    if (!account?.courses.some((course) => course.id === req.params.id))
+      throw new StudipError("Курс не найден в твоих курсах.", 404);
+    let project = null;
+    if (req.body?.url !== null) {
+      try {
+        project = normalizeGitlabProject(req.body?.url);
+      } catch (error) {
+        throw new StudipError(error.message, 400);
+      }
+    }
+    const projects = { ...account.gitlabProjects, [req.params.id]: project };
+    if (!project) delete projects[req.params.id];
+    account.gitlabProjects = projects;
+    await save();
+    res.json({ project });
+  });
+  function linkedGitlab(req) {
+    const account = state.accounts[req.context.user.id];
+    if (!account?.courses.some((course) => course.id === req.params.id))
+      throw new StudipError("Курс не найден в твоих курсах.", 404);
+    const project = Object.hasOwn(account.gitlabProjects ?? {}, req.params.id)
+      ? account.gitlabProjects[req.params.id] : null;
+    if (!project) throw new StudipError("Сначала привяжи проект GitLab к курсу.", 404);
+    return new URL(normalizeGitlabProject(project.url).url);
+  }
+  app.get("/api/courses/:id/gitlab/readme", requireLogin, async (req, res) => {
+    const project = linkedGitlab(req);
+    const token = req.session.gitlabTokens?.[project.origin];
+    const controller = new AbortController();
+    const cancel = () => controller.abort();
+    res.once("close", cancel);
+    try {
+      const result = await getGitlabReadme(project.href, {
+        token, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]),
+      });
+      if (req.context.revoked || req.context.expiresAt <= Date.now())
+        throw new StudipError("Сессия истекла. Войди в Stud.IP заново.", 401);
+      res.json({ ...result, hasToken: Boolean(token) });
+    } finally {
+      res.off("close", cancel);
+    }
+  });
+  app.post("/api/courses/:id/gitlab/token", requireLogin, async (req, res) => {
+    const project = linkedGitlab(req);
+    const token = req.body?.token === null ? null : validateGitlabToken(req.body?.token);
+    if (token && project.protocol !== "https:")
+      throw new GitlabError("Для подключения токена нужна ссылка GitLab с HTTPS.", 400);
+    const tokens = { ...req.session.gitlabTokens, [project.origin]: token };
+    if (!token) delete tokens[project.origin];
+    req.session.gitlabTokens = tokens;
+    await call(req.session, "save");
+    res.json({ connected: Boolean(token) });
+  });
+  for (const [route, read] of [["branches", (url, _path, options) => getGitlabBranches(url, options)], ["tree", getGitlabTree], ["file", getGitlabFile], ["content", getGitlabContent]]) {
+    app.get(`/api/courses/:id/gitlab/${route}`, requireLogin, async (req, res) => {
+      const project = linkedGitlab(req);
+      const controller = new AbortController();
+      const cancel = () => controller.abort();
+      res.once("close", cancel);
+      try {
+        const result = await read(project.href, req.query.path ?? "", {
+          ref: req.query.ref, token: req.session.gitlabTokens?.[project.origin],
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]),
+        });
+        if (req.context.revoked || req.context.expiresAt <= Date.now()) {
+          if (route === "content") await result.body?.cancel();
+          throw new StudipError("Сессия истекла. Войди в Stud.IP заново.", 401);
+        }
+        if (route !== "content") return res.json(result);
+        const filename = String(req.query.path).split("/").pop();
+        const download = req.query.download === "1";
+        const mediaTypes = { pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif",
+          webp: "image/webp", avif: "image/avif", bmp: "image/bmp", mp4: "video/mp4", webm: "video/webm",
+          mp3: "audio/mpeg", wav: "audio/wav", ogg: "audio/ogg", m4a: "audio/mp4" };
+        const mime = mediaTypes[filename.split(".").pop().toLowerCase()];
+        res.attachment(filename).type(download ? "application/octet-stream" : previewType({ title: filename, mime }, result) || "application/octet-stream");
+        if (!download) res.set("Content-Disposition", res.get("Content-Disposition").replace(/^attachment/, "inline"));
+        await pipeline(Readable.fromWeb(result.body), res, { signal: controller.signal });
+      } catch (error) {
+        if (!res.headersSent && !controller.signal.aborted) throw error;
+        if (!res.destroyed) res.destroy();
+      } finally { res.off("close", cancel); }
+    });
+  }
   app.get("/api/courses/:id/folders", requireLogin, async (req, res) => {
     const context = req.context;
     const account = state.accounts[context.user.id];
@@ -417,10 +511,11 @@ export async function createApp({
   app.use((err, req, res, next) =>
     res.status(err.status || 500).json({
       error:
-        err instanceof StudipError
+        err instanceof StudipError || err instanceof GitlabError
           ? err.message
           : "Не удалось выполнить запрос.",
       ...(err.status === 401 ? { code: "SESSION_EXPIRED" } : {}),
+      ...(err instanceof GitlabError ? { code: err.code } : {}),
     }),
   );
 

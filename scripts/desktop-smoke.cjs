@@ -125,7 +125,7 @@ async function nextcloudShareUrl(window) {
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-section-notice').textContent`), "Объявлений пока нет.");
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
   await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
-  assert.deepEqual(await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('[role="menu"] button'), button => button.getAttribute('aria-label'))`), ["Добавить Termine", "Добавить Kursinfo", "Добавить Nextcloud"]);
+  assert.deepEqual(await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('[role="menu"] button'), button => button.getAttribute('aria-label'))`), ["Добавить Termine", "Добавить Kursinfo", "Добавить Nextcloud", "Добавить GitLab"]);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('[role="menuitemcheckbox"]')`), null);
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Kursinfo"]').click()`);
   await waitFor(window, `document.querySelector('.course-info') !== null`);
@@ -142,7 +142,7 @@ async function nextcloudShareUrl(window) {
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('[data-course-tab]').length`), 3);
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
   await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
-  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('[role="menu"] button').length`), 2);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('[role="menu"] button').length`), 3);
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Termine"]').click()`);
   await waitFor(window, `document.querySelectorAll('[data-course-tab]').length === 4 && document.querySelector('[data-course-tab="schedule"]').getAttribute('aria-current') === 'page'`);
   // Mock share data in the renderer; the API's real WebDAV and streaming behavior
@@ -178,7 +178,11 @@ async function nextcloudShareUrl(window) {
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Nextcloud"]').click()`);
   await waitFor(window, `document.querySelector('#nextcloud-url') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('#nextcloud-url').value`), "");
-  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').disabled`), true);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').disabled`), false);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
+  assert.deepEqual(await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('[role="menu"] button'), button => button.getAttribute('aria-label'))`), ["Добавить GitLab"]);
+  await window.webContents.executeJavaScript(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
   await saveNextcloudLink(window, "javascript:alert(1)");
   await waitFor(window, `document.querySelector('.nextcloud-error') !== null`);
   const shareUrl = "https://nextcloud.example.org/nextcloud/index.php/s/share";
