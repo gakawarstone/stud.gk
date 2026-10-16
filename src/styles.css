@@ -557,6 +557,7 @@ input::placeholder {
   color: var(--subtext);
 }
 .course-rail-button:hover { color: var(--text); background: var(--surface); }
+.course-rail-button:disabled { opacity: .4; cursor: default; background: transparent; }
 .course-rail-button[aria-current="page"] {
   color: var(--mauve);
   background: color-mix(in srgb, var(--mauve) 14%, var(--base));

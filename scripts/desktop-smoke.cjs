@@ -17,6 +17,16 @@ async function waitFor(window, expression) {
   throw new Error(`Timed out waiting for ${expression}`);
 }
 
+async function openTabContextMenu(window, tab) {
+  const point = await window.webContents.executeJavaScript(`(() => {
+    const rect = document.querySelector('[data-course-tab="${tab}"]').getBoundingClientRect();
+    return { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2) };
+  })()`);
+  window.webContents.sendInputEvent({ type: "mouseDown", button: "right", clickCount: 1, ...point });
+  window.webContents.sendInputEvent({ type: "mouseUp", button: "right", clickCount: 1, ...point });
+  await waitFor(window, `document.querySelector('button[aria-label="Удалить ${tab === "news" ? "Ankündigungen" : tab === "schedule" ? "Termine" : "Kursinfo"} из панели"]') !== null`);
+}
+
 (async () => {
   // Never use or alter the developer's Stud.GK profile in a smoke test.
   const profile = process.env.CAMPUS_SMOKE_PROFILE || await mkdtemp(path.join(os.tmpdir(), "campus-smoke-"));
@@ -84,7 +94,8 @@ async function waitFor(window, expression) {
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-section-notice').textContent`), "Объявлений пока нет.");
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
   await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
-  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Убрать Ankündigungen"]').getAttribute('aria-checked')`), "true");
+  assert.deepEqual(await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('[role="menu"] button'), button => button.getAttribute('aria-label'))`), ["Добавить Termine", "Добавить Kursinfo"]);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('[role="menuitemcheckbox"]')`), null);
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Kursinfo"]').click()`);
   await waitFor(window, `document.querySelector('.course-info') !== null`);
   assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.course-info').textContent.includes(${JSON.stringify(demo.courses[0].description)})`));
@@ -98,6 +109,26 @@ async function waitFor(window, expression) {
   await window.webContents.executeJavaScript(`document.querySelector('.demo-link').click()`);
   await waitFor(window, `document.querySelector('.course-info') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('[data-course-tab]').length`), 3);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('[role="menu"] button').length`), 1);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Termine"]').click()`);
+  await waitFor(window, `document.querySelectorAll('[data-course-tab]').length === 4 && document.querySelector('[data-course-tab="schedule"]').getAttribute('aria-current') === 'page'`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').disabled`), true);
+  await openTabContextMenu(window, "schedule");
+  await window.webContents.executeJavaScript(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+  await waitFor(window, `document.querySelector('[role="menu"]') === null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.activeElement.dataset.courseTab`), "schedule");
+  window.webContents.sendInputEvent({ type: "keyDown", keyCode: "F10", modifiers: ["shift"] });
+  window.webContents.sendInputEvent({ type: "keyUp", keyCode: "F10", modifiers: ["shift"] });
+  await waitFor(window, `document.querySelector('button[aria-label="Удалить Termine из панели"]') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('[data-course-tab="files"]').click()`);
+  await waitFor(window, `document.querySelector('.file-grid') !== null && document.querySelector('[role="menu"]') === null`);
+  await openTabContextMenu(window, "schedule");
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Удалить Termine из панели"]').click()`);
+  await waitFor(window, `document.querySelector('[data-course-tab="schedule"]') === null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-sidebar [aria-current="page"]').dataset.courseTab`), "files");
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').disabled`), false);
   await window.webContents.executeJavaScript(`document.querySelector('[data-course-tab="files"]').click()`);
   await waitFor(window, `document.querySelector('.file-grid') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.file-card').length`), 2);
@@ -114,6 +145,11 @@ async function waitFor(window, expression) {
   await waitFor(window, `document.querySelector('.course-news[open]') !== null && document.querySelector('.course-rail-dot') === null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-resource-body').textContent`), news.description);
   window.setSize(480, 700);
+  await openTabContextMenu(window, "news");
+  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('[role="menu"]').getBoundingClientRect().right <= innerWidth`));
+  await window.webContents.executeJavaScript(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+  await waitFor(window, `document.querySelector('[role="menu"]') === null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.activeElement.dataset.courseTab`), "news");
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
   await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
   assert.ok(await window.webContents.executeJavaScript(`document.querySelector('[role="menu"]').getBoundingClientRect().right <= innerWidth`));
@@ -124,10 +160,18 @@ async function waitFor(window, expression) {
   if (process.env.CAMPUS_SMOKE_SIDEBAR_SCREENSHOT) {
     await writeFile(process.env.CAMPUS_SMOKE_SIDEBAR_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
   }
+  await openTabContextMenu(window, "news");
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Удалить Ankündigungen из панели"]').click()`);
+  await waitFor(window, `document.querySelectorAll('[data-course-tab]').length === 1 && document.querySelector('.file-grid') !== null`);
+  window.webContents.reload();
+  await waitFor(window, `document.querySelector('.demo-link') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('.demo-link').click()`);
+  await waitFor(window, `document.querySelectorAll('[data-course-tab]').length === 1 && document.querySelector('.file-grid') !== null`);
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
   await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Убрать Ankündigungen"]').click()`);
-  await waitFor(window, `document.querySelectorAll('[data-course-tab]').length === 1 && document.querySelector('.file-grid') !== null`);
+  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Ankündigungen"]') !== null`));
+  await window.webContents.executeJavaScript(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+  await waitFor(window, `document.querySelector('[role="menu"]') === null`);
   const event = demo.resources.find((item) => item.kind === "schedule");
   await window.webContents.executeJavaScript(`location.hash = ${JSON.stringify(`#course=${event.courseId}`)}`);
   await waitFor(window, `document.querySelector('.course-heading').textContent === ${JSON.stringify(demo.courses.find((course) => course.id === event.courseId).title)}`);
