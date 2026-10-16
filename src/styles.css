@@ -93,6 +93,9 @@ input:focus-visible {
   justify-content: space-between;
   gap: 20px;
 }
+.header.header--course {
+  padding-bottom: 6px;
+}
 .brand {
   display: flex;
   align-items: center;

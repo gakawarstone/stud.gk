@@ -698,7 +698,7 @@ function App() {
   const syncing = busy || data?.syncing;
   return (
     <div className="page">
-      <header className="header">
+      <header className={`header${selectedCourse ? " header--course" : ""}`}>
         <div className="brand">
           <GraduationCap size={24} strokeWidth={1.7} />
           <span>Stud.GK</span>
