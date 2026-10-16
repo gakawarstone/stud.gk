@@ -12,7 +12,8 @@
     "test": "node --experimental-strip-types --test server/*.test.js src/*.test.js",
     "desktop": "npm run build && env -u ELECTRON_RUN_AS_NODE electron .",
     "dist:linux": "npm run build && electron-builder --linux --x64 --publish never",
-    "test:desktop": "env -u ELECTRON_RUN_AS_NODE electron scripts/desktop-smoke.cjs"
+    "test:desktop": "env -u ELECTRON_RUN_AS_NODE electron scripts/desktop-smoke.cjs",
+    "test:gitlab": "env -u ELECTRON_RUN_AS_NODE electron scripts/gitlab-readme-smoke.cjs"
   },
   "keywords": [],
   "author": "gakawarstone",

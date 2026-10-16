@@ -148,6 +148,8 @@ GET  /api/nextcloud/file/download?share=…&path=…&backend=dav
 
 ## Проверки
 
+Проверка интерфейса GitLab использует отдельный временный профиль и тестовый API, без обращения к приватным проектам. После `npm run build` запусти `xvfb-run -a npm run test:gitlab -- --no-sandbox --ozone-platform=x11`. Она проверяет токен, дерево папок, смену ветки, коммит, подсветку, Markdown, прокрутку и узкое окно.
+
 ```sh
 npm test
 npm run build

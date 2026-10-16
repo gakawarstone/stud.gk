@@ -17,10 +17,10 @@ export function GitlabCommitSummary({ commit }: { commit: GitlabCommit }) {
   return <div className="gitlab-last-commit" aria-label="Последний коммит">
     <span className="gitlab-commit-avatar" aria-hidden="true">{initials}</span>
     <div className="gitlab-commit-details">
-    <a className="gitlab-commit-title" href={commit.webUrl} target="_blank" rel="noopener noreferrer" title={commit.title}>{commit.title || "Последний коммит"}</a>
-    <div className="gitlab-commit-meta"><span className="gitlab-commit-author" title={author}>{author}</span>
-      {date && <><span aria-hidden="true">·</span><time dateTime={commit.committedAt!} title={new Date(commit.committedAt!).toLocaleString()}>{date}</time></>}
-    </div>
+      <a className="gitlab-commit-title" href={commit.webUrl} target="_blank" rel="noopener noreferrer" title={commit.title}>{commit.title || "Последний коммит"}</a>
+      <div className="gitlab-commit-meta"><span className="gitlab-commit-author" title={author}>{author}</span>
+        {date && <><span aria-hidden="true">·</span><time dateTime={commit.committedAt!} title={new Date(commit.committedAt!).toLocaleString()}>{date}</time></>}
+      </div>
     </div>
   </div>;
 }
