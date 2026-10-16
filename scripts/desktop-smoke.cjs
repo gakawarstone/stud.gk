@@ -37,6 +37,27 @@ async function saveNextcloudLink(window, url) {
   await window.webContents.executeJavaScript(`document.querySelector('.nextcloud-form').requestSubmit()`);
 }
 
+
+async function openNextcloudSettings(window) {
+  await window.webContents.executeJavaScript(`if (!document.querySelector('.nextcloud-settings-menu')) document.querySelector('button[aria-label="Настройки Nextcloud"]').click()`);
+  await waitFor(window, `document.querySelector('.nextcloud-settings-menu') !== null`);
+}
+
+async function nextcloudAction(window, label, setup = "") {
+  if (setup) await window.webContents.executeJavaScript(setup);
+  await openNextcloudSettings(window);
+  await window.webContents.executeJavaScript(`document.querySelector('.nextcloud-settings-menu').querySelector(${JSON.stringify(`[aria-label="${label}"]`)}).click()`);
+  await waitFor(window, `document.querySelector('.nextcloud-settings-menu') === null`);
+}
+
+async function nextcloudShareUrl(window) {
+  await openNextcloudSettings(window);
+  const url = await window.webContents.executeJavaScript(`document.querySelector('a[aria-label="Открыть Nextcloud в браузере"]').href`);
+  await window.webContents.executeJavaScript(`document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}))`);
+  await waitFor(window, `document.querySelector('.nextcloud-settings-menu') === null`);
+  return url;
+}
+
 (async () => {
   // Never use or alter the developer's Stud.GK profile in a smoke test.
   const profile = process.env.CAMPUS_SMOKE_PROFILE || await mkdtemp(path.join(os.tmpdir(), "campus-smoke-"));
@@ -164,12 +185,25 @@ async function saveNextcloudLink(window, url) {
   await saveNextcloudLink(window, shareUrl);
   await waitFor(window, `document.querySelectorAll('.nextcloud-file').length === 2`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.nextcloud-form')`), null);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.nextcloud-tools > button').length`), 1);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.nextcloud-tools > a').length`), 0);
+  await openNextcloudSettings(window);
+  assert.equal(await window.webContents.executeJavaScript(`document.activeElement.getAttribute('aria-label')`), "Обновить файлы Nextcloud");
+  await window.webContents.executeJavaScript(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowDown', bubbles:true}))`);
+  assert.equal(await window.webContents.executeJavaScript(`document.activeElement.getAttribute('aria-label')`), "Изменить ссылку Nextcloud");
+  if (process.env.CAMPUS_SMOKE_NEXTCLOUD_MENU_SCREENSHOT) await writeFile(process.env.CAMPUS_SMOKE_NEXTCLOUD_MENU_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
+  await window.webContents.executeJavaScript(`document.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true}))`);
+  await waitFor(window, `document.querySelector('.nextcloud-settings-menu') === null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.activeElement.getAttribute('aria-label')`), "Настройки Nextcloud");
+  await openNextcloudSettings(window);
+  await window.webContents.executeJavaScript(`document.body.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true}))`);
+  await waitFor(window, `document.querySelector('.nextcloud-settings-menu') === null`);
   await waitFor(window, `document.querySelector('.thumbnail-preview.video img')?.naturalWidth > 0`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.thumbnail-preview.video img').naturalWidth`), 160);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.thumbnail-preview.video img').naturalHeight`), 90);
-  await window.webContents.executeJavaScript(`window.nextcloudThumbnailBroken = true; window.nextcloudFixtureVersion = 'broken'; document.querySelector('button[aria-label="Обновить файлы Nextcloud"]').click()`);
+  await nextcloudAction(window, "Обновить файлы Nextcloud", "window.nextcloudThumbnailBroken = true; window.nextcloudFixtureVersion = 'broken';");
   await waitFor(window, `document.querySelector('.thumbnail-preview.video .thumbnail-fallback') !== null`);
-  await window.webContents.executeJavaScript(`window.nextcloudThumbnailBroken = false; window.nextcloudFixtureVersion = 'repaired'; document.querySelector('button[aria-label="Обновить файлы Nextcloud"]').click()`);
+  await nextcloudAction(window, "Обновить файлы Nextcloud", "window.nextcloudThumbnailBroken = false; window.nextcloudFixtureVersion = 'repaired';");
   await waitFor(window, `document.querySelector('.thumbnail-preview.video img')?.naturalWidth > 0`);
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Открыть папку Lectures"]').click()`);
   await waitFor(window, `document.querySelector('button[aria-label="Открыть notes.txt"]') !== null`);
@@ -180,12 +214,12 @@ async function saveNextcloudLink(window, url) {
   await waitFor(window, `document.querySelector('dialog') === null`);
   await window.webContents.executeJavaScript(`document.querySelector('.nextcloud-breadcrumbs > button').click()`);
   await waitFor(window, `document.querySelectorAll('.nextcloud-file').length === 2`);
-  await window.webContents.executeJavaScript(`window.nextcloudFixtureError = true; document.querySelector('button[aria-label="Обновить файлы Nextcloud"]').click()`);
+  await nextcloudAction(window, "Обновить файлы Nextcloud", 'window.nextcloudFixtureError = true;');
   await waitFor(window, `document.querySelector('.nextcloud-load-error') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.nextcloud-file').length`), 0);
   await window.webContents.executeJavaScript(`window.nextcloudFixtureError = false; document.querySelector('.nextcloud-load-error button').click()`);
   await waitFor(window, `document.querySelectorAll('.nextcloud-file').length === 2`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Изменить ссылку Nextcloud"]').click()`);
+  await nextcloudAction(window, "Изменить ссылку Nextcloud");
   const editedUrl = `${shareUrl}#files`;
   await saveNextcloudLink(window, editedUrl);
   await waitFor(window, `document.querySelectorAll('.nextcloud-file').length === 2`);
@@ -193,7 +227,7 @@ async function saveNextcloudLink(window, url) {
   const originalOpenExternal = shell.openExternal;
   shell.openExternal = async (url) => { externalUrls.push(url); };
   try {
-    await window.webContents.executeJavaScript(`document.querySelector('a[aria-label="Открыть Nextcloud в браузере"]').click()`);
+    await nextcloudAction(window, "Открыть Nextcloud в браузере");
     for (let attempt = 0; attempt < 100 && !externalUrls.length; attempt++) await new Promise((resolve) => setTimeout(resolve, 20));
     assert.deepEqual(externalUrls, [editedUrl]);
     assert.equal(BrowserWindow.getAllWindows().length, 1);
@@ -202,17 +236,21 @@ async function saveNextcloudLink(window, url) {
   await waitFor(window, `document.querySelector('.demo-link') !== null`);
   await window.webContents.executeJavaScript(`document.querySelector('.demo-link').click()`);
   await waitFor(window, `document.querySelectorAll('.nextcloud-file').length === 2`);
-  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('a[aria-label="Открыть Nextcloud в браузере"]').href`), editedUrl);
+  assert.equal(await nextcloudShareUrl(window), editedUrl);
   await window.webContents.executeJavaScript(`location.hash = ${JSON.stringify(`#course=${demo.courses[1].id}&tab=nextcloud`)}`);
   await waitFor(window, `document.querySelector('#nextcloud-url')?.value === ''`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.nextcloud-file').length`), 0);
   await window.webContents.executeJavaScript(`location.hash = ${JSON.stringify(`#course=${demo.courses[0].id}&tab=nextcloud`)}`);
   await waitFor(window, `document.querySelectorAll('.nextcloud-file').length === 2`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Изменить ссылку Nextcloud"]').click()`);
+  await nextcloudAction(window, "Изменить ссылку Nextcloud");
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('#nextcloud-url').value`), editedUrl);
   window.setSize(480, 700);
   assert.ok(await window.webContents.executeJavaScript(`document.querySelector('#nextcloud-url').getBoundingClientRect().right <= innerWidth`));
   assert.ok(await window.webContents.executeJavaScript(`document.documentElement.scrollWidth <= innerWidth`));
+  await openNextcloudSettings(window);
+  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.nextcloud-settings-menu').getBoundingClientRect().right <= innerWidth && document.querySelector('.nextcloud-settings-menu').getBoundingClientRect().left >= 0`));
+  await window.webContents.executeJavaScript(`document.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true}))`);
+  await waitFor(window, `document.querySelector('.nextcloud-settings-menu') === null`);
   window.setSize(1280, 850);
   await openTabContextMenu(window, "nextcloud");
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Удалить Nextcloud из панели"]').click()`);
@@ -221,7 +259,7 @@ async function saveNextcloudLink(window, url) {
   await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Nextcloud"]').click()`);
   await waitFor(window, `document.querySelectorAll('.nextcloud-file').length === 2`);
-  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('a[aria-label="Открыть Nextcloud в браузере"]').href`), editedUrl);
+  assert.equal(await nextcloudShareUrl(window), editedUrl);
   await openTabContextMenu(window, "nextcloud");
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Удалить Nextcloud из панели"]').click()`);
   await waitFor(window, `document.querySelector('[data-course-tab="nextcloud"]') === null`);

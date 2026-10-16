@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronRight, Download, ExternalLink, FileText, Film, Folder, Headphones, Image, Link, LoaderCircle, RefreshCw } from "lucide-react";
+import { ChevronRight, Download, FileText, Film, Folder, Headphones, Image, LoaderCircle } from "lucide-react";
 import { nextcloudUrl } from "./nextcloud-url";
 import { FileThumbnail } from "./FileThumbnail";
+import { NextcloudSettings } from "./NextcloudSettings";
 import { NextcloudViewer, nextcloudFileKind, type NextcloudEntry } from "./NextcloudViewer";
 
 type Listing = { title: string; path: string; backend: string; entries: NextcloudEntry[] };
@@ -26,6 +27,9 @@ export function NextcloudSection({ storageKey, toolbarTarget }: { storageKey: st
   const [path, setPath] = useState("");
   const [revision, setRevision] = useState(0);
   const [viewed, setViewed] = useState<NextcloudEntry | null>(null);
+  const urlInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { if (editing) urlInput.current?.focus(); }, [editing]);
 
   useEffect(() => {
     if (!savedUrl) return;
@@ -51,11 +55,8 @@ export function NextcloudSection({ storageKey, toolbarTarget }: { storageKey: st
   }
 
   return <section className="nextcloud-section" aria-label="Nextcloud">
-    {savedUrl && toolbarTarget && createPortal(<div className="nextcloud-tools" role="group" aria-label="Действия Nextcloud">
-        <button type="button" aria-label="Обновить файлы Nextcloud" disabled={loading} onClick={() => setRevision((value) => value + 1)}><RefreshCw size={17} /></button>
-        <button type="button" aria-label="Изменить ссылку Nextcloud" aria-expanded={editing} onClick={() => setEditing(!editing)}><Link size={17} /></button>
-        <a href={savedUrl} target="_blank" rel="noreferrer" aria-label="Открыть Nextcloud в браузере"><ExternalLink size={17} /></a>
-      </div>, toolbarTarget)}
+    {savedUrl && toolbarTarget && createPortal(<NextcloudSettings url={savedUrl} loading={loading}
+      onRefresh={() => setRevision((value) => value + 1)} onEdit={() => { setEditing(true); urlInput.current?.focus(); }} />, toolbarTarget)}
     {editing && <form className="nextcloud-form" noValidate onSubmit={(event) => {
       event.preventDefault();
       const url = nextcloudUrl(input);
@@ -72,7 +73,7 @@ export function NextcloudSection({ storageKey, toolbarTarget }: { storageKey: st
       } catch { setError("Не удалось сохранить ссылку. Проверь, разрешено ли локальное хранилище."); }
     }}>
       <label htmlFor="nextcloud-url">Ссылка на общую папку или файл Nextcloud</label>
-      <input id="nextcloud-url" name="nextcloud-url" type="url" inputMode="url"
+      <input ref={urlInput} id="nextcloud-url" name="nextcloud-url" type="url" inputMode="url"
         autoComplete="off" spellCheck={false} placeholder="https://nextcloud.example.org/s/…"
         value={input} aria-invalid={Boolean(error)}
         aria-describedby={`nextcloud-help${error ? " nextcloud-error" : ""}`}
