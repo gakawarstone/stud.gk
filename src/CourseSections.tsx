@@ -39,7 +39,7 @@ function ResourceDate({ value }: { value: string | number | null | undefined }) 
 
 export function CourseSections({ course, tab, resources, unavailable, onRead }: {
   course: CourseDetails;
-  tab: ExtraCourseTab;
+  tab: Exclude<ExtraCourseTab, "nextcloud">;
   resources: CourseResource[];
   unavailable: boolean;
   onRead: (id: string) => void;

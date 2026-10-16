@@ -34,6 +34,7 @@ import { listFolder, type CourseFolders } from "./course-folders";
 import { FolderExplorer } from "./FolderExplorer";
 import { PdfFileIcon } from "./PdfFileIcon";
 import { CourseSidebar } from "./CourseSidebar";
+import { NextcloudSection } from "./NextcloudSection";
 import { CourseSections, type CourseDetails, type CourseResource } from "./CourseSections";
 import { courseTabFromHash, courseTabLink } from "./course-tabs";
 
@@ -268,6 +269,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [viewedPdf, setViewedPdf] = useState<Material | null>(null);
+  const [nextcloudToolbar, setNextcloudToolbar] = useState<HTMLDivElement | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState(courseFromHash);
   const [selectedTab, setSelectedTab] = useState(() => courseTabFromHash());
   const [selectedFolderId, setSelectedFolderId] = useState(folderFromHash);
@@ -315,6 +317,7 @@ function App() {
     (a, b) => (ranks.get(a.id) ?? Infinity) - (ranks.get(b.id) ?? Infinity),
   );
   const selectedCourse = orderedCourses.find((c) => c.id === selectedCourseId);
+  const courseSettingsScope = JSON.stringify([phase, data?.user?.id || "", selectedCourse?.id || ""]);
   const fileChanges = (data?.changes ?? []).filter(
     (c) => c.kind === "file" && c.action !== "removed",
   );
@@ -725,6 +728,7 @@ function App() {
                   <FolderTree size={15} aria-hidden="true" />
                 </button>
               </div>}
+              {selectedTab === "nextcloud" && <div className="nextcloud-toolbar" ref={setNextcloudToolbar} />}
             </div>
           ) : (
             <h1 className="visually-hidden">Курсы</h1>
@@ -767,14 +771,16 @@ function App() {
           )}
           <div className={selectedCourse ? "course-workspace" : undefined}>
             {selectedCourse && <CourseSidebar
-              key={JSON.stringify([phase, data?.user?.id || "", selectedCourse.id])}
-              storageKey={`stud-gk-course-tabs:${JSON.stringify([phase, data?.user?.id || "", selectedCourse.id])}`}
+              key={courseSettingsScope}
+              storageKey={`stud-gk-course-tabs:${courseSettingsScope}`}
               activeTab={selectedTab}
               unreadNews={(data?.changes ?? []).some((change) => change.courseId === selectedCourse.id && change.kind === "news" && !change.read && change.action !== "removed" && data?.resources.some((item) => item.id === change.resourceId))}
               onSelect={(tab) => { window.location.hash = courseTabLink(selectedCourse.id, tab, selectedFolderId); }}
             />}
             <div className={selectedCourse ? "course-content" : undefined}>
-            {selectedCourse && selectedTab !== "files" ? <CourseSections
+            {selectedCourse && selectedTab !== "files" ? selectedTab === "nextcloud" ? <NextcloudSection
+              key={courseSettingsScope} storageKey={`stud-gk-nextcloud:${courseSettingsScope}`} toolbarTarget={nextcloudToolbar}
+            /> : <CourseSections
               key={`${selectedCourse.id}:${selectedTab}`}
               course={selectedCourse} tab={selectedTab} resources={data?.resources ?? []}
               unavailable={Boolean(data?.unavailableSources?.some((source) => source.courseId === selectedCourse.id && source.kind === selectedTab))}
