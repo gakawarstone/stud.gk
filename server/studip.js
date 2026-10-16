@@ -205,6 +205,28 @@ export function normalize(resource, kind, courseId) {
   };
 }
 
+export async function fetchCourseFolders(client, courseId) {
+  const course = encodeURIComponent(courseId);
+  const [rawFolders, rawFiles] = await Promise.all([
+    client.list(`courses/${course}/folders?page[limit]=100`),
+    client.list(`courses/${course}/file-refs?page[limit]=100`),
+  ]);
+  const folders = rawFolders.map((folder) => ({
+    id: folder.id,
+    title: plain(folder.attributes?.name) || "Без названия",
+    parentId: folder.relationships?.parent?.data?.id ?? null,
+    readable: folder.attributes?.["is-readable"] !== false,
+  }));
+  return {
+    folders,
+    rootId: folders.find((folder) => folder.parentId === null)?.id ?? null,
+    fileFolders: rawFiles.map((file) => ({
+      fileRefId: file.id,
+      folderId: file.relationships?.parent?.data?.id ?? null,
+    })),
+  };
+}
+
 export async function fetchSnapshot(client, user) {
   const semesters = await client.list("semesters?page[limit]=100");
   const current = semesters.find((s) => s.attributes?.["is-current"]);

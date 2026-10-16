@@ -119,14 +119,15 @@ function PdfPage({
 export function PdfViewer({
   title,
   remoteId,
+  contentUrl,
+  downloadUrl,
   onClose,
   onViewed,
 }: {
   title: string;
-  remoteId: string;
   onClose: () => void;
-  onViewed: () => void;
-}) {
+  onViewed?: () => void;
+} & ({ remoteId: string; contentUrl?: never; downloadUrl?: never } | { remoteId?: never; contentUrl: string; downloadUrl: string })) {
   const dialog = useRef<HTMLDialogElement>(null);
   const fullscreenContainer = useRef<HTMLDivElement>(null);
   const documentArea = useRef<HTMLDivElement>(null);
@@ -147,7 +148,9 @@ export function PdfViewer({
   const [fullscreenError, setFullscreenError] = useState<string | null>(null);
   const enteredFullscreen = useRef(false);
   const viewed = useRef(false);
-  const fileUrl = `/api/files/${encodeURIComponent(remoteId)}`;
+  const fileUrl = `/api/files/${encodeURIComponent(remoteId || "")}`;
+  const previewUrl = contentUrl || `${fileUrl}/preview`;
+  const saveUrl = downloadUrl || `${fileUrl}/download`;
 
   useEffect(() => {
     const element = dialog.current!;
@@ -189,7 +192,7 @@ export function PdfViewer({
     void import("./pdf-document")
       .then(({ openPdfDocument }) => {
         if (cancelled) return;
-        task = openPdfDocument(`${fileUrl}/preview`);
+        task = openPdfDocument(previewUrl);
         return task.promise;
       })
       .then(async (document) => {
@@ -207,7 +210,7 @@ export function PdfViewer({
       cancelled = true;
       void task?.destroy().catch(() => {});
     };
-  }, [fileUrl, attempt]);
+  }, [previewUrl, attempt]);
 
   useEffect(() => {
     if (document.activeElement !== numberInput.current)
@@ -425,7 +428,7 @@ export function PdfViewer({
             </button>
             <a
               className="pdf-viewer-action"
-              href={`${fileUrl}/download`}
+              href={saveUrl}
               aria-label="Скачать PDF"
               title="Скачать PDF"
             >
@@ -467,7 +470,7 @@ export function PdfViewer({
                   onRendered={() => {
                     if (viewed.current) return;
                     viewed.current = true;
-                    onViewed();
+                    onViewed?.();
                   }}
                 />
               ))}

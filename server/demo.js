@@ -135,10 +135,36 @@ export function createDemo(now = new Date()) {
   return {
     courses,
     changes,
-    resources: changes
-      .filter((c) => c.kind === "file")
-      .map((c) => ({ ...c, id: c.resourceId })),
+    resources: [
+      ...changes.map((c) => ({ ...c, id: c.resourceId })),
+      ...courses.map((course) => ({
+        id: `course:${course.id}`, remoteId: course.id, kind: "course", courseId: course.id,
+        title: course.title, description: course.description, location: course.location,
+      })),
+    ],
     lastSync: at(2),
     semester: "WS 2026/27",
+  };
+}
+
+export function createDemoFolders(courseId, resources) {
+  const rootId = `demo-root-${courseId}`;
+  const lectures = `demo-lectures-${courseId}`;
+  const exercises = `demo-exercises-${courseId}`;
+  const projects = `demo-projects-${courseId}`;
+  return {
+    rootId,
+    folders: [
+      { id: rootId, title: "Файлы курса", parentId: null, readable: true },
+      { id: lectures, title: "Vorlesungen", parentId: rootId, readable: true },
+      { id: exercises, title: "Übungen", parentId: rootId, readable: true },
+      { id: projects, title: "Projekt", parentId: exercises, readable: true },
+    ],
+    fileFolders: resources.filter((file) => file.kind === "file" && file.courseId === courseId)
+      .map((file) => ({
+        fileRefId: file.remoteId,
+        folderId: /Projekt/i.test(file.title) ? projects
+          : /Übung/i.test(file.title) ? exercises : lectures,
+      })),
   };
 }

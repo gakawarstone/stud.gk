@@ -17,9 +17,11 @@ import {
   FileImage,
   FileVideo,
   FileText,
+  FolderTree,
   GraduationCap,
   GripVertical,
   LoaderCircle,
+  LayoutGrid,
   LogOut,
   ShieldCheck,
   TriangleAlert,
@@ -28,8 +30,17 @@ import "./styles.css";
 import { FileThumbnail, clearThumbnailCache } from "./FileThumbnail";
 import { PdfViewer } from "./PdfViewer";
 import { courseIcon } from "./course-icons";
+import { listFolder, type CourseFolders } from "./course-folders";
+import { FolderExplorer } from "./FolderExplorer";
+import { PdfFileIcon } from "./PdfFileIcon";
+import { CourseSidebar } from "./CourseSidebar";
+import { GitlabProject } from "./GitlabProject";
+import type { GitlabProject as Project } from "../server/gitlab.js";
+import { NextcloudSection } from "./NextcloudSection";
+import { CourseSections, type CourseDetails, type CourseResource } from "./CourseSections";
+import { courseTabFromHash, courseTabLink } from "./course-tabs";
 
-type Course = { id: string; title: string; color: string; url: string | null };
+type Course = CourseDetails & { color: string };
 type Change = {
   id: string;
   remoteId?: string;
@@ -47,21 +58,32 @@ type Change = {
 type Material = Omit<Change, "occurredAt" | "action" | "read"> & {
   createdAt?: string | null;
   updatedAt?: string | null;
-};
+} & Pick<CourseResource, "start" | "end" | "cancelled">;
 type Feed = {
   authenticated: boolean;
   mode: "live" | "demo";
   courses: Course[];
+  gitlabProjects?: Record<string, Project>;
   changes: Change[];
   resources: Material[];
   lastSync: string | null;
   syncing: boolean;
   error: string | null;
   unavailableSources?: { courseId: string; kind: string }[];
-  user: { name: string } | null;
+  user: { id: string; name: string } | null;
 };
 type AuthState = Feed | { authenticated: false; authExpired: boolean };
 type Phase = "loading" | "login" | "live" | "demo";
+function userInitials(name: string | undefined) {
+  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+  return (
+    parts
+      .filter((_, index) => index === 0 || index === parts.length - 1)
+      .map((part) => Array.from(part)[0])
+      .join("")
+      .toLocaleUpperCase() || "?"
+  );
+}
 class ApiError extends Error {
   constructor(
     message: string,
@@ -101,7 +123,7 @@ function fileAppearance(title: string) {
   const extension = title.includes(".")
     ? title.split(".").pop()!.toLowerCase()
     : "";
-  if (extension === "pdf") return { Icon: FileText, label: "PDF", tone: "pdf" };
+  if (extension === "pdf") return { Icon: PdfFileIcon, label: "PDF", tone: "pdf" };
   if (
     ["png", "jpg", "jpeg", "gif", "webp", "avif", "svg", "bmp"].includes(
       extension,
@@ -133,6 +155,12 @@ function fileAppearance(title: string) {
 }
 function courseFromHash() {
   return new URLSearchParams(window.location.hash.slice(1)).get("course");
+}
+function folderFromHash() {
+  return new URLSearchParams(window.location.hash.slice(1)).get("folder");
+}
+function folderLink(courseId: string, folderId?: string) {
+  return `#${new URLSearchParams({ course: courseId, ...(folderId ? { folder: folderId } : {}) })}`;
 }
 function fileCountLabel(count: number) {
   const last = count % 10;
@@ -254,7 +282,26 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [viewedPdf, setViewedPdf] = useState<Material | null>(null);
+  const [nextcloudToolbar, setNextcloudToolbar] = useState<HTMLDivElement | null>(null);
+  const [gitlabToolbar, setGitlabToolbar] = useState<HTMLDivElement | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState(courseFromHash);
+  const [selectedTab, setSelectedTab] = useState(() => courseTabFromHash());
+  const [selectedFolderId, setSelectedFolderId] = useState(folderFromHash);
+  const [fileView, setFileView] = useState<"all" | "folders">(() => {
+    if (folderFromHash()) return "folders";
+    try {
+      return localStorage.getItem("stud-gk-file-view") === "folders" ? "folders" : "all";
+    } catch {
+      return "all";
+    }
+  });
+  const [folderRevision, setFolderRevision] = useState(0);
+  const initialFolderCourse = useRef<string | null>(null);
+  const [folderState, setFolderState] = useState<{
+    courseId: string;
+    data: CourseFolders | null;
+    error: string | null;
+  } | null>(null);
   const [courseOrder, setCourseOrder] = useState<string[]>(() => {
     try {
       const saved: unknown = JSON.parse(
@@ -284,6 +331,7 @@ function App() {
     (a, b) => (ranks.get(a.id) ?? Infinity) - (ranks.get(b.id) ?? Infinity),
   );
   const selectedCourse = orderedCourses.find((c) => c.id === selectedCourseId);
+  const courseSettingsScope = JSON.stringify([phase, data?.user?.id || "", selectedCourse?.id || ""]);
   const fileChanges = (data?.changes ?? []).filter(
     (c) => c.kind === "file" && c.action !== "removed",
   );
@@ -367,6 +415,9 @@ function App() {
     function navigate() {
       dragCleanup.current?.();
       setSelectedCourseId(courseFromHash());
+      setSelectedTab(courseTabFromHash());
+      setSelectedFolderId(folderFromHash());
+      if (folderFromHash()) setFileView("folders");
       setFileError(null);
       setViewedPdf(null);
       window.scrollTo(0, 0);
@@ -375,15 +426,57 @@ function App() {
     return () => window.removeEventListener("hashchange", navigate);
   }, []);
   const generation = useRef(0);
-  async function markPdfViewed(file: Material) {
+  const gitlabRevision = useRef(0);
+  useEffect(() => {
+    try {
+      localStorage.setItem("stud-gk-file-view", fileView);
+    } catch { /* The current view still works when storage is unavailable. */ }
+  }, [fileView]);
+  useEffect(() => {
+    const courseId = selectedCourse?.id;
+    if (!courseId || selectedTab !== "files" || fileView !== "folders" || (phase !== "live" && phase !== "demo")) return;
+    let cancelled = false;
     const version = generation.current;
-    const changes = fileChanges.filter(
-      (change) => change.resourceId === file.id && !change.read,
+    setFolderState({ courseId, data: null, error: null });
+    const route = phase === "demo" ? "/api/demo/courses" : "/api/courses";
+    void api<CourseFolders>(`${route}/${encodeURIComponent(courseId)}/folders`)
+      .then((folders) => {
+        if (!cancelled && version === generation.current) {
+          setFolderState({ courseId, data: folders, error: null });
+          if (initialFolderCourse.current !== courseId) {
+            initialFolderCourse.current = courseId;
+            const root = listFolder(folders, null, (data?.resources ?? [])
+              .filter((file) => file.kind === "file" && file.courseId === courseId));
+            const first = root.folders.find((folder) => folder.readable);
+            if (!folderFromHash() && !root.files.length && first) {
+              window.history.replaceState(null, "", folderLink(courseId, first.id));
+              setSelectedFolderId(first.id);
+            }
+          }
+        }
+      })
+      .catch((error) => {
+        if (cancelled || version !== generation.current) return;
+        if (error instanceof ApiError && error.status === 401) {
+          signedOut("Сессия истекла. Войди в Stud.IP заново.");
+          return;
+        }
+        setFolderState({
+          courseId, data: null,
+          error: error instanceof ApiError ? error.message : "Не удалось загрузить папки. Попробуй ещё раз.",
+        });
+      });
+    return () => { cancelled = true; };
+  }, [selectedCourse?.id, selectedTab, fileView, phase, data?.lastSync, folderRevision]);
+  async function markResourceViewed(resourceId: string) {
+    const version = generation.current;
+    const changes = (data?.changes ?? []).filter(
+      (change) => change.resourceId === resourceId && !change.read,
     );
     if (!changes.length) return;
     const results = await Promise.allSettled(
       changes.map(async (change) => {
-        await api("/api/changes/read", { id: change.id });
+        if (phase === "live") await api("/api/changes/read", { id: change.id });
         return change.id;
       }),
     );
@@ -414,6 +507,8 @@ function App() {
     generation.current++;
     previousSync.current = null;
     setData(null);
+    setFolderState(null);
+    initialFolderCourse.current = null;
     setFileError(null);
     window.history.replaceState(
       null,
@@ -421,11 +516,14 @@ function App() {
       window.location.pathname + window.location.search,
     );
     setSelectedCourseId(null);
+    setSelectedTab("files");
+    setSelectedFolderId(null);
     setPhase("login");
     setError(message);
   }
   async function load() {
     const version = generation.current;
+    const projectVersion = gitlabRevision.current;
     try {
       const next =
         phaseRef.current === "demo"
@@ -463,7 +561,8 @@ function App() {
           });
       }
       previousSync.current = feed.lastSync;
-      setData(feed);
+      setData((current) => gitlabRevision.current === projectVersion
+        ? feed : { ...feed, gitlabProjects: current?.gitlabProjects });
       setPhase(feed.mode);
       setError(null);
     } catch (e) {
@@ -541,8 +640,29 @@ function App() {
       setBusy(false);
     }
   }
+  async function saveGitlabProject(url: string | null) {
+    if (!selectedCourse) return;
+    const courseId = selectedCourse.id;
+    const version = generation.current;
+    try {
+      const result = await api<{ project: Project | null }>(`/api/courses/${encodeURIComponent(courseId)}/gitlab`, { url });
+      if (version !== generation.current) return;
+      gitlabRevision.current++;
+      setData((current) => {
+        if (!current) return current;
+        const projects = { ...current.gitlabProjects,
+          ...(result.project ? { [courseId]: result.project } : {}) };
+        if (!result.project) delete projects[courseId];
+        return { ...current, gitlabProjects: projects };
+      });
+    } catch (error) {
+      if (version === generation.current && error instanceof ApiError && error.status === 401)
+        signedOut("Сессия истекла. Войди в Stud.IP заново.");
+      throw error;
+    }
+  }
   const allFiles = (data?.resources ?? []).filter((r) => r.kind === "file");
-  const files = allFiles
+  const courseFiles = allFiles
     .filter((f) => f.courseId === selectedCourse?.id)
     .sort(
       (a, b) =>
@@ -551,6 +671,23 @@ function App() {
         a.title.localeCompare(b.title, undefined, { numeric: true }) ||
         a.id.localeCompare(b.id),
     );
+  const folderData = folderState?.courseId === selectedCourse?.id ? folderState?.data : null;
+  const folderError = folderState?.courseId === selectedCourse?.id ? folderState?.error : null;
+  const folderListing = folderData ? listFolder(folderData, selectedFolderId, courseFiles) : null;
+  const folders = fileView === "folders" ? folderListing?.folders ?? [] : [];
+  const files = fileView === "folders" ? folderListing?.files ?? [] : courseFiles;
+  const linkedProject = selectedCourse && data?.gitlabProjects && Object.hasOwn(data.gitlabProjects, selectedCourse.id)
+    ? data.gitlabProjects[selectedCourse.id] : null;
+  function changeFileView(view: "all" | "folders") {
+    if (view === "folders" && fileView !== "folders") initialFolderCourse.current = null;
+    setFileView(view);
+    setFileError(null);
+    setViewedPdf(null);
+    if (view === "all" && selectedCourse && folderFromHash()) {
+      window.history.replaceState(null, "", folderLink(selectedCourse.id));
+      setSelectedFolderId(null);
+    }
+  }
   const syncError = error || data?.error;
   const partial = Boolean(
     selectedCourse &&
@@ -578,14 +715,16 @@ function App() {
             ) : (
               <>
                 <button
-                  className="text-button account-button"
+                  className="account-button"
                   onClick={() => void logout()}
                   disabled={busy}
                   aria-label={`Выйти из аккаунта ${data?.user?.name || ""}`}
-                  title="Выйти"
+                  title={`Выйти из аккаунта ${data?.user?.name || ""}`}
                 >
-                  <LogOut size={15} />
-                  <span className="account-name">{data?.user?.name}</span>
+                  <span className="account-name">
+                    {userInitials(data?.user?.name)}
+                  </span>
+                  <LogOut size={16} strokeWidth={1.5} aria-hidden="true" />
                 </button>
               </>
             )}
@@ -607,13 +746,33 @@ function App() {
       ) : (
         <main className="feed-main">
           {selectedCourse ? (
+            <div className="course-toolbar">
             <nav className="course-path" aria-label="Навигация по курсам">
               <a className="back-to-courses" href="#">
                 <ArrowLeft size={16} /> Все курсы
               </a>
               <ChevronRight className="path-separator" size={16} />
-              <h1 className="course-heading">{selectedCourse.title}</h1>
+              <h1 className="course-heading" title={selectedCourse.title}>
+                {selectedTab === "files" && fileView === "folders" ? (
+                  <a href={folderLink(selectedCourse.id)}>{selectedCourse.title}</a>
+                ) : selectedCourse.title}
+              </h1>
             </nav>
+              {selectedTab === "files" && <div className="file-view-switch" role="group" aria-label="Вид файлов">
+                <button type="button" aria-pressed={fileView === "all"}
+                  aria-label="Все файлы" title="Все файлы"
+                  onClick={() => changeFileView("all")}>
+                  <LayoutGrid size={15} aria-hidden="true" />
+                </button>
+                <button type="button" aria-pressed={fileView === "folders"}
+                  aria-label="Папки" title="Папки"
+                  onClick={() => changeFileView("folders")}>
+                  <FolderTree size={15} aria-hidden="true" />
+                </button>
+              </div>}
+              {selectedTab === "nextcloud" && <div className="nextcloud-toolbar" ref={setNextcloudToolbar} />}
+              {selectedTab === "gitlab" && <div className="gitlab-toolbar" ref={setGitlabToolbar} />}
+            </div>
           ) : (
             <h1 className="visually-hidden">Курсы</h1>
           )}
@@ -622,7 +781,7 @@ function App() {
               {syncError || fileError}
             </div>
           )}
-          {selectedCourse && partial && !syncError && !fileError && (
+          {selectedCourse && selectedTab === "files" && partial && !syncError && !fileError && (
             <div className="feed-warning" role="status">
               <TriangleAlert size={13} />
               Часть файлов недоступна в Stud.IP.
@@ -653,10 +812,44 @@ function App() {
               {data?.courses.find((c) => c.id === courseDrag.id)?.title}
             </div>
           )}
+          <div className={selectedCourse ? "course-workspace" : undefined}>
+            {selectedCourse && <CourseSidebar
+              key={courseSettingsScope}
+              storageKey={`stud-gk-course-tabs:${courseSettingsScope}`}
+              activeTab={selectedTab}
+              unreadNews={(data?.changes ?? []).some((change) => change.courseId === selectedCourse.id && change.kind === "news" && !change.read && change.action !== "removed" && data?.resources.some((item) => item.id === change.resourceId))}
+              onSelect={(tab) => { window.location.hash = courseTabLink(selectedCourse.id, tab, selectedFolderId); }}
+            />}
+            <div className={selectedCourse ? "course-content" : undefined}>
+            {selectedCourse && selectedTab !== "files" ? selectedTab === "gitlab" ? <GitlabProject
+              key={`${phase}:${selectedCourse.id}`} courseId={selectedCourse.id}
+              project={linkedProject} demo={phase === "demo"} onSave={saveGitlabProject} toolbarTarget={gitlabToolbar}
+            /> : selectedTab === "nextcloud" ? <NextcloudSection
+              key={courseSettingsScope} storageKey={`stud-gk-nextcloud:${courseSettingsScope}`} toolbarTarget={nextcloudToolbar}
+            /> : <CourseSections
+              key={`${selectedCourse.id}:${selectedTab}`}
+              course={selectedCourse} tab={selectedTab} resources={data?.resources ?? []}
+              unavailable={Boolean(data?.unavailableSources?.some((source) => source.courseId === selectedCourse.id && source.kind === selectedTab))}
+              onRead={(id) => void markResourceViewed(id)}
+            /> : <div className={selectedCourse && fileView === "folders" && folderData ? "course-explorer" : undefined}>
+            {selectedCourse && fileView === "folders" && folderData && (
+              <FolderExplorer key={selectedCourse.id} data={folderData}
+                currentId={folderListing?.currentId ?? null} courseId={selectedCourse.id} />
+            )}
           <section
-            className={selectedCourse ? "file-grid" : "course-grid"}
-            aria-label={selectedCourse ? "Файлы курса" : "Курсы"}
+            className={selectedCourse ? fileView === "folders" ? "explorer-files" : "file-grid" : "course-grid"}
+            aria-label={selectedCourse ? fileView === "folders" ? "Папки и файлы курса" : "Файлы курса" : "Курсы"}
           >
+            {selectedCourse && fileView === "folders" && !folderListing && (
+              <div className="empty" role="status">
+                {folderError ? <TriangleAlert size={28} /> : <LoaderCircle className="spin" size={28} />}
+                <h2>{folderError ? "Не удалось загрузить папки" : "Загружаем папки…"}</h2>
+                {folderError && <>
+                  <p>{folderError}</p>
+                  <button className="empty-link" onClick={() => setFolderRevision((value) => value + 1)}>Повторить</button>
+                </>}
+              </div>
+            )}
             {!selectedCourse &&
               orderedCourses.map((course) => {
                 const CourseIcon = courseIcon(course.title);
@@ -768,7 +961,9 @@ function App() {
                 const previewLabel = `Открыть ${file.title}${unread ? (unread.action === "added" ? ". Новый файл" : ". Обновлённый файл") : ""}`;
                 const body = (
                   <>
-                    {phase === "live" &&
+                    {fileView === "folders" ? (
+                      <span className="explorer-file-icon"><Icon size={tone === "pdf" ? 20 : 18} strokeWidth={1.6} aria-hidden="true" /></span>
+                    ) : phase === "live" &&
                     file.remoteId &&
                     (tone === "pdf" || tone === "image") ? (
                       <FileThumbnail
@@ -783,7 +978,7 @@ function App() {
                       </div>
                     )}
                     <div className="file-info">
-                      <h2>{file.title}</h2>
+                      <h2 title={file.title}>{file.title}</h2>
                       <div className="file-meta">
                         {date && (
                           <time dateTime={date}>
@@ -844,7 +1039,7 @@ function App() {
                   </article>
                 );
               })}
-            {(selectedCourse ? !files.length : !orderedCourses.length) && (
+            {(selectedCourse ? !files.length && (fileView === "all" || Boolean(folderListing)) : !orderedCourses.length) && (
               <div className="empty">
                 <span>
                   {data?.syncing ? (
@@ -861,7 +1056,7 @@ function App() {
                     : syncError || !data?.lastSync
                       ? "Не удалось проверить курсы"
                       : selectedCourse
-                        ? "Файлов пока нет"
+                        ? fileView === "folders" ? folders.length ? "Выбери вложенную папку" : "Папка пуста" : "Файлов пока нет"
                         : "Курсов пока нет"}
                 </h2>
                 <p>
@@ -876,7 +1071,7 @@ function App() {
                       Повторить проверку
                     </button>
                   ) : selectedCourse ? (
-                    "В доступных разделах файлов нет."
+                    fileView === "folders" ? folders.length ? "Вложенные папки находятся в списке слева." : "В этой папке пока нет доступных файлов." : "В доступных разделах файлов нет."
                   ) : (
                     "Курсы появятся здесь после проверки Stud.IP."
                   )}
@@ -884,6 +1079,9 @@ function App() {
               </div>
             )}
           </section>
+          </div>}
+            </div>
+          </div>
         </main>
       )}
       {phase === "live" && viewedPdf?.remoteId && (
@@ -891,7 +1089,7 @@ function App() {
           key={viewedPdf.id}
           title={viewedPdf.title}
           remoteId={viewedPdf.remoteId}
-          onViewed={() => void markPdfViewed(viewedPdf)}
+          onViewed={() => void markResourceViewed(viewedPdf.id)}
           onClose={() => {
             setViewedPdf(null);
             void load();

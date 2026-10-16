@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { FileText, LoaderCircle } from "lucide-react";
+import { FileText, Film, LoaderCircle } from "lucide-react";
+import { PdfFileIcon } from "./PdfFileIcon";
 
 const cache = new Map<string, string>();
 export function clearThumbnailCache() {
@@ -13,7 +14,7 @@ export function FileThumbnail({
 }: {
   url: string;
   version: string;
-  kind: "pdf" | "image";
+  kind: "pdf" | "image" | "video";
 }) {
   const key = `${url}:${version}`;
   const container = useRef<HTMLDivElement>(null);
@@ -40,12 +41,12 @@ export function FileThumbnail({
   }, []);
 
   useEffect(() => {
-    if (!visible || src || failed || kind !== "pdf") return;
+    if (!visible || src || failed || kind === "image") return;
     const controller = new AbortController();
-    void import("./pdf-thumbnails")
-      .then(({ renderPdfThumbnail }) =>
-        renderPdfThumbnail(url, controller.signal),
-      )
+    const thumbnail = kind === "video"
+      ? import("./video-thumbnails").then(({ renderVideoThumbnail }) => renderVideoThumbnail(url, controller.signal))
+      : import("./pdf-thumbnails").then(({ renderPdfThumbnail }) => renderPdfThumbnail(url, controller.signal));
+    void thumbnail
       .then((image) => {
         if (controller.signal.aborted) return;
         // Keep only small rendered images in memory, never the original documents.
@@ -63,7 +64,7 @@ export function FileThumbnail({
     <div className={`file-preview thumbnail-preview ${kind}`} ref={container}>
       {failed ? (
         <span className="thumbnail-fallback">
-          <FileText size={28} strokeWidth={1.4} />
+          {kind === "pdf" ? <PdfFileIcon size={28} /> : kind === "video" ? <Film size={28} strokeWidth={1.4} /> : <FileText size={28} strokeWidth={1.4} />}
           <span>Превью недоступно</span>
         </span>
       ) : visible && (kind === "image" || src) ? (
