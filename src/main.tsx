@@ -71,6 +71,16 @@ type Feed = {
 };
 type AuthState = Feed | { authenticated: false; authExpired: boolean };
 type Phase = "loading" | "login" | "live" | "demo";
+function userInitials(name: string | undefined) {
+  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+  return (
+    parts
+      .filter((_, index) => index === 0 || index === parts.length - 1)
+      .map((part) => Array.from(part)[0])
+      .join("")
+      .toLocaleUpperCase() || "?"
+  );
+}
 class ApiError extends Error {
   constructor(
     message: string,
@@ -675,14 +685,16 @@ function App() {
             ) : (
               <>
                 <button
-                  className="text-button account-button"
+                  className="account-button"
                   onClick={() => void logout()}
                   disabled={busy}
                   aria-label={`Выйти из аккаунта ${data?.user?.name || ""}`}
-                  title="Выйти"
+                  title={`Выйти из аккаунта ${data?.user?.name || ""}`}
                 >
-                  <LogOut size={15} />
-                  <span className="account-name">{data?.user?.name}</span>
+                  <span className="account-name">
+                    {userInitials(data?.user?.name)}
+                  </span>
+                  <LogOut size={16} strokeWidth={1.5} aria-hidden="true" />
                 </button>
               </>
             )}
