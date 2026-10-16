@@ -20,6 +20,7 @@ import {
   FolderTree,
   GraduationCap,
   GripVertical,
+  GitFork,
   LoaderCircle,
   LayoutGrid,
   LogOut,
@@ -33,6 +34,8 @@ import { courseIcon } from "./course-icons";
 import { listFolder, type CourseFolders } from "./course-folders";
 import { FolderExplorer } from "./FolderExplorer";
 import { PdfFileIcon } from "./PdfFileIcon";
+import { GitlabProject } from "./GitlabProject";
+import type { GitlabProject as Project } from "../server/gitlab.js";
 
 type Course = { id: string; title: string; color: string; url: string | null };
 type Change = {
@@ -57,6 +60,7 @@ type Feed = {
   authenticated: boolean;
   mode: "live" | "demo";
   courses: Course[];
+  gitlabProjects?: Record<string, Project>;
   changes: Change[];
   resources: Material[];
   lastSync: string | null;
@@ -141,6 +145,9 @@ function courseFromHash() {
 }
 function folderFromHash() {
   return new URLSearchParams(window.location.hash.slice(1)).get("folder");
+}
+function courseTabFromHash() {
+  return new URLSearchParams(window.location.hash.slice(1)).get("tab") === "gitlab" ? "gitlab" : "files";
 }
 function folderLink(courseId: string, folderId?: string) {
   return `#${new URLSearchParams({ course: courseId, ...(folderId ? { folder: folderId } : {}) })}`;
@@ -267,6 +274,7 @@ function App() {
   const [viewedPdf, setViewedPdf] = useState<Material | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState(courseFromHash);
   const [selectedFolderId, setSelectedFolderId] = useState(folderFromHash);
+  const [courseTab, setCourseTab] = useState(courseTabFromHash);
   const [fileView, setFileView] = useState<"all" | "folders">(() => {
     if (folderFromHash()) return "folders";
     try {
@@ -395,6 +403,7 @@ function App() {
       dragCleanup.current?.();
       setSelectedCourseId(courseFromHash());
       setSelectedFolderId(folderFromHash());
+      setCourseTab(courseTabFromHash());
       if (folderFromHash()) setFileView("folders");
       setFileError(null);
       setViewedPdf(null);
@@ -404,6 +413,7 @@ function App() {
     return () => window.removeEventListener("hashchange", navigate);
   }, []);
   const generation = useRef(0);
+  const gitlabRevision = useRef(0);
   useEffect(() => {
     try {
       localStorage.setItem("stud-gk-file-view", fileView);
@@ -411,7 +421,7 @@ function App() {
   }, [fileView]);
   useEffect(() => {
     const courseId = selectedCourse?.id;
-    if (!courseId || fileView !== "folders" || (phase !== "live" && phase !== "demo")) return;
+    if (!courseId || courseTab !== "files" || fileView !== "folders" || (phase !== "live" && phase !== "demo")) return;
     let cancelled = false;
     const version = generation.current;
     setFolderState({ courseId, data: null, error: null });
@@ -444,7 +454,7 @@ function App() {
         });
       });
     return () => { cancelled = true; };
-  }, [selectedCourse?.id, fileView, phase, data?.lastSync, folderRevision]);
+  }, [selectedCourse?.id, courseTab, fileView, phase, data?.lastSync, folderRevision]);
   async function markPdfViewed(file: Material) {
     const version = generation.current;
     const changes = fileChanges.filter(
@@ -494,11 +504,13 @@ function App() {
     );
     setSelectedCourseId(null);
     setSelectedFolderId(null);
+    setCourseTab("files");
     setPhase("login");
     setError(message);
   }
   async function load() {
     const version = generation.current;
+    const projectVersion = gitlabRevision.current;
     try {
       const next =
         phaseRef.current === "demo"
@@ -536,7 +548,8 @@ function App() {
           });
       }
       previousSync.current = feed.lastSync;
-      setData(feed);
+      setData((current) => gitlabRevision.current === projectVersion
+        ? feed : { ...feed, gitlabProjects: current?.gitlabProjects });
       setPhase(feed.mode);
       setError(null);
     } catch (e) {
@@ -614,6 +627,27 @@ function App() {
       setBusy(false);
     }
   }
+  async function saveGitlabProject(url: string | null) {
+    if (!selectedCourse) return;
+    const courseId = selectedCourse.id;
+    const version = generation.current;
+    try {
+      const result = await api<{ project: Project | null }>(`/api/courses/${encodeURIComponent(courseId)}/gitlab`, { url });
+      if (version !== generation.current) return;
+      gitlabRevision.current++;
+      setData((current) => {
+        if (!current) return current;
+        const projects = { ...current.gitlabProjects,
+          ...(result.project ? { [courseId]: result.project } : {}) };
+        if (!result.project) delete projects[courseId];
+        return { ...current, gitlabProjects: projects };
+      });
+    } catch (error) {
+      if (version === generation.current && error instanceof ApiError && error.status === 401)
+        signedOut("Сессия истекла. Войди в Stud.IP заново.");
+      throw error;
+    }
+  }
   const allFiles = (data?.resources ?? []).filter((r) => r.kind === "file");
   const courseFiles = allFiles
     .filter((f) => f.courseId === selectedCourse?.id)
@@ -629,6 +663,8 @@ function App() {
   const folderListing = folderData ? listFolder(folderData, selectedFolderId, courseFiles) : null;
   const folders = fileView === "folders" ? folderListing?.folders ?? [] : [];
   const files = fileView === "folders" ? folderListing?.files ?? [] : courseFiles;
+  const linkedProject = selectedCourse && data?.gitlabProjects && Object.hasOwn(data.gitlabProjects, selectedCourse.id)
+    ? data.gitlabProjects[selectedCourse.id] : null;
   function changeFileView(view: "all" | "folders") {
     if (view === "folders" && fileView !== "folders") initialFolderCourse.current = null;
     setFileView(view);
@@ -702,12 +738,12 @@ function App() {
               </a>
               <ChevronRight className="path-separator" size={16} />
               <h1 className="course-heading" title={selectedCourse.title}>
-                {fileView === "folders" ? (
+                {courseTab === "files" && fileView === "folders" ? (
                   <a href={folderLink(selectedCourse.id)}>{selectedCourse.title}</a>
                 ) : selectedCourse.title}
               </h1>
             </nav>
-              <div className="file-view-switch" role="group" aria-label="Вид файлов">
+              {courseTab === "files" && <div className="file-view-switch" role="group" aria-label="Вид файлов">
                 <button type="button" aria-pressed={fileView === "all"}
                   aria-label="Все файлы" title="Все файлы"
                   onClick={() => changeFileView("all")}>
@@ -718,17 +754,28 @@ function App() {
                   onClick={() => changeFileView("folders")}>
                   <FolderTree size={15} aria-hidden="true" />
                 </button>
-              </div>
+              </div>}
             </div>
           ) : (
             <h1 className="visually-hidden">Курсы</h1>
+          )}
+          {selectedCourse && (
+            <nav className="course-tabs" aria-label="Разделы курса">
+              <a href={folderLink(selectedCourse.id)} aria-current={courseTab === "files" ? "page" : undefined}>
+                <FileText size={15} aria-hidden="true" />Файлы
+              </a>
+              <a href={`#${new URLSearchParams({ course: selectedCourse.id, tab: "gitlab" })}`}
+                aria-current={courseTab === "gitlab" ? "page" : undefined}>
+                <GitFork size={15} aria-hidden="true" />GitLab
+              </a>
+            </nav>
           )}
           {(syncError || fileError) && (
             <div className="feed-error" role="alert">
               {syncError || fileError}
             </div>
           )}
-          {selectedCourse && partial && !syncError && !fileError && (
+          {selectedCourse && courseTab === "files" && partial && !syncError && !fileError && (
             <div className="feed-warning" role="status">
               <TriangleAlert size={13} />
               Часть файлов недоступна в Stud.IP.
@@ -759,7 +806,11 @@ function App() {
               {data?.courses.find((c) => c.id === courseDrag.id)?.title}
             </div>
           )}
-          <div className={selectedCourse && fileView === "folders" && folderData ? "course-explorer" : undefined}>
+          {selectedCourse && courseTab === "gitlab" ? (
+            <GitlabProject key={`${phase}:${selectedCourse.id}`} courseId={selectedCourse.id}
+              project={linkedProject}
+              demo={phase === "demo"} onSave={saveGitlabProject} />
+          ) : <div className={selectedCourse && fileView === "folders" && folderData ? "course-explorer" : undefined}>
             {selectedCourse && fileView === "folders" && folderData && (
               <FolderExplorer key={selectedCourse.id} data={folderData}
                 currentId={folderListing?.currentId ?? null} courseId={selectedCourse.id} />
@@ -1007,7 +1058,7 @@ function App() {
               </div>
             )}
           </section>
-          </div>
+          </div>}
         </main>
       )}
       {phase === "live" && viewedPdf?.remoteId && (
