@@ -135,9 +135,13 @@ export function createDemo(now = new Date()) {
   return {
     courses,
     changes,
-    resources: changes
-      .filter((c) => c.kind === "file")
-      .map((c) => ({ ...c, id: c.resourceId })),
+    resources: [
+      ...changes.map((c) => ({ ...c, id: c.resourceId })),
+      ...courses.map((course) => ({
+        id: `course:${course.id}`, remoteId: course.id, kind: "course", courseId: course.id,
+        title: course.title, description: course.description, location: course.location,
+      })),
+    ],
     lastSync: at(2),
     semester: "WS 2026/27",
   };

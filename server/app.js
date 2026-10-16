@@ -14,9 +14,11 @@ import {
   SESSION_LIFETIME,
 } from "./sessions.js";
 import { reconcile } from "./changes.js";
-import { createDemo, createDemoFolders } from "./demo.js";
 import { normalizeGitlabProject } from "./gitlab.js";
 import { createGitlabClient, GitlabError, validateGitlabToken } from "./gitlab-client.js";
+import { createDemo, createDemoFolders } from "./demo.js";
+import { previewType } from "./file-preview.js";
+import { nextcloudRoutes } from "./nextcloud-routes.js";
 
 const call = (object, method, ...args) =>
   new Promise((resolve, reject) =>
@@ -31,60 +33,6 @@ const empty = () => ({
   lastSync: null,
   semester: "",
 });
-const previewTypes = new Set([
-  "application/pdf",
-  "image/png",
-  "image/jpeg",
-  "image/gif",
-  "image/webp",
-  "image/avif",
-  "image/bmp",
-  "audio/mpeg",
-  "audio/ogg",
-  "audio/wav",
-  "audio/mp4",
-  "video/mp4",
-  "video/webm",
-  "video/ogg",
-]);
-function previewType(file, response) {
-  for (const value of [file.mime, response.headers.get("content-type")]) {
-    const type = value?.split(";")[0].trim().toLowerCase();
-    if (previewTypes.has(type)) return type;
-    if (
-      type?.startsWith("text/") ||
-      type === "image/svg+xml" ||
-      type === "application/json"
-    )
-      return "text/plain";
-  }
-  const extensions = {
-    ".pdf": "application/pdf",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".gif": "image/gif",
-    ".webp": "image/webp",
-    ".avif": "image/avif",
-    ".bmp": "image/bmp",
-    ".mp3": "audio/mpeg",
-    ".ogg": "audio/ogg",
-    ".wav": "audio/wav",
-    ".m4a": "audio/mp4",
-    ".mp4": "video/mp4",
-    ".webm": "video/webm",
-    ".txt": "text/plain",
-    ".md": "text/plain",
-    ".csv": "text/plain",
-    ".json": "text/plain",
-    ".html": "text/plain",
-    ".htm": "text/plain",
-    ".svg": "text/plain",
-    ".js": "text/plain",
-    ".css": "text/plain",
-  };
-  return extensions[path.extname(file.title).toLowerCase()] || null;
-}
 
 export async function createApp({
   dataDir,
@@ -97,6 +45,7 @@ export async function createApp({
   getGitlabBranches = createGitlabClient().branches,
   getGitlabFile = createGitlabClient().file,
   getGitlabContent = createGitlabClient().content,
+  nextcloudClient,
   autoSync = true,
   sessionName = SESSION_NAME,
 } = {}) {
@@ -108,7 +57,9 @@ export async function createApp({
   } catch (e) {
     if (e.code !== "ENOENT") throw new Error("Cannot read saved course data.");
   }
-  state ??= { demo: createDemo(), accounts: {} };
+  state ??= { accounts: {} };
+  // Demo fixtures are not account data and must follow the current UI schema.
+  state.demo = createDemo();
   state.accounts = Object.assign(Object.create(null), state.accounts);
   const store = await EncryptedSessionStore.open(dataDir);
   let saveQueue = Promise.resolve();
@@ -260,7 +211,7 @@ export async function createApp({
       ...(state.accounts[context.user.id] ?? empty()),
       authenticated: true,
       mode: "live",
-      user: { name: context.user.name },
+      user: { id: context.user.id, name: context.user.name },
       syncing: status.syncing,
       error: status.error,
       source: BASE,
@@ -553,6 +504,7 @@ export async function createApp({
     await save();
     res.json({ ok: true });
   });
+  app.use("/api/nextcloud", nextcloudRoutes(nextcloudClient));
   app.use("/api", (req, res) =>
     res.status(404).json({ error: "Маршрут не найден." }),
   );

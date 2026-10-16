@@ -20,7 +20,6 @@ import {
   FolderTree,
   GraduationCap,
   GripVertical,
-  GitFork,
   LoaderCircle,
   LayoutGrid,
   LogOut,
@@ -34,10 +33,14 @@ import { courseIcon } from "./course-icons";
 import { listFolder, type CourseFolders } from "./course-folders";
 import { FolderExplorer } from "./FolderExplorer";
 import { PdfFileIcon } from "./PdfFileIcon";
+import { CourseSidebar } from "./CourseSidebar";
 import { GitlabProject } from "./GitlabProject";
 import type { GitlabProject as Project } from "../server/gitlab.js";
+import { NextcloudSection } from "./NextcloudSection";
+import { CourseSections, type CourseDetails, type CourseResource } from "./CourseSections";
+import { courseTabFromHash, courseTabLink } from "./course-tabs";
 
-type Course = { id: string; title: string; color: string; url: string | null };
+type Course = CourseDetails & { color: string };
 type Change = {
   id: string;
   remoteId?: string;
@@ -55,7 +58,7 @@ type Change = {
 type Material = Omit<Change, "occurredAt" | "action" | "read"> & {
   createdAt?: string | null;
   updatedAt?: string | null;
-};
+} & Pick<CourseResource, "start" | "end" | "cancelled">;
 type Feed = {
   authenticated: boolean;
   mode: "live" | "demo";
@@ -67,10 +70,20 @@ type Feed = {
   syncing: boolean;
   error: string | null;
   unavailableSources?: { courseId: string; kind: string }[];
-  user: { name: string } | null;
+  user: { id: string; name: string } | null;
 };
 type AuthState = Feed | { authenticated: false; authExpired: boolean };
 type Phase = "loading" | "login" | "live" | "demo";
+function userInitials(name: string | undefined) {
+  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+  return (
+    parts
+      .filter((_, index) => index === 0 || index === parts.length - 1)
+      .map((part) => Array.from(part)[0])
+      .join("")
+      .toLocaleUpperCase() || "?"
+  );
+}
 class ApiError extends Error {
   constructor(
     message: string,
@@ -145,9 +158,6 @@ function courseFromHash() {
 }
 function folderFromHash() {
   return new URLSearchParams(window.location.hash.slice(1)).get("folder");
-}
-function courseTabFromHash() {
-  return new URLSearchParams(window.location.hash.slice(1)).get("tab") === "gitlab" ? "gitlab" : "files";
 }
 function folderLink(courseId: string, folderId?: string) {
   return `#${new URLSearchParams({ course: courseId, ...(folderId ? { folder: folderId } : {}) })}`;
@@ -272,9 +282,11 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [viewedPdf, setViewedPdf] = useState<Material | null>(null);
+  const [nextcloudToolbar, setNextcloudToolbar] = useState<HTMLDivElement | null>(null);
+  const [gitlabToolbar, setGitlabToolbar] = useState<HTMLDivElement | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState(courseFromHash);
+  const [selectedTab, setSelectedTab] = useState(() => courseTabFromHash());
   const [selectedFolderId, setSelectedFolderId] = useState(folderFromHash);
-  const [courseTab, setCourseTab] = useState(courseTabFromHash);
   const [fileView, setFileView] = useState<"all" | "folders">(() => {
     if (folderFromHash()) return "folders";
     try {
@@ -319,6 +331,7 @@ function App() {
     (a, b) => (ranks.get(a.id) ?? Infinity) - (ranks.get(b.id) ?? Infinity),
   );
   const selectedCourse = orderedCourses.find((c) => c.id === selectedCourseId);
+  const courseSettingsScope = JSON.stringify([phase, data?.user?.id || "", selectedCourse?.id || ""]);
   const fileChanges = (data?.changes ?? []).filter(
     (c) => c.kind === "file" && c.action !== "removed",
   );
@@ -402,8 +415,8 @@ function App() {
     function navigate() {
       dragCleanup.current?.();
       setSelectedCourseId(courseFromHash());
+      setSelectedTab(courseTabFromHash());
       setSelectedFolderId(folderFromHash());
-      setCourseTab(courseTabFromHash());
       if (folderFromHash()) setFileView("folders");
       setFileError(null);
       setViewedPdf(null);
@@ -421,7 +434,7 @@ function App() {
   }, [fileView]);
   useEffect(() => {
     const courseId = selectedCourse?.id;
-    if (!courseId || courseTab !== "files" || fileView !== "folders" || (phase !== "live" && phase !== "demo")) return;
+    if (!courseId || selectedTab !== "files" || fileView !== "folders" || (phase !== "live" && phase !== "demo")) return;
     let cancelled = false;
     const version = generation.current;
     setFolderState({ courseId, data: null, error: null });
@@ -454,16 +467,16 @@ function App() {
         });
       });
     return () => { cancelled = true; };
-  }, [selectedCourse?.id, courseTab, fileView, phase, data?.lastSync, folderRevision]);
-  async function markPdfViewed(file: Material) {
+  }, [selectedCourse?.id, selectedTab, fileView, phase, data?.lastSync, folderRevision]);
+  async function markResourceViewed(resourceId: string) {
     const version = generation.current;
-    const changes = fileChanges.filter(
-      (change) => change.resourceId === file.id && !change.read,
+    const changes = (data?.changes ?? []).filter(
+      (change) => change.resourceId === resourceId && !change.read,
     );
     if (!changes.length) return;
     const results = await Promise.allSettled(
       changes.map(async (change) => {
-        await api("/api/changes/read", { id: change.id });
+        if (phase === "live") await api("/api/changes/read", { id: change.id });
         return change.id;
       }),
     );
@@ -503,8 +516,8 @@ function App() {
       window.location.pathname + window.location.search,
     );
     setSelectedCourseId(null);
+    setSelectedTab("files");
     setSelectedFolderId(null);
-    setCourseTab("files");
     setPhase("login");
     setError(message);
   }
@@ -702,14 +715,16 @@ function App() {
             ) : (
               <>
                 <button
-                  className="text-button account-button"
+                  className="account-button"
                   onClick={() => void logout()}
                   disabled={busy}
                   aria-label={`Выйти из аккаунта ${data?.user?.name || ""}`}
-                  title="Выйти"
+                  title={`Выйти из аккаунта ${data?.user?.name || ""}`}
                 >
-                  <LogOut size={15} />
-                  <span className="account-name">{data?.user?.name}</span>
+                  <span className="account-name">
+                    {userInitials(data?.user?.name)}
+                  </span>
+                  <LogOut size={16} strokeWidth={1.5} aria-hidden="true" />
                 </button>
               </>
             )}
@@ -738,12 +753,12 @@ function App() {
               </a>
               <ChevronRight className="path-separator" size={16} />
               <h1 className="course-heading" title={selectedCourse.title}>
-                {courseTab === "files" && fileView === "folders" ? (
+                {selectedTab === "files" && fileView === "folders" ? (
                   <a href={folderLink(selectedCourse.id)}>{selectedCourse.title}</a>
                 ) : selectedCourse.title}
               </h1>
             </nav>
-              {courseTab === "files" && <div className="file-view-switch" role="group" aria-label="Вид файлов">
+              {selectedTab === "files" && <div className="file-view-switch" role="group" aria-label="Вид файлов">
                 <button type="button" aria-pressed={fileView === "all"}
                   aria-label="Все файлы" title="Все файлы"
                   onClick={() => changeFileView("all")}>
@@ -755,27 +770,18 @@ function App() {
                   <FolderTree size={15} aria-hidden="true" />
                 </button>
               </div>}
+              {selectedTab === "nextcloud" && <div className="nextcloud-toolbar" ref={setNextcloudToolbar} />}
+              {selectedTab === "gitlab" && <div className="gitlab-toolbar" ref={setGitlabToolbar} />}
             </div>
           ) : (
             <h1 className="visually-hidden">Курсы</h1>
-          )}
-          {selectedCourse && (
-            <nav className="course-tabs" aria-label="Разделы курса">
-              <a href={folderLink(selectedCourse.id)} aria-current={courseTab === "files" ? "page" : undefined}>
-                <FileText size={15} aria-hidden="true" />Файлы
-              </a>
-              <a href={`#${new URLSearchParams({ course: selectedCourse.id, tab: "gitlab" })}`}
-                aria-current={courseTab === "gitlab" ? "page" : undefined}>
-                <GitFork size={15} aria-hidden="true" />GitLab
-              </a>
-            </nav>
           )}
           {(syncError || fileError) && (
             <div className="feed-error" role="alert">
               {syncError || fileError}
             </div>
           )}
-          {selectedCourse && courseTab === "files" && partial && !syncError && !fileError && (
+          {selectedCourse && selectedTab === "files" && partial && !syncError && !fileError && (
             <div className="feed-warning" role="status">
               <TriangleAlert size={13} />
               Часть файлов недоступна в Stud.IP.
@@ -806,11 +812,26 @@ function App() {
               {data?.courses.find((c) => c.id === courseDrag.id)?.title}
             </div>
           )}
-          {selectedCourse && courseTab === "gitlab" ? (
-            <GitlabProject key={`${phase}:${selectedCourse.id}`} courseId={selectedCourse.id}
-              project={linkedProject}
-              demo={phase === "demo"} onSave={saveGitlabProject} />
-          ) : <div className={selectedCourse && fileView === "folders" && folderData ? "course-explorer" : undefined}>
+          <div className={selectedCourse ? "course-workspace" : undefined}>
+            {selectedCourse && <CourseSidebar
+              key={courseSettingsScope}
+              storageKey={`stud-gk-course-tabs:${courseSettingsScope}`}
+              activeTab={selectedTab}
+              unreadNews={(data?.changes ?? []).some((change) => change.courseId === selectedCourse.id && change.kind === "news" && !change.read && change.action !== "removed" && data?.resources.some((item) => item.id === change.resourceId))}
+              onSelect={(tab) => { window.location.hash = courseTabLink(selectedCourse.id, tab, selectedFolderId); }}
+            />}
+            <div className={selectedCourse ? "course-content" : undefined}>
+            {selectedCourse && selectedTab !== "files" ? selectedTab === "gitlab" ? <GitlabProject
+              key={`${phase}:${selectedCourse.id}`} courseId={selectedCourse.id}
+              project={linkedProject} demo={phase === "demo"} onSave={saveGitlabProject} toolbarTarget={gitlabToolbar}
+            /> : selectedTab === "nextcloud" ? <NextcloudSection
+              key={courseSettingsScope} storageKey={`stud-gk-nextcloud:${courseSettingsScope}`} toolbarTarget={nextcloudToolbar}
+            /> : <CourseSections
+              key={`${selectedCourse.id}:${selectedTab}`}
+              course={selectedCourse} tab={selectedTab} resources={data?.resources ?? []}
+              unavailable={Boolean(data?.unavailableSources?.some((source) => source.courseId === selectedCourse.id && source.kind === selectedTab))}
+              onRead={(id) => void markResourceViewed(id)}
+            /> : <div className={selectedCourse && fileView === "folders" && folderData ? "course-explorer" : undefined}>
             {selectedCourse && fileView === "folders" && folderData && (
               <FolderExplorer key={selectedCourse.id} data={folderData}
                 currentId={folderListing?.currentId ?? null} courseId={selectedCourse.id} />
@@ -1059,6 +1080,8 @@ function App() {
             )}
           </section>
           </div>}
+            </div>
+          </div>
         </main>
       )}
       {phase === "live" && viewedPdf?.remoteId && (
@@ -1066,7 +1089,7 @@ function App() {
           key={viewedPdf.id}
           title={viewedPdf.title}
           remoteId={viewedPdf.remoteId}
-          onViewed={() => void markPdfViewed(viewedPdf)}
+          onViewed={() => void markResourceViewed(viewedPdf.id)}
           onClose={() => {
             setViewedPdf(null);
             void load();
