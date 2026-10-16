@@ -147,6 +147,8 @@ test("login isolates browser accounts, rotates sessions and protects private rou
       (await app.request("/api/state", alice.cookie)).data.user.name,
       "alice",
     );
+    assert.equal((await app.request("/api/state", alice.cookie)).data.user.id, "alice");
+    assert.equal((await app.request("/api/state", bob.cookie)).data.user.id, "bob");
     assert.equal(
       (await app.request("/api/state", bob.cookie)).data.resources[0].title,
       "bob private notes 1",
