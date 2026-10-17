@@ -336,9 +336,14 @@ async function nextcloudShareUrl(window) {
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
   await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Termine"]').click()`);
-  await waitFor(window, `document.querySelector('.course-event') !== null`);
-  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-event h3').textContent`), event.title);
-  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.course-event').textContent.includes(${JSON.stringify(event.location)})`));
+  await waitFor(window, `document.querySelector('.course-timeline-event') !== null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.course-timeline-event').length`), 1);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-timeline-title').textContent`), event.title);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-timeline-description').textContent`), event.description);
+  assert.ok(await window.webContents.executeJavaScript(`Date.parse(document.querySelector('.course-timeline-date').dateTime) > Date.now()`));
+  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.course-timeline-entry.is-next') !== null`));
+  assert.match(await window.webContents.executeJavaScript(`document.querySelector('.course-schedule-shared-time').textContent`), /^\d{2}:\d{2}$/);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-schedule-shared-location').textContent`), event.location);
   await window.webContents.executeJavaScript(`location.hash = ${JSON.stringify(`#course=${demo.courses[0].id}`)}`);
   await waitFor(window, `document.querySelector('.file-grid') !== null && document.querySelectorAll('[data-course-tab]').length === 3`);
   // Same-origin preview windows must share authentication and remain sandboxed.
