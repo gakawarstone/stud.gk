@@ -30,10 +30,14 @@ export function CourseSchedule({ items, courseTitle }: { items: CourseResource[]
 
   return <div className="course-schedule">
     {sharedTitle && <span className="visually-hidden">{sharedTitle}</span>}
-    {(shared.time || shared.location) && <div className="course-schedule-shared" aria-label="Общие детали занятий">
-      {shared.time && <span className="course-schedule-shared-time">{shared.time}</span>}
-      {shared.location && <span className="course-schedule-shared-location">Аудитория <b>{shared.location}</b></span>}
-    </div>}
+    {(shared.time || shared.location) && <dl className="course-schedule-shared" aria-label="Общие детали занятий">
+      {shared.time && <div className="course-schedule-shared-field">
+        <dt>Время</dt><dd className="course-schedule-shared-time">{shared.time}</dd>
+      </div>}
+      {shared.location && <div className="course-schedule-shared-field">
+        <dt>Аудитория</dt><dd className="course-schedule-shared-location">{shared.location}</dd>
+      </div>}
+    </dl>}
     <div className="course-schedule-months">
       {[...months].map(([key, entries]) => {
         const monthStart = entries[0].start;

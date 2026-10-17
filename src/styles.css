@@ -658,10 +658,11 @@ input::placeholder {
 .course-section-notice { color: var(--muted); font-size: 12px; }
 .course-event-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--subtext); font-size: 12px; margin-top: 8px; }
 .course-schedule { width: 100%; max-width: 1100px; margin-inline: auto; }
-.course-schedule-shared { display: flex; align-items: baseline; flex-wrap: wrap; gap: 7px 20px; padding: 2px 0 17px; margin-bottom: 19px; border-bottom: 1px solid var(--surface0); }
-.course-schedule-shared-time { font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.course-schedule-shared-location { color: var(--subtext); font-size: 12px; overflow-wrap: anywhere; }
-.course-schedule-shared-location b { color: var(--text); font-weight: 500; margin-left: 4px; }
+.course-schedule-shared { display: flex; align-items: center; flex-wrap: wrap; gap: 18px 46px; padding: 0; margin: 0 0 32px; }
+.course-schedule-shared-field { min-width: 0; max-width: 100%; }
+.course-schedule-shared-field dt { margin: 0 0 5px; color: var(--subtext); font-size: 11px; font-weight: 400; }
+.course-schedule-shared-field dd { margin: 0; color: var(--text); font-size: 28px; font-weight: 500; line-height: 1.25; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.course-schedule-shared-time { letter-spacing: -0.5px; }
 .course-timeline { list-style: none; padding: 0; margin: 0; }
 .course-schedule-months { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 32px 36px; align-items: start; }
 .course-schedule-month { min-width: 0; }
@@ -715,9 +716,8 @@ input::placeholder {
   .course-add-menu button { padding: 10px 7px; gap: 8px; }
   .course-section-title { font-size: 18px; }
   .course-section-schedule { padding-inline: 0; }
-  .course-schedule-shared { gap: 6px 14px; }
-  .course-schedule-shared-time { font-size: 15px; }
-  .course-schedule-shared-location { font-size: 11px; }
+  .course-schedule-shared { gap: 16px 29px; }
+  .course-schedule-shared-field dd { font-size: 23px; }
   .course-timeline-event { grid-template-columns: 41px minmax(0, 1fr); gap: 8px; }
   .course-timeline-date-label { font-size: 12px; }
   .course-timeline-entry.is-next .course-timeline-date > span { width: 38px; height: 38px; font-size: 22px; }
@@ -725,6 +725,12 @@ input::placeholder {
 @media (max-width: 420px) {
   .course-content > .file-grid { grid-template-columns: minmax(0, 1fr); }
   .course-timeline-event { grid-template-columns: 38px minmax(0, 1fr); gap: 4px 8px; }
+  .course-schedule-shared { column-gap: 20px; }
+  .course-schedule-shared-field dd { font-size: 21px; }
+}
+@media (max-width: 340px) {
+  .course-schedule-shared { column-gap: 18px; }
+  .course-schedule-shared-field dd { font-size: 20px; }
 }
 @media (pointer: coarse) {
   .course-workspace { grid-template-columns: 52px minmax(0, 1fr); }
