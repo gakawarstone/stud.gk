@@ -30,7 +30,7 @@ export function scheduleEntries(items: CourseResource[], now: Date) {
   });
 }
 
-type ScheduleEntry = ReturnType<typeof scheduleEntries>[number];
+export type ScheduleEntry = ReturnType<typeof scheduleEntries>[number];
 
 export function scheduleTime({ start, end }: Pick<ScheduleEntry, "start" | "end">) {
   if (!start) return null;
