@@ -324,6 +324,10 @@ export async function createApp({
       res.off("close", cancel);
     }
   });
+  app.get("/api/courses/:id/gitlab/token", requireLogin, (req, res) => {
+    const project = linkedGitlab(req);
+    res.json({ connected: Boolean(req.session.gitlabTokens?.[project.origin]) });
+  });
   app.post("/api/courses/:id/gitlab/token", requireLogin, async (req, res) => {
     const project = linkedGitlab(req);
     const token = req.body?.token === null ? null : validateGitlabToken(req.body?.token);

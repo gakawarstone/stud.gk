@@ -54,7 +54,7 @@ export function createGitlabClient(request = publicRequest) {
         await response.body?.cancel();
         if ([401, 403].includes(response.status) || (projectRequest && response.status === 404))
           throw new GitlabError(token ? "Нет доступа к проекту. Проверь адрес и права токена GitLab."
-            : "Проект закрыт или не найден. Для закрытого проекта подключи токен GitLab.", 403, "GITLAB_AUTH_REQUIRED");
+            : "Проект закрыт или не найден. Для закрытого проекта подключи токен GitLab.", 403, token ? "GITLAB_ACCESS_DENIED" : "GITLAB_AUTH_REQUIRED");
         if (response.status === 404) throw new GitlabError("Файл или папка не найдены в этой ветке.", 404);
         if (response.status === 429) throw new GitlabError("GitLab ограничил частоту запросов. Попробуй немного позже.", 429);
         throw new GitlabError("Не удалось получить данные GitLab. Попробуй ещё раз.");

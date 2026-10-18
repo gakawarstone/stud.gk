@@ -34,7 +34,10 @@ async function fill(window, selector, value) {
   const treeRequests = [];
   runtime = await startServer({ root, dataDir: path.join(profile, "data"), autoSync: false,
     authenticate: async () => ({ jar: new CookieJar(), user: { id: "fixture", name: "Fixture" } }),
-    getSnapshot: async () => ({ courses: [{ id: "c1", title: "GitLab course", color: "blue", url: null }], resources: [] }),
+    getSnapshot: async () => ({ courses: [
+      { id: "c1", title: "GitLab course", color: "blue", url: null },
+      { id: "c2", title: "Second course", color: "blue", url: null },
+    ], resources: [] }),
     getGitlabReadme: async (_url, options) => {
       if (options.token !== token) throw new GitlabError("Private project", 403, "GITLAB_AUTH_REQUIRED");
       return { branch: "main", readme: { path: "README.md", content: markdown, markdown: true, webUrl: "https://gitlab.example/team/project/-/blob/main/README.md" } };
@@ -217,10 +220,32 @@ async function fill(window, selector, value) {
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Настройки GitLab"]').click()`);
   await waitFor(window, `document.querySelector('.gitlab-settings-menu') !== null`);
   await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-settings-menu [role="menuitem"]')).find(b => b.textContent.includes('Доступ')).click()`);
-  await waitFor(window, `document.querySelector('.gitlab-token-form') !== null`);
+  await waitFor(window, `document.querySelector('.gitlab-token-form [role="status"]')?.textContent.includes('подключён')`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('#gitlab-access-token, .gitlab-create-token')`), null);
+  assert.match(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-token-form').textContent`), /всех твоих проектов/);
+  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-token-form button')).find(b => b.textContent.includes('Заменить')).click()`);
+  await waitFor(window, `document.querySelector('#gitlab-access-token') !== null`);
+  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-token-form button')).find(b => b.textContent.includes('Отмена')).click()`);
+
+  // Link a different private project in a second course without entering another token.
+  await window.webContents.executeJavaScript(`document.querySelector('.back-to-courses').click()`);
+  await waitFor(window, `document.querySelectorAll('.course-card-link').length === 2`);
+  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.course-card-link')).find(a => a.textContent.includes('Second course')).click()`);
+  await waitFor(window, `document.querySelector('button[aria-label="Добавить вкладку"]') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Добавить GitLab"]').click()`);
+  await waitFor(window, `document.querySelector('#gitlab-project-url') !== null`);
+  await fill(window, "#gitlab-project-url", "https://gitlab.example/another-group/another-project");
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-project-form').requestSubmit()`);
+  await waitFor(window, `document.querySelector('[data-entry-path="README.md"]') !== null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-token-form')`), null);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Настройки GitLab"]').click()`);
+  await waitFor(window, `document.querySelector('.gitlab-settings-menu') !== null`);
+  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-settings-menu [role="menuitem"]')).find(b => b.textContent.includes('Доступ')).click()`);
+  await waitFor(window, `document.querySelector('.gitlab-token-form [role="status"]')?.textContent.includes('подключён')`);
   await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-token-form button')).find(b => b.textContent.includes('Удалить')).click()`);
   await waitFor(window, `document.querySelector('#gitlab-access-token') !== null && document.querySelector('.gitlab-markdown') === null`);
-  console.log(JSON.stringify({ result: "passed", root, checks: "nested tree, folder cache/refresh, keyboard selection, inline highlighted code, minimal scrollbars, no file actions, Markdown, focus, token flow, safe links, encrypted session, narrow layout" }));
+  console.log(JSON.stringify({ result: "passed", root, checks: "nested tree, folder cache/refresh, keyboard selection, inline highlighted code, minimal scrollbars, no file actions, Markdown, focus, shared token across courses, token status/replacement/removal, safe links, encrypted session, narrow layout" }));
   window.destroy();
   await runtime.close();
   await rm(profile, { recursive: true, force: true });

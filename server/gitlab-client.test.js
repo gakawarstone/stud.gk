@@ -61,6 +61,16 @@ test("GitLab tokens reject controls and plain HTTP, and outbound reads reject pr
   await assert.rejects(publicRequest(new URL("http://127.0.0.1/api/v4/projects/test")), /not public/);
 });
 
+test("a saved GitLab token with insufficient access does not ask for a new connection", async () => {
+  for (const status of [401, 403, 404]) {
+    const client = createGitlabClient(async () => new Response("Access denied", { status }));
+    await assert.rejects(client.readme("https://gitlab.example/team/project"),
+      (error) => error.code === "GITLAB_AUTH_REQUIRED");
+    await assert.rejects(client.readme("https://gitlab.example/team/project", { token: "existing-token" }),
+      (error) => error.status === 403 && error.code === "GITLAB_ACCESS_DENIED");
+  }
+});
+
 test("repository browsing reads every page, pins the branch, and sorts folders before files", async () => {
   const requests = [];
   const client = createGitlabClient(async (url, options) => {
