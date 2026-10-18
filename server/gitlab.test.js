@@ -107,6 +107,9 @@ test("course project links are private, persist across sync and restart, and can
   assert.deepEqual((await request("/api/state", alice)).data.gitlabProjects, { shared: { url } });
 
   const readmeRoute = `${route}/readme`, tokenRoute = `${route}/token`;
+  assert.equal((await request(tokenRoute)).status, 401);
+  assert.equal((await request(tokenRoute, bob)).status, 404);
+  assert.deepEqual((await request(tokenRoute, alice)).data, { connected: false });
   assert.equal((await request(readmeRoute)).status, 401);
   assert.equal((await request(readmeRoute, bob)).status, 404);
   assert.equal((await request(readmeRoute, alice)).data.code, "GITLAB_AUTH_REQUIRED");
@@ -114,6 +117,7 @@ test("course project links are private, persist across sync and restart, and can
   assert.equal((await request(tokenRoute, alice, { token: "bad token" })).status, 400);
   const secret = "private-gitlab-test-token";
   assert.deepEqual((await request(tokenRoute, alice, { token: secret })).data, { connected: true });
+  assert.deepEqual((await request(tokenRoute, alice)).data, { connected: true });
   const branches = await request(`${route}/branches`, alice);
   assert.equal(branches.status, 200);
   assert.deepEqual(branches.data.branches.map(branch => branch.name), ["main", "feature/kotlin"]);
@@ -144,7 +148,30 @@ test("course project links are private, persist across sync and restart, and can
   assert.ok(!JSON.stringify((await request("/api/state", alice)).data).includes(secret));
   assert.ok(!(await readFile(path.join(directory, "sessions.enc"), "utf8")).includes(secret));
   assert.ok(!(await readFile(path.join(directory, "state.json"), "utf8")).includes(secret));
+
+  // A newly linked project in another course uses the same server's token.
+  const secondRoute = "/api/courses/alice-course/gitlab";
+  assert.equal((await request(secondRoute, alice, { url: "https://gitlab.com/another-group/another-project" })).status, 200);
+  assert.deepEqual((await request(`${secondRoute}/token`, alice)).data, { connected: true });
+  for (const read of ["readme", "branches", "tree?path=src", "file?path=src%2Findex.ts", "content?path=image.png"]) {
+    const response = await fetch(`${base}${secondRoute}/${read}`, { headers: { Cookie: alice } });
+    assert.equal(response.status, 200, `Shared token works for ${read} in another course`);
+    await response.arrayBuffer();
+  }
+  assert.equal(gitlabRequests.at(-1).token, secret);
+  const replacementSecret = "replacement-gitlab-test-token";
+  assert.equal((await request(`${secondRoute}/token`, alice, { token: replacementSecret })).status, 200);
+  assert.equal((await request(readmeRoute, alice)).status, 200);
+  assert.equal(gitlabRequests.at(-1).token, replacementSecret, "Replacing a token applies to every project on its server");
+  assert.equal((await request(`${secondRoute}/token`, alice, { token: null })).status, 200);
+  assert.deepEqual((await request(tokenRoute, alice)).data, { connected: false });
+  assert.equal((await request(readmeRoute, alice)).status, 403);
+  await request(`${secondRoute}/token`, alice, { token: secret });
+  await request(secondRoute, alice, { url: null });
+  assert.equal((await request(readmeRoute, alice)).status, 200, "Unlinking one project keeps the shared token");
+
   assert.equal((await request(route, bob, { url })).status, 200);
+  assert.deepEqual((await request(tokenRoute, bob)).data, { connected: false });
   assert.equal((await request(readmeRoute, bob)).status, 403);
   assert.equal(gitlabRequests.at(-1).token, undefined);
   await request(route, bob, { url: null });
@@ -171,6 +198,7 @@ test("course project links are private, persist across sync and restart, and can
   assert.deepEqual(state.changes, []);
   assert.equal((await request(readmeRoute, alice)).status, 403);
   assert.equal(gitlabRequests.at(-1).token, undefined, "A token is never forwarded to another GitLab host");
+  assert.deepEqual((await request(tokenRoute, alice)).data, { connected: false });
 
   await stop();
   await start();
