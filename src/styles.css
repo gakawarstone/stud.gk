@@ -638,23 +638,23 @@ input::placeholder {
 .course-section { max-width: 900px; padding: 4px 0 20px; }
 .course-section-schedule { max-width: none; padding: 12px clamp(0px, 2.5vw, 36px) 24px; }
 .course-section-title { margin: 0 0 24px; font-size: 20px; font-weight: 500; }
-.course-news { border-bottom: 1px solid var(--surface0); margin-bottom: 18px; }
-.course-news summary {
+.course-section-news { max-width: 760px; display: grid; gap: 12px; }
+.course-news { min-width: 0; padding: 19px 21px; border: 1px solid var(--surface0); border-radius: 10px; background: var(--surface); }
+.course-news-heading {
   display: flex;
-  align-items: start;
+  align-items: baseline;
   justify-content: space-between;
-  gap: 16px;
-  padding: 0 0 16px;
-  list-style: none;
-  cursor: pointer;
+  gap: 12px;
+  margin-bottom: 11px;
 }
-.course-news summary::-webkit-details-marker { display: none; }
-.course-news summary:focus-visible { outline: 2px solid var(--mauve); outline-offset: 4px; }
-.course-news summary > svg { flex-shrink: 0; color: var(--muted); margin-top: 2px; }
-.course-news[open] summary > svg { transform: rotate(180deg); }
 .course-section h3 { margin: 0; font-size: 13px; line-height: 1.6; font-weight: 500; overflow-wrap: anywhere; }
-.course-news time { display: block; margin-top: 7px; color: var(--muted); font-size: 11px; }
+.course-news h3 { min-width: 0; font-size: 18px; line-height: 1.4; }
+.course-news time { flex-shrink: 0; color: var(--subtext); font-size: 12px; }
 .course-resource-body { margin: 0 0 20px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--subtext); font-size: 13px; line-height: 1.8; }
+.course-news .course-resource-body { margin: 0; color: var(--text); font-size: 14px; line-height: 1.6; }
+.course-news a { color: var(--mauve); text-decoration: underline; text-underline-offset: 3px; }
+.course-news-more { display: flex; align-items: center; gap: 7px; padding: 0; margin-top: 12px; color: var(--mauve); font-size: 13px; line-height: 1.6; }
+.course-news-more[aria-expanded="true"] svg { transform: rotate(180deg); }
 .course-section-notice { color: var(--muted); font-size: 12px; }
 .course-event-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--subtext); font-size: 12px; margin-top: 8px; }
 .course-schedule { width: 100%; max-width: 1100px; margin-inline: auto; }
@@ -752,6 +752,8 @@ input::placeholder {
   .course-add-menu { width: min(216px, calc(100vw - 104px)); }
   .course-add-menu button { padding: 10px 7px; gap: 8px; }
   .course-section-title { font-size: 18px; }
+  .course-news { padding: 18px; }
+  .course-news-heading { flex-direction: column; gap: 6px; }
   .course-section-schedule { padding-inline: 0; }
   .course-schedule-shared { gap: 16px 29px; }
   .course-schedule-shared-field dd { font-size: 23px; }
@@ -770,6 +772,7 @@ input::placeholder {
   .course-schedule-shared-field dd { font-size: 20px; }
 }
 @media (pointer: coarse) {
+  .course-news-more { min-height: 44px; }
   .course-workspace { grid-template-columns: 52px minmax(0, 1fr); }
   .course-rail-button { width: 44px; height: 44px; }
   .course-add-menu button { min-height: 44px; }
