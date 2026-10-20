@@ -19,6 +19,7 @@ export function validateCredentials(username, password) {
   return { username: username.trim(), password };
 }
 
+/** @param {string | URL} value @param {string | URL} base */
 function universityUrl(value, base = START) {
   const url = new URL(value, base);
   if (url.origin !== BASE || url.username || url.password) {

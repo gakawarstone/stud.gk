@@ -108,15 +108,18 @@ export class EncryptedSessionStore extends session.Store {
     }
     callback(null, JSON.parse(JSON.stringify(entry.value)));
   }
+  /** @param {string} id @param {import('express-session').SessionData} value @param {(error?: Error | null) => void} callback */
   set(id, value, callback = () => {}) {
     const clone = JSON.parse(JSON.stringify(value));
     this.entries[id] = { value: clone, expiresAt: this.expires(clone) };
     this.persist().then(() => callback(null), callback);
   }
+  /** @param {string} id @param {(error?: Error | null) => void} callback */
   destroy(id, callback = () => {}) {
     delete this.entries[id];
     this.persist().then(() => callback(null), callback);
   }
+  /** @param {string} id @param {import('express-session').SessionData} value @param {(error?: Error | null) => void} callback */
   touch(id, value, callback = () => {}) {
     const entry = this.entries[id];
     if (!entry) return callback(null);

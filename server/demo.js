@@ -1,3 +1,4 @@
+/** @returns {import('../shared/studip.js').AccountState} */
 export function createDemo(now = new Date()) {
   const at = (minutes) =>
     new Date(now.getTime() - minutes * 60000).toISOString();
@@ -35,6 +36,7 @@ export function createDemo(now = new Date()) {
       location: "B 205",
     },
   ].map((c) => ({ ...c, semester: "WS 2026/27", url: null }));
+  /** @type {[string, import('../shared/studip.js').ResourceKind, string, string, number, import('../shared/studip.js').Change['action'], number?][]} */
   const entries = [
     [
       "web",
@@ -138,7 +140,7 @@ export function createDemo(now = new Date()) {
     resources: [
       ...changes.map((c) => ({ ...c, id: c.resourceId })),
       ...courses.map((course) => ({
-        id: `course:${course.id}`, remoteId: course.id, kind: "course", courseId: course.id,
+        id: `course:${course.id}`, remoteId: course.id, kind: /** @type {const} */ ("course"), courseId: course.id,
         title: course.title, description: course.description, location: course.location,
       })),
     ],

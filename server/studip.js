@@ -98,6 +98,7 @@ export function createClient(cookie, fetcher = fetch) {
     }
     return items;
   }
+  /** @param {import('../shared/studip.js').CourseResource} file @param {import('./types.js').ReadOptions} options */
   async function download(file, { signal, range } = {}) {
     const url = new URL("/sendfile.php", BASE);
     url.search = new URLSearchParams({
@@ -175,6 +176,7 @@ const plain = (s) =>
     .replace(/<[^>]*>/g, "")
     .trim();
 const tones = ["mauve", "blue", "peach", "green", "pink", "teal"];
+/** @param {{id: string, attributes?: Record<string, any>, relationships?: Record<string, any>}} resource @param {import('../shared/studip.js').ResourceKind} kind @param {string} courseId @returns {import('../shared/studip.js').CourseResource} */
 export function normalize(resource, kind, courseId) {
   const a = resource.attributes ?? {};
   const isFile = kind === "file";
@@ -227,6 +229,7 @@ export async function fetchCourseFolders(client, courseId) {
   };
 }
 
+/** @param {ReturnType<typeof createClient>} client @param {import('./types.js').User} user @returns {Promise<import('../shared/studip.js').Snapshot>} */
 export async function fetchSnapshot(client, user) {
   const semesters = await client.list("semesters?page[limit]=100");
   const current = semesters.find((s) => s.attributes?.["is-current"]);
@@ -250,12 +253,10 @@ export async function fetchSnapshot(client, user) {
     unavailableSources = [];
   // A denied course section does not prevent reading other accessible sections.
   // Other failures still cancel the snapshot, including incomplete pagination.
+  /** @type {[string, import('../shared/studip.js').ResourceKind][]} */
+  const sources = [["file-refs", "file"], ["news", "news"], ["events", "schedule"]];
   for (const course of courses) {
-    for (const [route, kind] of [
-      ["file-refs", "file"],
-      ["news", "news"],
-      ["events", "schedule"],
-    ]) {
+    for (const [route, kind] of sources) {
       try {
         const rows = await client.list(
           `courses/${encodeURIComponent(course.id)}/${route}?page[limit]=100`,
