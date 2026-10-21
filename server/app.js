@@ -19,6 +19,7 @@ import { createGitlabClient, GitlabError, validateGitlabToken } from "./gitlab-c
 import { createDemo, createDemoFolders } from "./demo.js";
 import { previewType } from "./file-preview.js";
 import { nextcloudRoutes } from "./nextcloud-routes.js";
+import { createFileCache } from "./file-cache.js";
 
 const call = (object, method, ...args) =>
   new Promise((resolve, reject) =>
@@ -48,6 +49,7 @@ export async function createApp({
   nextcloudClient,
   autoSync = true,
   sessionName = SESSION_NAME,
+  fileCacheBytes,
 } = {}) {
   await mkdir(dataDir, { recursive: true, mode: 0o700 });
   const statePath = path.join(dataDir, "state.json");
@@ -62,6 +64,12 @@ export async function createApp({
   state.demo = createDemo();
   state.accounts = Object.assign(Object.create(null), state.accounts);
   const store = await EncryptedSessionStore.open(dataDir);
+  const fileCache = await createFileCache(path.join(dataDir, "files"), { maxBytes: fileCacheBytes });
+  const accessibleFiles = (account) => account.resources.filter((file) =>
+    !(account.unavailableSources ?? []).some((source) =>
+      source.kind === "file" && source.courseId === file.courseId));
+  for (const [id, account] of Object.entries(state.accounts))
+    await fileCache.prune(id, accessibleFiles(account));
   let saveQueue = Promise.resolve();
   function save() {
     const json = JSON.stringify(state);
@@ -122,6 +130,7 @@ export async function createApp({
         ...reconcile(previous, snapshot),
         gitlabProjects: previous?.gitlabProjects ?? {},
       };
+      await fileCache.prune(context.user.id, accessibleFiles(state.accounts[context.user.id]));
       await save();
       const saved = await call(store, "get", context.sessionId);
       if (saved?.auth && !context.revoked) {
@@ -412,10 +421,16 @@ export async function createApp({
       };
       res.once("close", cancel);
       try {
-        const response = await getDownload(context.client, file, {
+        const options = {
           signal: controller.signal,
           range: req.headers.range,
-        });
+        };
+        const load = (options) => getDownload(context.client, file, options);
+        const unavailable = state.accounts[context.user.id].unavailableSources?.some(
+          (source) => source.kind === "file" && source.courseId === file.courseId);
+        const response = unavailable
+          ? await load(options)
+          : await fileCache.download(context.user.id, file, load, options);
         if (context.revoked || context.expiresAt <= Date.now()) {
           await response.body.cancel();
           throw new StudipError("Сессия истекла. Войди заново.", 401);
@@ -552,6 +567,7 @@ export async function createApp({
       clearInterval(timer);
       for (const c of contexts.values()) c.revoked = true;
       await saveQueue;
+      await fileCache.close();
       await store.queue;
     },
   };
