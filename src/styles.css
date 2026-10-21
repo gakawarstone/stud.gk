@@ -99,20 +99,22 @@ input:focus-visible {
 .brand {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 0;
   flex-shrink: 0;
+  font-size: 18px;
 }
 .brand > svg {
-  box-sizing: content-box;
-  background: var(--mauve);
-  color: var(--mantle);
-  padding: 10px;
-  border-radius: 12px;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+  margin-left: -0.17em;
+  margin-right: -0.1em;
+  color: var(--mauve);
 }
 .brand > span {
-  font-size: 24px;
+  font-size: inherit;
   font-weight: 800;
-  letter-spacing: -1px;
+  letter-spacing: -0.6px;
   line-height: 1.15;
 }
 .account {
@@ -1448,14 +1450,8 @@ input::placeholder {
   .header {
     padding: 23px 22px;
   }
-  .brand > svg {
-    padding: 8px;
-    width: 22px;
-    height: 22px;
-    border-radius: 10px;
-  }
-  .brand > span {
-    font-size: 22px;
+  .brand {
+    font-size: 17px;
   }
   .account {
     gap: 12px;
