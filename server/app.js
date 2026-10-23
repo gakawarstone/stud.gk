@@ -1,3 +1,4 @@
+import path from "node:path";
 import express from "express";
 import session from "express-session";
 import { CookieJar } from "tough-cookie";
@@ -12,6 +13,7 @@ import { reconcile } from "./changes.js";
 import { createGitlabClient, GitlabError } from "./gitlab-client.js";
 import { createDemoFolders } from "./demo.js";
 import { nextcloudRoutes } from "./nextcloud-routes.js";
+import { createFileCache } from "./file-cache.js";
 
 import { authRoutes } from "./auth-routes.js";
 import { gitlabRoutes } from "./gitlab-routes.js";
@@ -43,10 +45,18 @@ export async function createApp({
   nextcloudClient,
   autoSync = true,
   sessionName = SESSION_NAME,
+  fileCacheBytes,
 }) {
   const accountState = await openAccountState(dataDir);
   const { state, save } = accountState;
   const store = await EncryptedSessionStore.open(dataDir);
+  const fileCache = await createFileCache(path.join(dataDir, "files"), { maxBytes: fileCacheBytes });
+  /** @param {import('../shared/studip.js').AccountState} account */
+  const accessibleFiles = (account) => account.resources.filter((file) =>
+    !(account.unavailableSources ?? []).some((source) =>
+      source.kind === "file" && source.courseId === file.courseId));
+  for (const [id, account] of Object.entries(state.accounts))
+    await fileCache.prune(id, accessibleFiles(account));
   /** @type {Map<string, import('./types.js').Context>} */
   const contexts = new Map();
   const statuses = new Map();
@@ -101,6 +111,7 @@ export async function createApp({
         ...reconcile(previous, snapshot),
         gitlabProjects: previous?.gitlabProjects ?? {},
       };
+      await fileCache.prune(context.user.id, accessibleFiles(state.accounts[context.user.id]));
       await save();
       const saved = await call(store, "get", context.sessionId);
       if (saved?.auth && !context.revoked) {
@@ -223,7 +234,7 @@ export async function createApp({
     res.json({ ok: true });
   });
   app.use("/api", gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGitlabTree, getGitlabBranches, getGitlabFile, getGitlabContent }));
-  app.use("/api", fileRoutes({ state, save, expire, requireLogin, getFolders, getDownload }));
+  app.use("/api", fileRoutes({ state, save, expire, requireLogin, getFolders, getDownload, fileCache }));
   app.get("/api/changes", requireLogin, (req, res) => {
     const since = req.query.since;
     if (since && Number.isNaN(Date.parse(String(since))))
@@ -291,6 +302,7 @@ export async function createApp({
       clearInterval(timer);
       for (const c of contexts.values()) c.revoked = true;
       await accountState.close();
+      await fileCache.close();
       await store.queue;
     },
   };

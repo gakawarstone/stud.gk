@@ -120,7 +120,8 @@ async function nextcloudShareUrl(window) {
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
   await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Ankündigungen"]').click()`);
-  await waitFor(window, `document.querySelector('.course-section-title')?.textContent === 'Ankündigungen'`);
+  await waitFor(window, `document.querySelector('.course-section-news') !== null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-section-title')`), null);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.file-view-switch')`), null);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-section-notice').textContent`), "Объявлений пока нет.");
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
@@ -132,7 +133,7 @@ async function nextcloudShareUrl(window) {
   assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.course-info').textContent.includes(${JSON.stringify(demo.courses[0].description)})`));
   assert.equal(await window.webContents.executeJavaScript(`new URLSearchParams(location.hash.slice(1)).get('tab')`), "course");
   await window.webContents.executeJavaScript(`history.back()`);
-  await waitFor(window, `document.querySelector('.course-section-title')?.textContent === 'Ankündigungen'`);
+  await waitFor(window, `document.querySelector('.course-section-news') !== null`);
   await window.webContents.executeJavaScript(`history.forward()`);
   await waitFor(window, `document.querySelector('.course-info') !== null`);
   window.webContents.reload();
@@ -299,10 +300,13 @@ async function nextcloudShareUrl(window) {
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Ankündigungen"]').click()`);
   await waitFor(window, `document.querySelector('.course-news h3') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news h3').textContent`), news.title);
-  await window.webContents.executeJavaScript(`document.querySelector('.course-news summary').click()`);
-  await waitFor(window, `document.querySelector('.course-news[open]') !== null && document.querySelector('.course-rail-dot') === null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news').tagName`), "ARTICLE");
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-section-title')`), null);
+  await waitFor(window, `document.querySelector('.course-rail-dot') === null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-resource-body').textContent`), news.description);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news-more')`), null);
   window.setSize(480, 700);
+  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.course-news').getBoundingClientRect().right <= innerWidth`));
   await openTabContextMenu(window, "news");
   assert.ok(await window.webContents.executeJavaScript(`document.querySelector('[role="menu"]').getBoundingClientRect().right <= innerWidth`));
   await window.webContents.executeJavaScript(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
@@ -358,6 +362,69 @@ async function nextcloudShareUrl(window) {
   // A non-web protocol must never create a window or reach the OS shell.
   await window.webContents.executeJavaScript(`window.open('file:///etc/passwd', '_blank')`);
   assert.equal(BrowserWindow.getAllWindows().length, 1);
+  // Exercise long posts and viewport read tracking without changing production demo data.
+  const longNews = `Einladungslink: https://example.org/Kurs_(WS26).\n\n${"Bitte lest die Einführung vor der ersten Sitzung. ".repeat(15)}\nWeitere Unterlagen: https://example.org/materialien`;
+  const newsFixture = structuredClone(demo);
+  const firstNews = newsFixture.resources.find((item) => item.id === news.id);
+  firstNews.description = longNews;
+  const extraNews = Array.from({ length: 8 }, (_, index) => ({
+    ...firstNews, id: `smoke-news-${index}`, title: index === 7 ? "Ohne Text" : `Mitteilung ${index + 1}`,
+    description: index === 7 ? "" : longNews,
+    createdAt: new Date(Date.parse(firstNews.createdAt) - (index + 1) * 86400000).toISOString(),
+  }));
+  newsFixture.resources.push(...extraNews);
+  newsFixture.changes = newsFixture.changes.filter((item) => item.kind !== "news");
+  newsFixture.changes.push(...[firstNews, extraNews.at(-1)].map((item) => ({
+    ...item, id: `change-${item.id}`, resourceId: item.id, action: "added", read: false,
+  })));
+  await window.webContents.executeJavaScript(`document.querySelector('.account .text-button').click()`);
+  await waitFor(window, `document.querySelector('.demo-link') !== null`);
+  await window.webContents.executeJavaScript(`(() => {
+    const originalFetch = window.fetch;
+    window.fetch = (input, options) => {
+      if (input === '/api/demo') {
+        window.fetch = originalFetch;
+        return Promise.resolve(new Response(${JSON.stringify(JSON.stringify(newsFixture))}, { headers: { 'Content-Type': 'application/json' } }));
+      }
+      return originalFetch(input, options);
+    };
+    document.querySelector('.demo-link').click();
+  })()`);
+  await waitFor(window, `document.querySelector('.demo-badge') !== null`);
+  await window.webContents.executeJavaScript(`location.hash = ${JSON.stringify(`#course=${news.courseId}`)}`);
+  await waitFor(window, `document.querySelector('.course-sidebar') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  await waitFor(window, `document.querySelector('button[aria-label="Добавить Ankündigungen"]') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Ankündigungen"]').click()`);
+  await waitFor(window, `document.querySelectorAll('.course-news').length === 9`);
+  // Give IntersectionObserver a rendered frame before scrolling the first post
+  // away. DOM presence alone does not mean its visibility callback has run.
+  await window.webContents.executeJavaScript(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
+  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.course-rail-dot') !== null`), "Offscreen posts must remain unread");
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news h3').textContent`), news.title);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news .course-resource-body').textContent`), `${longNews.slice(0, 420)}…`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news a').href`), "https://example.org/Kurs_(WS26)");
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news a').rel`), "noopener noreferrer");
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.course-news a').length`), 8, "Hidden links must not be focusable");
+  await window.webContents.executeJavaScript(`document.querySelector('.course-news-more').click()`);
+  await waitFor(window, `document.querySelector('.course-news-more').getAttribute('aria-expanded') === 'true'`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news .course-resource-body').textContent`), longNews);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.course-news a').length`), 9);
+  window.focus();
+  window.webContents.focus();
+  await window.webContents.executeJavaScript(`document.querySelector('.course-news-more').focus()`);
+  window.webContents.sendInputEvent({ type: "keyDown", keyCode: "Return" });
+  window.webContents.sendInputEvent({ type: "char", keyCode: "\r" });
+  window.webContents.sendInputEvent({ type: "keyUp", keyCode: "Return" });
+  await waitFor(window, `document.querySelector('.course-news-more').getAttribute('aria-expanded') === 'false'`);
+  assert.equal(await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.course-news')).at(-1).querySelector('.course-resource-body').textContent`), "Текст объявления отсутствует.");
+  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.course-news')).at(-1).scrollIntoView()`);
+  await waitFor(window, `document.querySelector('.course-rail-dot') === null`);
+  for (const width of [480, 1280]) {
+    window.setSize(width, 850);
+    await window.webContents.executeJavaScript(`window.scrollTo(0, 0)`);
+    assert.ok(await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.course-news')).every((card) => card.getBoundingClientRect().right <= innerWidth && card.scrollWidth <= card.clientWidth)`));
+  }
   const dataDir = path.join(app.getPath("userData"), "data");
   assert.equal((await stat(dataDir)).mode & 0o777, 0o700);
   assert.equal((await stat(path.join(dataDir, "session.key"))).mode & 0o777, 0o600);

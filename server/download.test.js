@@ -252,6 +252,9 @@ test("local downloads enforce account ownership, stream bytes and mark only comp
       bytes.slice(0, 2),
     );
     assert.equal((await state(alice)).changes[0].read, false);
+    assert.equal(calls, 1, "thumbnail and preview ranges reuse the full cached file");
+    // Change the version so the cancellation below reaches the upstream stream.
+    await request("/api/sync", alice, {});
     const interrupted = await request(
       "/api/files/alice-ref/download",
       alice,
@@ -303,6 +306,8 @@ test("local downloads enforce account ownership, stream bytes and mark only comp
     const zipPage = await zipPreview.text();
     assert.match(zipPage, /Браузер не поддерживает просмотр/);
     assert.match(zipPage, /href="\/api\/files\/alice-zip\/download"/);
+    // A changed file must be fetched again, including upstream access failures.
+    await request("/api/sync", alice, {});
     failure = 403;
     assert.equal(
       (await request("/api/files/alice-ref/download", alice)).status,
@@ -326,4 +331,83 @@ test("local downloads enforce account ownership, stream bytes and mark only comp
     await instance.close();
     await rm(directory, { recursive: true });
   }
+});
+
+test("file routes share a persistent cache and invalidate it on changes or denied access", async (t) => {
+  const directory = await mkdtemp(path.join(tmpdir(), "campus-file-cache-"));
+  let instance, server, base, calls = 0, version = 1, denied = false, removed = false;
+  const owners = new WeakMap();
+  async function start() {
+    instance = await createApp({
+      dataDir: directory,
+      autoSync: false,
+      authenticate: async (username) => ({
+        user: { id: username, name: username }, jar: new CookieJar(),
+      }),
+      getSnapshot: async (client, user) => {
+        owners.set(client, user.id);
+        return {
+          courses: [{ id: "course" }],
+          resources: denied || removed ? [] : [{ ...file, mime: "application/pdf", updatedAt: version }],
+          unavailableSources: denied ? [{ courseId: "course", kind: "file" }] : [],
+        };
+      },
+      getDownload: async (client, resource) => {
+        calls++;
+        if (denied) throw new StudipError("Access denied", 403);
+        return new Response(`${owners.get(client)}:${resource.updatedAt}`, { headers: { "Content-Type": "application/pdf" } });
+      },
+    });
+    server = instance.app.listen(0, "127.0.0.1");
+    await new Promise((resolve) => server.once("listening", resolve));
+    base = `http://127.0.0.1:${server.address().port}`;
+  }
+  async function stop() {
+    await new Promise((resolve) => server.close(resolve));
+    await instance.close();
+  }
+  const request = (route, cookie, body) => fetch(base + route, {
+    method: body ? "POST" : "GET",
+    headers: { ...(cookie ? { Cookie: cookie } : {}), ...(body ? { "Content-Type": "application/json" } : {}) },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  async function login(username) {
+    const result = await request("/api/auth/login", null, { username, password: "fixture" });
+    const cookie = result.headers.getSetCookie()[0].split(";")[0];
+    for (let i = 0; i < 50; i++) {
+      if (!(await (await request("/api/state", cookie)).json()).syncing) return cookie;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    throw new Error("Sync timeout");
+  }
+  t.after(async () => { await stop(); await rm(directory, { recursive: true, force: true }); });
+  await start();
+  const alice = await login("alice"), bob = await login("bob");
+  assert.equal(await (await request("/api/files/ref/content", alice)).text(), "alice:1");
+  assert.equal(await (await request("/api/files/ref/preview", alice)).text(), "alice:1");
+  assert.equal(await (await request("/api/files/ref/download", alice)).text(), "alice:1");
+  assert.equal(calls, 1);
+  assert.equal(await (await request("/api/files/ref/content", bob)).text(), "bob:1");
+  assert.equal(calls, 2);
+  await stop();
+  await start();
+  assert.equal(await (await request("/api/files/ref/content", alice)).text(), "alice:1");
+  assert.equal(calls, 2, "cache and authenticated session survive a restart");
+  version++;
+  await (await request("/api/sync", alice, {})).json();
+  assert.equal(await (await request("/api/files/ref/content", alice)).text(), "alice:2");
+  assert.equal(calls, 3);
+  denied = true;
+  await (await request("/api/sync", alice, {})).json();
+  assert.equal((await request("/api/files/ref/content", alice)).status, 403);
+  assert.equal(calls, 4);
+  denied = false;
+  await (await request("/api/sync", alice, {})).json();
+  assert.equal(await (await request("/api/files/ref/content", alice)).text(), "alice:2");
+  assert.equal(calls, 5, "restored permissions require a fresh download");
+  removed = true;
+  await (await request("/api/sync", alice, {})).json();
+  assert.equal((await request("/api/files/ref/content", alice)).status, 404);
+  await (await request("/api/auth/logout", bob, {})).json();
+  assert.equal((await request("/api/files/ref/content", bob)).status, 401);
 });

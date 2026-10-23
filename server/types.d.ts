@@ -38,6 +38,7 @@ export type AppOptions = {
   nextcloudClient?: ReturnType<typeof createNextcloudClient>;
   autoSync?: boolean;
   sessionName?: string;
+  fileCacheBytes?: number;
 };
 export type RouteState = { state: SavedState; save: () => Promise<void>; requireLogin: RequestHandler };
 

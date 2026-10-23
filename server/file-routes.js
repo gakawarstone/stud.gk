@@ -7,9 +7,10 @@ import { previewType } from "./file-preview.js";
 /** @param {import('./types.js').RouteState & {
  * expire: (context: import('./types.js').Context) => Promise<void>,
  * getFolders: NonNullable<import('./types.js').AppOptions['getFolders']>,
- * getDownload: NonNullable<import('./types.js').AppOptions['getDownload']>
+ * getDownload: NonNullable<import('./types.js').AppOptions['getDownload']>,
+ * fileCache: Awaited<ReturnType<typeof import('./file-cache.js').createFileCache>>
  * }} options */
-export function fileRoutes({ state, save, expire, requireLogin, getFolders, getDownload }) {
+export function fileRoutes({ state, save, expire, requireLogin, getFolders, getDownload, fileCache }) {
   const router = Router();
   router.get("/courses/:id/folders", requireLogin, async (req, res) => {
     const context = req.context;
@@ -53,10 +54,16 @@ export function fileRoutes({ state, save, expire, requireLogin, getFolders, getD
       };
       res.once("close", cancel);
       try {
-        const response = await getDownload(context.client, file, {
+        const options = {
           signal: controller.signal,
           range: req.headers.range,
-        });
+        };
+        const load = (options) => getDownload(context.client, file, options);
+        const unavailable = state.accounts[context.user.id].unavailableSources?.some(
+          (source) => source.kind === "file" && source.courseId === file.courseId);
+        const response = unavailable
+          ? await load(options)
+          : await fileCache.download(context.user.id, file, load, options);
         if (context.revoked || context.expiresAt <= Date.now()) {
           await response.body.cancel();
           throw new StudipError("Сессия истекла. Войди заново.", 401);

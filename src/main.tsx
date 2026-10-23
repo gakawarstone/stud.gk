@@ -274,9 +274,17 @@ function App() {
   return (
     <div className="page">
       <header className={`header${selectedCourse ? " header--course" : ""}`}>
-        <div className="brand">
-          <GraduationCap size={24} strokeWidth={1.7} />
-          <span>Stud.GK</span>
+        <div className="brand" role="img" aria-label="Stud.GK">
+          <svg viewBox="0 0 64 64" fill="currentColor" aria-hidden="true">
+            <g fill="none" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="round">
+              <path d="M48 14H25.657Q24 14 22.828 15.172L16.828 21.172Q14 24 17.655 25.625L24.858 28.826" stroke="currentColor" />
+              <path d="M27.142 29.841L36.858 34.159" stroke="var(--peach)" />
+              <path d="M39.142 35.174L46.345 38.375Q50 40 47.172 42.828L41.172 48.828Q40 50 38.343 50H16" stroke="var(--sky)" />
+            </g>
+            <circle cx="48" cy="14" r="5" />
+            <circle cx="16" cy="50" r="5" fill="var(--sky)" />
+          </svg>
+          <span aria-hidden="true">tud.GK</span>
         </div>
         {(phase === "live" || phase === "demo") && (
           <div className="account">
