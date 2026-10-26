@@ -397,6 +397,9 @@ async function nextcloudShareUrl(window) {
   await waitFor(window, `document.querySelector('button[aria-label="Добавить Ankündigungen"]') !== null`);
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Ankündigungen"]').click()`);
   await waitFor(window, `document.querySelectorAll('.course-news').length === 9`);
+  // Give IntersectionObserver a rendered frame before scrolling the first post
+  // away. DOM presence alone does not mean its visibility callback has run.
+  await window.webContents.executeJavaScript(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
   assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.course-rail-dot') !== null`), "Offscreen posts must remain unread");
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news h3').textContent`), news.title);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news .course-resource-body').textContent`), `${longNews.slice(0, 420)}…`);

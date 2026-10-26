@@ -5,6 +5,7 @@ function fingerprint(item) {
 }
 const sourceKey = (item) => JSON.stringify([item.courseId, item.kind]);
 
+/** @param {import('../shared/studip.js').AccountState | undefined} previous @param {import('../shared/studip.js').Snapshot} snapshot @param {string} now @returns {import('../shared/studip.js').AccountState} */
 export function reconcile(previous, snapshot, now = new Date().toISOString()) {
   const old = new Map(
     (previous?.resources ?? []).map((item) => [item.id, item]),
@@ -20,6 +21,7 @@ export function reconcile(previous, snapshot, now = new Date().toISOString()) {
   for (const item of old.values()) {
     if (unavailable.has(sourceKey(item))) next.set(item.id, item);
   }
+  /** @type {import('../shared/studip.js').Change[]} */
   const changes = [];
   // First sync establishes a baseline. Existing material is not reported as new.
   if (previous) {
