@@ -1,5 +1,3 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { PDFDocumentLoadingTask, PDFDocumentProxy } from "pdfjs-dist";
 import {
   ChevronLeft,
   ChevronRight,
@@ -12,17 +10,17 @@ import {
   Plus,
   TriangleAlert,
   X,
-} from "lucide-react";
-
-function PdfPage({
-  pdf,
-  number,
-  width,
-  themed,
-  initialRatio,
-  scrollRoot,
-  onRendered,
-}: {
+} from "lucide-solid";
+import type { PDFDocumentLoadingTask, PDFDocumentProxy } from "pdfjs-dist";
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  on,
+  onCleanup,
+  onMount,
+} from "solid-js";
+function PdfPage(props: {
   pdf: PDFDocumentProxy;
   number: number;
   width: number;
@@ -31,78 +29,97 @@ function PdfPage({
   scrollRoot: HTMLElement | null;
   onRendered: () => void;
 }) {
-  const container = useRef<HTMLDivElement>(null);
-  const slot = useRef<HTMLDivElement>(null);
-  const [ratio, setRatio] = useState(initialRatio);
-  const [visible, setVisible] = useState(number === 1);
-  const renderedCallback = useRef(onRendered);
-  renderedCallback.current = onRendered;
-  const [status, setStatus] = useState<"loading" | "ready" | "error">(
+  let container: HTMLDivElement | null = null;
+  let slot: HTMLDivElement | null = null;
+  const [ratio, setRatio] = createSignal(props.initialRatio);
+  const [visible, setVisible] = createSignal(props.number === 1);
+  const [status, setStatus] = createSignal<"loading" | "ready" | "error">(
     "loading",
   );
-  useEffect(() => {
-    let cancelled = false;
-    void pdf
-      .getPage(number)
-      .then((page) => {
-        if (cancelled) return;
-        const viewport = page.getViewport({ scale: 1 });
-        setRatio(viewport.height / viewport.width);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [pdf, number]);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => setVisible(entry.isIntersecting),
-      { root: scrollRoot, rootMargin: "600px 0px" },
-    );
-    observer.observe(slot.current!);
-    return () => observer.disconnect();
-  }, [scrollRoot]);
-
-  useEffect(() => {
-    if (!visible) {
-      container.current?.replaceChildren();
-      return;
-    }
-    const controller = new AbortController();
-    const element = container.current!;
-    element.replaceChildren();
-    setStatus("loading");
-    void import("./pdf-document")
-      .then(({ renderPdfPage }) =>
-        renderPdfPage(pdf, number, width, controller.signal, themed),
-      )
-      .then((surface) => {
-        if (controller.signal.aborted) return;
-        element.replaceChildren(surface);
-        setStatus("ready");
-        renderedCallback.current();
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setStatus("error");
-      });
-    return () => controller.abort();
-  }, [pdf, number, width, visible, themed]);
-
+  createEffect(
+    on(
+      () => [props.pdf, props.number],
+      () => {
+        let cancelled = false;
+        void props.pdf
+          .getPage(props.number)
+          .then((page) => {
+            if (cancelled) return;
+            const viewport = page.getViewport({ scale: 1 });
+            setRatio(viewport.height / viewport.width);
+          })
+          .catch(() => {});
+        onCleanup(() => {
+          cancelled = true;
+        });
+      },
+    ),
+  );
+  createEffect(
+    on(
+      () => [props.scrollRoot],
+      () => {
+        const observer = new IntersectionObserver(
+          ([entry]) => setVisible(entry.isIntersecting),
+          { root: props.scrollRoot, rootMargin: "600px 0px" },
+        );
+        observer.observe(slot!);
+        onCleanup(() => observer.disconnect());
+      },
+    ),
+  );
+  createEffect(
+    on(
+      () => [props.pdf, props.number, props.width, visible(), props.themed],
+      () => {
+        if (!visible()) {
+          container?.replaceChildren();
+          return;
+        }
+        const controller = new AbortController();
+        const element = container!;
+        element.replaceChildren();
+        setStatus("loading");
+        void import("./pdf-document")
+          .then(({ renderPdfPage }) =>
+            renderPdfPage(
+              props.pdf,
+              props.number,
+              props.width,
+              controller.signal,
+              props.themed,
+            ),
+          )
+          .then((surface) => {
+            if (controller.signal.aborted) return;
+            element.replaceChildren(surface);
+            setStatus("ready");
+            props.onRendered();
+          })
+          .catch(() => {
+            if (!controller.signal.aborted) setStatus("error");
+          });
+        onCleanup(() => controller.abort());
+      },
+    ),
+  );
   return (
     <div
-      className="pdf-page"
-      ref={slot}
-      data-page={number}
-      style={{ width, height: width * ratio }}
-      aria-label={`Страница ${number}`}
-      aria-busy={visible && status === "loading"}
+      class="pdf-page"
+      ref={(element) => (slot = element)}
+      data-page={props.number}
+      style={{
+        width: `${props.width}px`,
+        height: `${props.width * ratio()}px`,
+      }}
+      aria-label={`Страница ${props.number}`}
+      aria-busy={visible() && status() === "loading"}
     >
-      {visible && status !== "ready" && (
-        <div className="pdf-viewer-status" role="status">
-          {status === "loading" ? (
+      {visible() && status() !== "ready" && (
+        <div class="pdf-viewer-status" role="status">
+          {status() === "loading" ? (
             <>
-              <LoaderCircle className="spin" size={24} /> Загружаем страницу…
+              <LoaderCircle class="spin" size={24} /> Загружаем страницу…
             </>
           ) : (
             <>
@@ -111,54 +128,66 @@ function PdfPage({
           )}
         </div>
       )}
-      <div className="pdf-page-content" ref={container} />
+      <div class="pdf-page-content" ref={(element) => (container = element)} />
     </div>
   );
 }
-
-export function PdfViewer({
-  title,
-  remoteId,
-  contentUrl,
-  downloadUrl,
-  onClose,
-  onViewed,
-}: {
-  title: string;
-  onClose: () => void;
-  onViewed?: () => void;
-} & ({ remoteId: string; contentUrl?: never; downloadUrl?: never } | { remoteId?: never; contentUrl: string; downloadUrl: string })) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const fullscreenContainer = useRef<HTMLDivElement>(null);
-  const documentArea = useRef<HTMLDivElement>(null);
-  const pages = useRef<HTMLDivElement>(null);
-  const numberInput = useRef<HTMLInputElement>(null);
-  const scrollFrame = useRef<number | null>(null);
-  const readingPosition = useRef({ page: 1, fraction: 0 });
-  const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageInput, setPageInput] = useState("1");
-  const [zoom, setZoom] = useState(1);
-  const [themed, setThemed] = useState(true);
-  const [width, setWidth] = useState(800);
-  const [initialRatio, setInitialRatio] = useState(1.4);
-  const [fullscreen, setFullscreen] = useState(false);
-  const [fullscreenError, setFullscreenError] = useState<string | null>(null);
-  const enteredFullscreen = useRef(false);
-  const viewed = useRef(false);
-  const fileUrl = `/api/files/${encodeURIComponent(remoteId || "")}`;
-  const previewUrl = contentUrl || `${fileUrl}/preview`;
-  const saveUrl = downloadUrl || `${fileUrl}/download`;
-
-  useEffect(() => {
-    const element = dialog.current!;
+export function PdfViewer(
+  props: {
+    title: string;
+    onClose: () => void;
+    onViewed?: () => void;
+  } & (
+    | {
+        remoteId: string;
+        contentUrl?: never;
+        downloadUrl?: never;
+      }
+    | {
+        remoteId?: never;
+        contentUrl: string;
+        downloadUrl: string;
+      }
+  ),
+) {
+  let dialog: HTMLDialogElement | null = null;
+  let fullscreenContainer: HTMLDivElement | null = null;
+  let documentArea: HTMLDivElement | null = null;
+  let pages: HTMLDivElement | null = null;
+  let numberInput: HTMLInputElement | null = null;
+  let scrollFrame: (number | null) | null = null;
+  let readingPosition = { page: 1, fraction: 0 };
+  const [pdf, setPdf] = createSignal<PDFDocumentProxy | null>(null);
+  const [failed, setFailed] = createSignal(false);
+  const [attempt, setAttempt] = createSignal(0);
+  const [page, setPage] = createSignal(1);
+  const [pageInput, setPageInput] = createSignal("1");
+  const [zoom, setZoom] = createSignal(1);
+  const [themed, setThemed] = createSignal(true);
+  const [width, setWidth] = createSignal(800);
+  const [initialRatio, setInitialRatio] = createSignal(1.4);
+  const [fullscreen, setFullscreen] = createSignal(false);
+  const [fullscreenError, setFullscreenError] = createSignal<string | null>(
+    null,
+  );
+  let enteredFullscreen = false;
+  let viewed = false;
+  const fileUrl = createMemo(
+    () => `/api/files/${encodeURIComponent(props.remoteId || "")}`,
+  );
+  const previewUrl = createMemo(
+    () => props.contentUrl || `${fileUrl()}/preview`,
+  );
+  const saveUrl = createMemo(
+    () => props.downloadUrl || `${fileUrl()}/download`,
+  );
+  onMount(() => {
+    const element = dialog!;
     const previousFocus = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     element.showModal();
-    const area = documentArea.current!;
+    const area = documentArea!;
     area.focus({ preventScroll: true });
     const updateWidth = () => {
       setWidth(Math.max(120, Math.min(1000, area.clientWidth - 48)));
@@ -170,67 +199,78 @@ export function PdfViewer({
       setFullscreen(Boolean(document.fullscreenElement));
     trackFullscreen();
     document.addEventListener("fullscreenchange", trackFullscreen);
-    return () => {
+    onCleanup(() => {
       observer.disconnect();
       document.removeEventListener("fullscreenchange", trackFullscreen);
-      if (enteredFullscreen.current && document.fullscreenElement)
+      if (enteredFullscreen && document.fullscreenElement)
         void document.exitFullscreen().catch(() => {});
-      if (scrollFrame.current !== null)
-        cancelAnimationFrame(scrollFrame.current);
+      if (scrollFrame !== null) cancelAnimationFrame(scrollFrame);
       element.close();
       document.body.style.overflow = previousOverflow;
       if (previousFocus instanceof HTMLElement && previousFocus.isConnected)
         previousFocus.focus({ preventScroll: true });
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    let task: PDFDocumentLoadingTask | undefined;
-    setPdf(null);
-    setFailed(false);
-    void import("./pdf-document")
-      .then(({ openPdfDocument }) => {
-        if (cancelled) return;
-        task = openPdfDocument(previewUrl);
-        return task.promise;
-      })
-      .then(async (document) => {
-        if (cancelled || !document) return;
-        const first = await document.getPage(1);
-        if (cancelled) return;
-        const viewport = first.getViewport({ scale: 1 });
-        setInitialRatio(viewport.height / viewport.width);
-        setPdf(document);
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
-    return () => {
-      cancelled = true;
-      void task?.destroy().catch(() => {});
-    };
-  }, [previewUrl, attempt]);
-
-  useEffect(() => {
-    if (document.activeElement !== numberInput.current)
-      setPageInput(String(page));
-  }, [page]);
-
-  useLayoutEffect(() => {
-    const area = documentArea.current;
-    const list = pages.current;
-    if (!area || !list) return;
-    const position = readingPosition.current;
-    const target = list.children[position.page - 1] as HTMLElement | undefined;
-    if (target)
-      area.scrollTop =
-        list.offsetTop +
-        target.offsetTop +
-        target.offsetHeight * position.fraction -
-        (position.fraction === 0 ? 12 : 0);
-  }, [width, zoom]);
-
+    });
+  });
+  createEffect(
+    on(
+      () => [previewUrl(), attempt()],
+      () => {
+        let cancelled = false;
+        let task: PDFDocumentLoadingTask | undefined;
+        setPdf(null);
+        setFailed(false);
+        void import("./pdf-document")
+          .then(({ openPdfDocument }) => {
+            if (cancelled) return;
+            task = openPdfDocument(previewUrl());
+            return task.promise;
+          })
+          .then(async (document) => {
+            if (cancelled || !document) return;
+            const first = await document.getPage(1);
+            if (cancelled) return;
+            const viewport = first.getViewport({ scale: 1 });
+            setInitialRatio(viewport.height / viewport.width);
+            setPdf(document);
+          })
+          .catch(() => {
+            if (!cancelled) setFailed(true);
+          });
+        onCleanup(() => {
+          cancelled = true;
+          void task?.destroy().catch(() => {});
+        });
+      },
+    ),
+  );
+  createEffect(
+    on(
+      () => [page()],
+      () => {
+        if (document.activeElement !== numberInput)
+          setPageInput(String(page()));
+      },
+    ),
+  );
+  createEffect(
+    on(
+      () => [width(), zoom()],
+      () => {
+        const area = documentArea;
+        const list = pages;
+        if (!area || !list) return;
+        const position = readingPosition;
+        const target = list.children[position.page - 1] as
+          HTMLElement | undefined;
+        if (target)
+          area.scrollTop =
+            list.offsetTop +
+            target.offsetTop +
+            target.offsetHeight * position.fraction -
+            (position.fraction === 0 ? 12 : 0);
+      },
+    ),
+  );
   function pageAtOffset(list: HTMLDivElement, offset: number) {
     let start = 0;
     let end = list.children.length - 1;
@@ -242,133 +282,131 @@ export function PdfViewer({
     }
     return start;
   }
-
   function trackScroll() {
-    if (scrollFrame.current !== null) return;
-    scrollFrame.current = requestAnimationFrame(() => {
-      scrollFrame.current = null;
-      const area = documentArea.current;
-      const list = pages.current;
+    if (scrollFrame !== null) return;
+    scrollFrame = requestAnimationFrame(() => {
+      scrollFrame = null;
+      const area = documentArea;
+      const list = pages;
       if (!area || !list?.children.length) return;
       const top = area.scrollTop - list.offsetTop;
       const active = pageAtOffset(list, top + area.clientHeight * 0.3);
       setPage(active + 1);
       const first = pageAtOffset(list, top);
       const element = list.children[first] as HTMLElement;
-      readingPosition.current = {
+      readingPosition = {
         page: first + 1,
         fraction: Math.max(0, (top - element.offsetTop) / element.offsetHeight),
       };
     });
   }
-
   function goToPage(number: number) {
-    if (!pdf) return;
-    const next = Math.min(pdf.numPages, Math.max(1, number));
+    if (!pdf()) return;
+    const next = Math.min(pdf()!.numPages, Math.max(1, number));
     setPage(next);
     setPageInput(String(next));
-    const area = documentArea.current;
-    const list = pages.current;
+    const area = documentArea;
+    const list = pages;
     const target = list?.children[next - 1] as HTMLElement | undefined;
     if (area && list && target) {
-      readingPosition.current = { page: next, fraction: 0 };
+      readingPosition = { page: next, fraction: 0 };
       area.scrollTo({ top: list.offsetTop + target.offsetTop - 12 });
     }
   }
   function applyPageInput() {
-    const next = Number(pageInput);
+    const next = Number(pageInput());
     if (Number.isInteger(next) && next > 0) goToPage(next);
-    else setPageInput(String(page));
+    else setPageInput(String(page()));
   }
-
   async function toggleFullscreen() {
     setFullscreenError(null);
     try {
       if (document.fullscreenElement) {
         await document.exitFullscreen();
-        enteredFullscreen.current = false;
+        enteredFullscreen = false;
       } else {
-        await fullscreenContainer.current!.requestFullscreen();
-        enteredFullscreen.current = true;
+        await fullscreenContainer!.requestFullscreen();
+        enteredFullscreen = true;
       }
     } catch {
       setFullscreenError("Браузер не разрешил полноэкранный режим.");
     }
   }
-
   function fitToWidth() {
-    const area = documentArea.current;
+    const area = documentArea;
     if (area)
-      setZoom(Math.max(0.5, Math.min(3, (area.clientWidth - 48) / width)));
+      setZoom(Math.max(0.5, Math.min(3, (area.clientWidth - 48) / width())));
   }
-
   return (
     <dialog
-      className="pdf-viewer"
-      data-themed={themed}
-      ref={dialog}
+      class="pdf-viewer"
+      data-themed={themed()}
+      ref={(element) => (dialog = element)}
       aria-labelledby="pdf-viewer-title"
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        props.onClose();
       }}
       onKeyDown={(event) => {
-        if (!pdf || (event.target as Element).closest("input, button, a"))
+        if (!pdf() || (event.target as Element).closest("input, button, a"))
           return;
         if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
           event.preventDefault();
-          goToPage(page + (event.key === "ArrowRight" ? 1 : -1));
+          goToPage(page() + (event.key === "ArrowRight" ? 1 : -1));
         }
       }}
     >
-      <div className="pdf-viewer-shell" ref={fullscreenContainer}>
-        <header className="pdf-viewer-toolbar">
-          <h2 id="pdf-viewer-title">{title}</h2>
-          <nav className="pdf-viewer-controls" aria-label="Управление PDF">
-            <div className="pdf-control-group">
+      <div
+        class="pdf-viewer-shell"
+        ref={(element) => (fullscreenContainer = element)}
+      >
+        <header class="pdf-viewer-toolbar">
+          <h2 id="pdf-viewer-title">{props.title}</h2>
+          <nav class="pdf-viewer-controls" aria-label="Управление PDF">
+            <div class="pdf-control-group">
               <button
-                className="pdf-viewer-action"
-                disabled={!pdf || page === 1}
-                onClick={() => goToPage(page - 1)}
+                class="pdf-viewer-action"
+                disabled={!pdf() || page() === 1}
+                onClick={() => goToPage(page() - 1)}
                 aria-label="Предыдущая страница"
                 title="Предыдущая страница"
               >
                 <ChevronLeft size={20} />
               </button>
               <form
-                className="pdf-page-number"
+                class="pdf-page-number"
                 onSubmit={(event) => {
                   event.preventDefault();
                   applyPageInput();
                 }}
               >
                 <input
-                  ref={numberInput}
+                  ref={(element) => (numberInput = element)}
                   type="number"
                   min={1}
-                  max={pdf?.numPages || 1}
-                  value={pageInput}
-                  onChange={(event) => setPageInput(event.target.value)}
+                  max={pdf()?.numPages || 1}
+                  value={pageInput()}
+                  onInput={(event) => setPageInput(event.target.value)}
                   onBlur={applyPageInput}
-                  disabled={!pdf}
+                  disabled={!pdf()}
                   aria-label="Номер страницы"
                 />
-                <span>/ {pdf?.numPages || "…"}</span>
+                <span>/ {pdf()?.numPages || "…"}</span>
               </form>
               <button
-                className="pdf-viewer-action"
-                disabled={!pdf || page === pdf.numPages}
-                onClick={() => goToPage(page + 1)}
+                class="pdf-viewer-action"
+                disabled={!pdf() || page() === pdf()!.numPages}
+                onClick={() => goToPage(page() + 1)}
                 aria-label="Следующая страница"
                 title="Следующая страница"
               >
                 <ChevronRight size={20} />
               </button>
             </div>
-            <div className="pdf-control-group">
+            <div class="pdf-control-group">
               <button
-                className="pdf-viewer-action"
-                disabled={!pdf || zoom <= 0.5}
+                class="pdf-viewer-action"
+                disabled={!pdf() || zoom() <= 0.5}
                 onClick={() => setZoom((value) => Math.max(0.5, value - 0.25))}
                 aria-label="Уменьшить масштаб"
                 title="Уменьшить масштаб"
@@ -376,17 +414,17 @@ export function PdfViewer({
                 <Minus size={18} />
               </button>
               <button
-                className="pdf-zoom-value"
-                disabled={!pdf}
+                class="pdf-zoom-value"
+                disabled={!pdf()}
                 onClick={fitToWidth}
                 aria-label="По ширине"
                 title="По ширине"
               >
-                {Math.round(zoom * 100)}%
+                {Math.round(zoom() * 100)}%
               </button>
               <button
-                className="pdf-viewer-action"
-                disabled={!pdf || zoom >= 3}
+                class="pdf-viewer-action"
+                disabled={!pdf() || zoom() >= 3}
                 onClick={() => setZoom((value) => Math.min(3, value + 0.25))}
                 aria-label="Увеличить масштаб"
                 title="Увеличить масштаб"
@@ -394,32 +432,36 @@ export function PdfViewer({
                 <Plus size={18} />
               </button>
               <button
-                className="pdf-viewer-action"
-                disabled={!pdf}
+                class="pdf-viewer-action"
+                disabled={!pdf()}
                 onClick={() => void toggleFullscreen()}
                 aria-label={
-                  fullscreen
+                  fullscreen()
                     ? "Выйти из полноэкранного режима"
                     : "На весь экран"
                 }
                 title={
-                  fullscreen
+                  fullscreen()
                     ? "Выйти из полноэкранного режима"
                     : "На весь экран"
                 }
               >
-                {fullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                {fullscreen() ? (
+                  <Minimize2 size={18} />
+                ) : (
+                  <Maximize2 size={18} />
+                )}
               </button>
             </div>
           </nav>
-          <div className="pdf-viewer-actions">
+          <div class="pdf-viewer-actions">
             <button
-              className="pdf-viewer-action"
+              class="pdf-viewer-action"
               onClick={() => setThemed((value) => !value)}
               aria-label="Цвета Catppuccin"
-              aria-pressed={themed}
+              aria-pressed={themed()}
               title={
-                themed
+                themed()
                   ? "Показать исходные цвета"
                   : "Применить цвета Catppuccin"
               }
@@ -427,16 +469,16 @@ export function PdfViewer({
               <Palette size={18} />
             </button>
             <a
-              className="pdf-viewer-action"
-              href={saveUrl}
+              class="pdf-viewer-action"
+              href={saveUrl()}
               aria-label="Скачать PDF"
               title="Скачать PDF"
             >
               <Download size={18} />
             </a>
             <button
-              className="pdf-viewer-action"
-              onClick={onClose}
+              class="pdf-viewer-action"
+              onClick={props.onClose}
               aria-label="Закрыть просмотр"
               title="Закрыть просмотр"
             >
@@ -444,48 +486,44 @@ export function PdfViewer({
             </button>
           </div>
         </header>
-        {fullscreenError && (
-          <div className="pdf-viewer-notice" role="alert">
-            {fullscreenError}
+        {fullscreenError() && (
+          <div class="pdf-viewer-notice" role="alert">
+            {fullscreenError()}
           </div>
         )}
         <div
-          className="pdf-viewer-document"
-          ref={documentArea}
-          tabIndex={0}
+          class="pdf-viewer-document"
+          ref={(element) => (documentArea = element)}
+          tabindex={0}
           aria-label="Содержимое PDF"
           onScroll={trackScroll}
         >
-          {pdf ? (
-            <div className="pdf-pages" ref={pages}>
-              {Array.from({ length: pdf.numPages }, (_, index) => (
+          {pdf() ? (
+            <div class="pdf-pages" ref={(element) => (pages = element)}>
+              {Array.from({ length: pdf()!.numPages }, (_, index) => (
                 <PdfPage
-                  key={index + 1}
-                  pdf={pdf}
+                  pdf={pdf()!}
                   number={index + 1}
-                  width={width * zoom}
-                  themed={themed}
-                  initialRatio={initialRatio}
-                  scrollRoot={documentArea.current}
+                  width={width() * zoom()}
+                  themed={themed()}
+                  initialRatio={initialRatio()}
+                  scrollRoot={documentArea}
                   onRendered={() => {
-                    if (viewed.current) return;
-                    viewed.current = true;
-                    onViewed?.();
+                    if (viewed) return;
+                    viewed = true;
+                    props.onViewed?.();
                   }}
                 />
               ))}
             </div>
           ) : (
-            <div
-              className="pdf-viewer-status"
-              role={failed ? "alert" : "status"}
-            >
-              {failed ? (
+            <div class="pdf-viewer-status" role={failed() ? "alert" : "status"}>
+              {failed() ? (
                 <>
                   <TriangleAlert size={28} />
                   <p>Не удалось открыть PDF.</p>
                   <button
-                    className="text-button"
+                    class="text-button"
                     onClick={() => setAttempt((value) => value + 1)}
                   >
                     Попробовать ещё раз
@@ -493,7 +531,7 @@ export function PdfViewer({
                 </>
               ) : (
                 <>
-                  <LoaderCircle className="spin" size={28} />
+                  <LoaderCircle class="spin" size={28} />
                   <p>Загружаем PDF…</p>
                 </>
               )}

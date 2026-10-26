@@ -1,0 +1,82 @@
+{
+  "label": "solid",
+  "fixture": {
+    "files": 1000,
+    "rootEntries": 2000,
+    "expandedEntries": 3000,
+    "width": 1280,
+    "height": 850
+  },
+  "environment": {
+    "electron": "44.5.1",
+    "chrome": "152.0.7977.130",
+    "node": "24.21.0",
+    "os": "7.2.11-zen1-1-zen",
+    "cpu": "AMD Ryzen 9 7900 12-Core Processor",
+    "hardwareAcceleration": false
+  },
+  "initialJs": [
+    {
+      "url": "/assets/index-DTF1KPmW.js",
+      "bytes": 326616,
+      "gzipBytes": 104593
+    }
+  ],
+  "milliseconds": {
+    "list": [
+      165.69999999925494,
+      147.39999999850988,
+      141,
+      141.60000000149012,
+      140.30000000074506,
+      143,
+      133.69999999925494,
+      142.60000000149012,
+      164.30000000074506
+    ],
+    "expand": [
+      39.600000001490116,
+      39.400000002235174,
+      39.400000002235174,
+      39.69999999925494,
+      43.100000001490116,
+      43.899999998509884,
+      41.399999998509884,
+      47.400000002235174,
+      40.30000000074506
+    ],
+    "keyboard": [
+      26,
+      26.200000002980232,
+      26.099999997764826,
+      26.099999997764826,
+      22.100000001490116,
+      20.800000000745058,
+      24.299999997019768,
+      33.899999998509884,
+      25
+    ]
+  },
+  "memory": {
+    "metrics": [
+      {
+        "type": "Browser",
+        "workingSetKiB": 235636
+      },
+      {
+        "type": "GPU",
+        "workingSetKiB": 74080
+      },
+      {
+        "type": "Utility",
+        "workingSetKiB": 106304
+      },
+      {
+        "type": "Tab",
+        "workingSetKiB": 216380
+      }
+    ],
+    "totalWorkingSetKiB": 632400,
+    "rendererHeapUsedBytes": 20342832
+  }
+}

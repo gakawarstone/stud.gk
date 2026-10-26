@@ -30,11 +30,12 @@ async function login(window) {
   profile = await mkdtemp(path.join(tmpdir(), "stud-gk-session-"));
   app.setPath("userData", profile);
   await app.whenReady();
-  const root = path.resolve(__dirname, "..");
+  const root = process.env.CAMPUS_SMOKE_ROOT || path.resolve(__dirname, "..");
   const { startServer } = await import(pathToFileURL(path.join(root, "server/runtime.js")).href);
   runtime = await startServer({ dataDir: path.join(profile, "data"), autoSync: false });
   const window = new BrowserWindow({ show: false,
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } });
+  const rendererErrors = require("./renderer-errors.cjs")(window);
   await window.loadURL(runtime.url);
   await waitFor(window, `document.getElementById('username') !== null`);
   await window.webContents.executeJavaScript(`(async () => {
@@ -107,6 +108,7 @@ async function login(window) {
   await window.webContents.executeJavaScript(`document.querySelector('.demo-link').click()`);
   await waitFor(window, `document.querySelector('.demo-badge') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`fixture.timers.size`), 0);
+  assert.deepEqual(rendererErrors, [], "No uncaught renderer exceptions");
   console.log(JSON.stringify({ result: "passed", scenarios: ["slow polling", "late response after logout", "session expiry", "demo"] }));
   window.destroy();
   await runtime.close();

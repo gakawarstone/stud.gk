@@ -1,0 +1,82 @@
+{
+  "label": "react",
+  "fixture": {
+    "files": 1000,
+    "rootEntries": 2000,
+    "expandedEntries": 3000,
+    "width": 1280,
+    "height": 850
+  },
+  "environment": {
+    "electron": "44.5.1",
+    "chrome": "152.0.7977.130",
+    "node": "24.21.0",
+    "os": "7.2.11-zen1-1-zen",
+    "cpu": "AMD Ryzen 9 7900 12-Core Processor",
+    "hardwareAcceleration": false
+  },
+  "initialJs": [
+    {
+      "url": "/assets/index-Dilhv9u6.js",
+      "bytes": 527192,
+      "gzipBytes": 163478
+    }
+  ],
+  "milliseconds": {
+    "list": [
+      140.5,
+      107.90000000223517,
+      150.39999999850988,
+      133.09999999776483,
+      139.70000000298023,
+      123.89999999850988,
+      119,
+      124.5,
+      112.80000000074506
+    ],
+    "expand": [
+      57.900000002235174,
+      49.899999998509884,
+      48.80000000074506,
+      50.599999997764826,
+      48.30000000074506,
+      48.19999999925494,
+      52,
+      51.899999998509884,
+      48.5
+    ],
+    "keyboard": [
+      24.199999999254942,
+      31.599999997764826,
+      33.29999999701977,
+      31.5,
+      17.600000001490116,
+      33.100000001490116,
+      29.899999998509884,
+      29.699999999254942,
+      33.80000000074506
+    ]
+  },
+  "memory": {
+    "metrics": [
+      {
+        "type": "Browser",
+        "workingSetKiB": 230296
+      },
+      {
+        "type": "GPU",
+        "workingSetKiB": 74116
+      },
+      {
+        "type": "Utility",
+        "workingSetKiB": 106580
+      },
+      {
+        "type": "Tab",
+        "workingSetKiB": 202928
+      }
+    ],
+    "totalWorkingSetKiB": 613920,
+    "rendererHeapUsedBytes": 10434628
+  }
+}

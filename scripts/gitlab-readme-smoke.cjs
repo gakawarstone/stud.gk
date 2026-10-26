@@ -67,6 +67,7 @@ async function fill(window, selector, value) {
   const window = new BrowserWindow({ show: false, width: 1280, height: 850,
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } });
   if (process.env.CAMPUS_SMOKE_SCREENSHOT || process.env.CAMPUS_SMOKE_CODE_SCREENSHOT) window.showInactive();
+  const rendererErrors = require("./renderer-errors.cjs")(window);
   await window.loadURL(runtime.url);
   await waitFor(window, `document.querySelector('#username') !== null`);
   await fill(window, "#username", "fixture");
@@ -245,6 +246,7 @@ async function fill(window, selector, value) {
   await waitFor(window, `document.querySelector('.gitlab-token-form [role="status"]')?.textContent.includes('подключён')`);
   await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-token-form button')).find(b => b.textContent.includes('Удалить')).click()`);
   await waitFor(window, `document.querySelector('#gitlab-access-token') !== null && document.querySelector('.gitlab-markdown') === null`);
+  assert.deepEqual(rendererErrors, [], "No uncaught renderer exceptions");
   console.log(JSON.stringify({ result: "passed", root, checks: "nested tree, folder cache/refresh, keyboard selection, inline highlighted code, minimal scrollbars, no file actions, Markdown, focus, shared token across courses, token status/replacement/removal, safe links, encrypted session, narrow layout" }));
   window.destroy();
   await runtime.close();

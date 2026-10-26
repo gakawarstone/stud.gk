@@ -1,22 +1,76 @@
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import type { Element, RootContent } from "hast";
+import { createMemo, For, type JSX } from "solid-js";
+import { Dynamic } from "solid-js/web";
 import { HighlightedCode } from "./HighlightedCode";
-
-function sourceLink(value: string | undefined, base: string) {
-  if (!value) return undefined;
-  try {
-    const url = new URL(value, base);
-    return ["https:", "http:", "mailto:"].includes(url.protocol) && !url.username && !url.password ? url.href : undefined;
-  } catch { return undefined; }
-}
-export function GitlabMarkdown({ content, webUrl }: { content: string; webUrl: string }) {
-  return <div className="gitlab-markdown"><Markdown remarkPlugins={[remarkGfm]} skipHtml components={{
-    a: ({ href, children }) => <a href={sourceLink(href, webUrl)} target="_blank" rel="noopener noreferrer">{children}</a>,
-    img: ({ src, alt }) => <a href={sourceLink(typeof src === "string" ? src : undefined, webUrl.replace("/-/blob/", "/-/raw/"))}
-      target="_blank" rel="noopener noreferrer">{alt || "Открыть изображение"}</a>,
-    code: ({ className, children }) => {
-      const language = className?.match(/language-([\w+-]+)/)?.[1];
-      return language ? <HighlightedCode content={String(children)} language={language} /> : <code>{children}</code>;
-    },
-  }}>{content}</Markdown></div>;
+import { parseMarkdown, sourceLink } from "./markdown";
+export function GitlabMarkdown(props: { content: string; webUrl: string }) {
+  const tree = createMemo(() => parseMarkdown(props.content));
+  function children(nodes: RootContent[]): JSX.Element {
+    return (
+      <For each={nodes}>
+        {(node) => {
+          if (node.type === "text") return node.value;
+          if (node.type !== "element") return null;
+          return <MarkdownElement node={node} webUrl={props.webUrl} />;
+        }}
+      </For>
+    );
+  }
+  function MarkdownElement(local: {
+    node: Element;
+    webUrl: string;
+  }): JSX.Element {
+    const node = local.node;
+    if (node.tagName === "a")
+      return (
+        <a
+          href={sourceLink(String(node.properties.href || ""), local.webUrl)}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {children(node.children)}
+        </a>
+      );
+    if (node.tagName === "img")
+      return (
+        <a
+          href={sourceLink(
+            String(node.properties.src || ""),
+            local.webUrl.replace("/-/blob/", "/-/raw/"),
+          )}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {String(node.properties.alt || "Открыть изображение")}
+        </a>
+      );
+    if (node.tagName === "code") {
+      const language = String(node.properties.className || "").match(
+        /language-([\w+-]+)/,
+      )?.[1];
+      const content = node.children
+        .map((child) => (child.type === "text" ? child.value : ""))
+        .join("");
+      return language ? (
+        <HighlightedCode content={content} language={language} />
+      ) : (
+        <code>{content}</code>
+      );
+    }
+    const attributes = Object.fromEntries(
+      Object.entries(node.properties).map(([key, value]) => [
+        key === "className" ? "class" : key === "htmlFor" ? "for" : key,
+        Array.isArray(value) ? value.join(" ") : value,
+      ]),
+    );
+    return (
+      <Dynamic
+        component={node.tagName as keyof JSX.IntrinsicElements}
+        {...attributes}
+      >
+        {children(node.children)}
+      </Dynamic>
+    );
+  }
+  return <div class="gitlab-markdown">{children(tree().children)}</div>;
 }

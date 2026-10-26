@@ -2,7 +2,6 @@ name: Pull request checks
 
 on:
   pull_request:
-    branches: ["master"]
   workflow_dispatch:
 
 permissions:
@@ -32,3 +31,5 @@ jobs:
         run: xvfb-run -a npm run test:gitlab -- --no-sandbox --ozone-platform=x11
       - name: Check session expiry and slow polling
         run: xvfb-run -a npm run test:session -- --no-sandbox --ozone-platform=x11
+      - name: Check reactive lists and PDF viewer
+        run: xvfb-run -a npm run test:ui -- --no-sandbox --ozone-platform=x11

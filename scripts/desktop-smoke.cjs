@@ -65,7 +65,7 @@ async function nextcloudShareUrl(window) {
   const entry = process.env.CAMPUS_SMOKE_ENTRY || path.resolve(__dirname, "../electron/main.cjs");
   const { window, runtime } = await require(entry).ready;
   assert.equal(runtime.host, "127.0.0.1");
-  const failures = [];
+  const failures = require("./renderer-errors.cjs")(window);
   window.webContents.on("render-process-gone", (_, details) => failures.push(details.reason));
   await waitFor(window, `document.querySelector('.demo-link') !== null`);
   assert.equal(await window.webContents.executeJavaScript("typeof require"), "undefined");
