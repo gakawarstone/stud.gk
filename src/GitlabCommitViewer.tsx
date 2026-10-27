@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ExternalLink, LoaderCircle } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { GitlabApiError, gitlabApi, type GitlabCommit, type GitlabCommitDetail, type GitlabDiff } from "./gitlab-api";
 import { parseGitlabDiff } from "./gitlab-diff";
 
@@ -50,17 +50,11 @@ export function GitlabCommitViewer({ commit, endpoint, demo, onAuthRequired }: {
     return () => controller.abort();
   }, [commit, endpoint, demo, page, retry, onAuthRequired]);
   const current = detail?.commit || commit;
+  const message = detail?.commit.message.trim() || "";
+  const body = message.split("\n")[0] === current.title ? message.split("\n").slice(1).join("\n").trim() : message;
   return <section className="gitlab-commit-viewer" aria-label="Дифф коммита" aria-busy={loading}>
-    <header className="gitlab-commit-header">
-      <h2>{current.title || "Без заголовка"}</h2>
-      <div className="gitlab-commit-meta"><span>{current.author || "Неизвестный автор"}</span>
-        {current.committedAt && <time dateTime={current.committedAt}>{new Date(current.committedAt).toLocaleString("ru")}</time>}
-        <code title={current.id}>{current.shortId}</code>
-        <a href={current.webUrl} target="_blank" rel="noopener noreferrer">В GitLab <ExternalLink size={12} aria-hidden="true" /></a>
-      </div>
-      {detail && detail.commit.message.trim() !== current.title.trim() && <pre className="gitlab-commit-message">{detail.commit.message}</pre>}
-    </header>
     <div className="gitlab-commit-diffs">
+      {body && <pre className="gitlab-commit-message">{body}</pre>}
       {detail?.diffs.map((file) => <FileDiff key={`${file.oldPath}:${file.newPath}`} file={file} />)}
       {loading && <p className="gitlab-history-status" role="status"><LoaderCircle size={14} className="spin" aria-hidden="true" />Загружаем изменения…</p>}
       {error && <div className="gitlab-history-status"><p role="alert">{error}</p><button className="text-button" onClick={() => setRetry((value) => value + 1)}>Повторить</button>

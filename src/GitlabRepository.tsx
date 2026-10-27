@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
-import { ChevronRight, Folder, FolderOpen, History, LoaderCircle } from "lucide-react";
+import { ArrowLeft, ChevronRight, Folder, FolderOpen, LoaderCircle } from "lucide-react";
 import { GitlabBranchPicker } from "./GitlabBranchPicker";
 import { GitlabCommitSummary } from "./GitlabCommitSummary";
 import { RepositoryFileIcon } from "./RepositoryFileIcon";
 import { GitlabFileViewer } from "./GitlabFileViewer";
-import { GitlabHistory } from "./GitlabHistory";
+import { demoCommits, GitlabHistory } from "./GitlabHistory";
 import { GitlabCommitViewer } from "./GitlabCommitViewer";
 import { GitlabApiError, gitlabApi, type GitlabEntry, type GitlabListing, type GitlabBranch, type GitlabCommit } from "./gitlab-api";
 
@@ -28,7 +28,7 @@ export function GitlabRepository({ endpoint, projectUrl, revision, demo, onAuthR
   useEffect(() => {
     const controller = new AbortController();
     setBranchesLoading(true); setBranchesError(null); setBranches([]);
-    const request = demo ? Promise.resolve({ branches: ["main", "develop"].map((name) => ({ name, default: name === "main", commit: null })) })
+    const request = demo ? Promise.resolve({ branches: ["main", "develop"].map((name) => ({ name, default: name === "main", commit: demoCommits(projectUrl, name)[0] })) })
       : gitlabApi<{ branches: GitlabBranch[] }>(`${endpoint}/branches`, controller.signal);
     void request.then((value) => { if (!controller.signal.aborted) setBranches(value.branches); })
       .catch((error) => { if (!controller.signal.aborted) {
@@ -148,34 +148,40 @@ export function GitlabRepository({ endpoint, projectUrl, revision, demo, onAuthR
   }
   const activeBranch = requestedBranch || branch || branches.find((item) => item.default)?.name || "";
   const commit = branches.find((item) => item.name === activeBranch)?.commit;
+  const displayedCommit = (view === "history" ? selectedCommit : null) || commit || null;
+  function toggleHistory() {
+    if (view === "history") setView("files");
+    else { setSelectedCommit((previous) => previous || commit || null); setView("history"); }
+  }
   return <div className="gitlab-browser">
-      <aside className="gitlab-repo-sidebar" aria-label="Репозиторий GitLab">
-        <div className="gitlab-sidebar-header">
+        <div className="gitlab-repo-toolbar">
           <GitlabBranchPicker branches={branches} value={activeBranch} loading={branchesLoading} onChange={(next) => {
             setSelected(null); setSelectedCommit(null); setFolders({}); setFocused(null);
             const empty = new Set<string>(); expandedRef.current = empty; setExpanded(empty);
             branchRef.current = next; setBranch(next); setRequestedBranch(next);
           }} />
           {branchesError && <button className="gitlab-branches-error" title={branchesError} onClick={() => setBranchesRetry((value) => value + 1)}>Повторить загрузку веток</button>}
-          <div className="gitlab-repo-views" role="group" aria-label="Вид репозитория">
-            <button type="button" aria-pressed={view === "files"} onClick={() => setView("files")}><Folder size={13} aria-hidden="true" />Файлы</button>
-            <button type="button" aria-pressed={view === "history"} onClick={() => setView("history")}><History size={13} aria-hidden="true" />История</button>
-          </div>
         </div>
+      <aside className="gitlab-repo-sidebar" aria-label="Репозиторий GitLab">
+        {view === "history" && <button type="button" className="gitlab-history-back" onClick={() => setView("files")}><ArrowLeft size={14} aria-hidden="true" />К файлам</button>}
         {view === "history" ? activeBranch ? <GitlabHistory key={`${activeBranch}:${revision}`} endpoint={endpoint} branch={activeBranch} projectUrl={projectUrl}
           demo={demo} selected={selectedCommit?.id ?? null} onSelect={setSelectedCommit} onAuthRequired={onAuthRequired} />
           : <div className="gitlab-history-pane"><p className="gitlab-history-status">{branchesLoading ? "Загружаем ветки…" : "Нет доступной ветки для просмотра истории."}</p></div>
           : <nav className="gitlab-tree-pane" aria-label="Файлы репозитория">
           <ul ref={tree} className="gitlab-tree" role="tree" aria-label="Файлы GitLab">{children("", 0)}</ul>
         </nav>}
-        {commit && <GitlabCommitSummary key={commit.id} commit={commit} onOpen={() => { setView("history"); setSelectedCommit(commit); }} />}
       </aside>
       <div className="gitlab-preview-pane">
+        <GitlabCommitSummary key={displayedCommit?.id || activeBranch} commit={displayedCommit} loading={branchesLoading}
+          historyOpen={view === "history"} historyDisabled={!activeBranch} onToggleHistory={toggleHistory}
+          onOpen={() => { if (displayedCommit) { setView("history"); setSelectedCommit(displayedCommit); } }} />
+        <div className="gitlab-preview-content">
         {view === "history" ? selectedCommit ? <GitlabCommitViewer key={`${activeBranch}:${selectedCommit.id}:${revision}`} commit={selectedCommit} endpoint={endpoint}
           demo={demo} onAuthRequired={onAuthRequired} /> : <div className="gitlab-preview-empty"><span>Выбери коммит в истории</span></div>
           : selected ? <GitlabFileViewer key={`${activeBranch}:${selected.path}:${revision}`} entry={selected} endpoint={endpoint} projectUrl={projectUrl}
           branch={branch} demo={demo} embedded onClose={() => { const path = selected.path; setSelected(null); focusPath(path); }} />
           : <div className="gitlab-preview-empty"><span>Выбери файл в дереве</span></div>}
+        </div>
       </div>
     </div>;
 }
