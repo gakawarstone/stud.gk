@@ -167,7 +167,8 @@ async function fill(window, selector, value) {
       && Math.abs(header.bottom - sidebar.top) < 1 && Math.abs(commit.top - toolbar.top) < 1
       && Math.abs(sidebar.top - preview.top) < 1
       && Math.abs((branch.top + branch.bottom) / 2 - (commit.top + commit.bottom) / 2) < 1
-      && branch.height >= 32 && branch.width >= 90 && branch.width < sidebar.width - 30
+      && branch.height >= 32 && branch.width >= toolbar.width - 28
+      && Math.abs((branch.left - toolbar.left) - (toolbar.right - branch.right)) <= 1.1
       && Math.abs(commit.left - preview.left) < 1 && Math.abs(header.bottom - body.top) < 1
       && Math.abs(body.left - preview.left) < 1 && Math.abs(body.right - preview.right) < 1;
   })()`), 'Branch and commit share one header, and the file preview meets its edges without outer padding');
