@@ -35,7 +35,7 @@ async function fill(window, selector, value) {
   const historyRequests = [], diffRequests = [];
   let failDiff = true;
   function fixtureCommit(letter, title) {
-    return { id: letter.repeat(40), shortId: letter.repeat(8), title, author: "Ada", committedAt: "2026-10-16T12:00:00Z",
+    return { id: letter.repeat(40), shortId: letter.repeat(8), title, author: "Ada", committedAt: letter === "c" ? "2026-10-15T12:00:00Z" : "2026-10-16T12:00:00Z",
       webUrl: "https://gitlab.example/team/project/-/commit/" + letter.repeat(40) };
   }
   runtime = await startServer({ root, dataDir: path.join(profile, "data"), autoSync: false,
@@ -65,13 +65,13 @@ async function fill(window, selector, value) {
     getGitlabCommit: async (_url, sha, options) => {
       assert.equal(options.token, token); diffRequests.push({ sha, page: options.page });
       if (failDiff) { failDiff = false; throw new GitlabError("Fixture diff unavailable", 502); }
-      const first = sha === "a".repeat(40), renamed = sha === "d".repeat(40);
+      const first = sha === "a".repeat(40), renamed = sha === "d".repeat(40), kotlin = sha === "b".repeat(40);
       const file = (oldPath, newPath, patch, flags = {}) => ({ oldPath, newPath, diff: patch, newFile: false, deletedFile: false,
         renamedFile: false, collapsed: false, tooLarge: false, oldMode: "100644", newMode: "100644", ...flags });
       return { commit: { ...fixtureCommit(sha[0], first ? "Update course materials" : renamed ? "Rename guide" : "Add Kotlin support"), message: "Full commit message\n\nCourse details" },
         diffs: options.page === "2" ? [file("image.png", "image.png", "", { newFile: true }), file("large.txt", "large.txt", "", { tooLarge: true })]
-          : [file(renamed ? "old.md" : "src/index.ts", renamed ? "guide.md" : "src/index.ts",
-            "@@ -8,2 +8,2 @@\n-export const answer = 41;\n+export const answer = 42;\n <img src=x onerror=alert(1)>\n", { renamedFile: renamed })], nextPage: first && options.page !== "2" ? 2 : null };
+          : [file(renamed ? "old.md" : kotlin ? "Main.kt" : "src/index.ts", renamed ? "guide.md" : kotlin ? "Main.kt" : "src/index.ts",
+            kotlin ? '@@ -1,3 +1,4 @@\n fun main() {\n-    println("Old")\n+    val greeting = "Kotlin"\n+    println(greeting)\n }\n' : "@@ -8,2 +8,2 @@\n-export const answer = 41;\n+export const answer = 42;\n <img src=x onerror=alert(1)>\n", { renamedFile: renamed })], nextPage: first && options.page !== "2" ? 2 : null };
     },
     getGitlabTree: async (_url, folder, options) => {
       if (options.token !== token) throw new GitlabError("Private project", 403, "GITLAB_AUTH_REQUIRED");
@@ -90,7 +90,8 @@ async function fill(window, selector, value) {
   });
   const window = new BrowserWindow({ show: false, width: 1280, height: 850,
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } });
-  if (process.env.CAMPUS_SMOKE_SCREENSHOT || process.env.CAMPUS_SMOKE_CODE_SCREENSHOT) window.showInactive();
+  if (process.env.CAMPUS_SMOKE_SCREENSHOT || process.env.CAMPUS_SMOKE_CODE_SCREENSHOT
+    || process.env.CAMPUS_SMOKE_HISTORY_SCREENSHOT || process.env.CAMPUS_SMOKE_KOTLIN_DIFF_SCREENSHOT) window.showInactive();
   await window.loadURL(runtime.url);
   await waitFor(window, `document.querySelector('#username') !== null`);
   await fill(window, "#username", "fixture");
@@ -224,13 +225,20 @@ async function fill(window, selector, value) {
   await waitFor(window, `document.querySelector('.gitlab-history-list li') !== null && document.querySelector('.gitlab-commit-viewer [role="alert"]') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-toggle').getAttribute('aria-pressed')`), "true");
   await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-viewer .text-button').click()`);
-  await waitFor(window, `document.querySelector('.gitlab-diff-add') !== null`);
+  await waitFor(window, `document.querySelector('.gitlab-diff-add .hljs-keyword') !== null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-diff-add .hljs-number').textContent`), "42");
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-diff-remove .hljs-number').textContent`), "41");
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.gitlab-history-date').length`), 1);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-commit code')`), null);
+  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-commit').getBoundingClientRect().height <= 72`));
+  assert.match(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-meta time').textContent`), /^\d{2}:\d{2}$/);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-diff-remove .gitlab-diff-number').textContent`), "8");
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.gitlab-diff-add .gitlab-diff-number')[1].textContent`), "8");
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-diff-lines img')`), null);
   assert.match(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-message').textContent`), /Course details/);
   await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-pane .gitlab-load-more').click()`);
   await waitFor(window, `document.querySelectorAll('.gitlab-history-list li').length === 3`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.gitlab-history-date').length`), 2);
   assert.deepEqual(historyRequests.slice(-2), [{ ref: "main", page: "1" }, { ref: "main", page: "2" }]);
   await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-viewer .gitlab-load-more').click()`);
   await waitFor(window, `document.querySelectorAll('.gitlab-diff-file').length === 3`);
@@ -276,6 +284,12 @@ async function fill(window, selector, value) {
   assert.equal(historyRequests.at(-1).ref, "feature/kotlin");
   await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-commit').click()`);
   await waitFor(window, `document.querySelector('.gitlab-commit-title')?.textContent === 'Add Kotlin support' && document.querySelector('.gitlab-diff-file') !== null`);
+  await waitFor(window, `document.querySelector('.gitlab-diff-add .hljs-string')?.textContent === '"Kotlin"'`);
+  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-diff-context .hljs-keyword') !== null`));
+  if (process.env.CAMPUS_SMOKE_KOTLIN_DIFF_SCREENSHOT) {
+    await new Promise(resolve => setTimeout(resolve, 150));
+    await writeFile(process.env.CAMPUS_SMOKE_KOTLIN_DIFF_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
+  }
   await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-back').click()`);
   await waitFor(window, `document.querySelector('[data-entry-path="Main.kt"]') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('[data-entry-path="src"]')`), null);
@@ -323,7 +337,7 @@ async function fill(window, selector, value) {
   await waitFor(window, `document.querySelector('.gitlab-token-form [role="status"]')?.textContent.includes('подключён')`);
   await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-token-form button')).find(b => b.textContent.includes('Удалить')).click()`);
   await waitFor(window, `document.querySelector('#gitlab-access-token') !== null && document.querySelector('.gitlab-markdown') === null`);
-  console.log(JSON.stringify({ result: "passed", root, checks: "nested tree, folder cache/refresh, keyboard selection, inline highlighted code, compact commit strip, SHA copy, history toggle, hidden scrollbars, commit history and diff pagination, diff retry, line numbers, rename/binary/large patches, branch changes, narrow layout, safe diff text, Markdown, shared token, encrypted session" }));
+  console.log(JSON.stringify({ result: "passed", root, checks: "nested tree, folder cache/refresh, keyboard selection, inline highlighted code, compact commit strip, SHA copy, history toggle, date-grouped compact history, syntax-highlighted TypeScript and Kotlin diffs, hidden scrollbars, commit history and diff pagination, diff retry, line numbers, rename/binary/large patches, branch changes, narrow layout, safe diff text, Markdown, shared token, encrypted session" }));
   window.destroy();
   await runtime.close();
   await rm(profile, { recursive: true, force: true });

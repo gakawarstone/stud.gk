@@ -38,15 +38,22 @@ export function GitlabHistory({ endpoint, branch, projectUrl, demo, selected, on
     return () => controller.abort();
   }, [endpoint, branch, projectUrl, demo, page, retry, onAuthRequired]);
   return <nav className="gitlab-history-pane" aria-label={`История коммитов ${branch}`} aria-busy={loading}>
-    <ol className="gitlab-history-list">{commits.map((commit) => <li key={commit.id}>
-      <button type="button" className="gitlab-history-commit" aria-current={selected === commit.id ? "true" : undefined} onClick={() => onSelect(commit)}>
+    <ol className="gitlab-history-list">{commits.map((commit, index) => {
+      const date = commit.committedAt ? new Date(commit.committedAt) : null;
+      const previous = commits[index - 1]?.committedAt;
+      const startsDay = index === 0 || date?.toLocaleDateString("ru") !== (previous ? new Date(previous).toLocaleDateString("ru") : undefined);
+      return <li key={commit.id}>
+      {startsDay && <div className="gitlab-history-date">{date ? date.toLocaleDateString("ru", {
+        day: "numeric", month: "long", ...(date.getFullYear() !== new Date().getFullYear() ? { year: "numeric" } : {}),
+      }) : "Дата не указана"}</div>}
+      <button type="button" className="gitlab-history-commit" aria-current={selected === commit.id ? "true" : undefined}
+        title={`${commit.title || "Без заголовка"}\n${commit.id}`} onClick={() => onSelect(commit)}>
         <span className="gitlab-history-title">{commit.title || "Без заголовка"}</span>
-        <span className="gitlab-commit-meta"><span>{commit.author || "Неизвестный автор"}</span>
-          {commit.committedAt && <time dateTime={commit.committedAt} title={new Date(commit.committedAt).toLocaleString("ru")}>{new Date(commit.committedAt).toLocaleDateString("ru")}</time>}
+        <span className="gitlab-history-meta"><span>{commit.author || "Неизвестный автор"}</span>
+          {date && <time dateTime={commit.committedAt!} title={date.toLocaleString("ru")}>{date.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" })}</time>}
         </span>
-        <code>{commit.shortId}</code>
       </button>
-    </li>)}</ol>
+    </li>; })}</ol>
     {loading && <p className="gitlab-history-status" role="status"><LoaderCircle size={14} className="spin" aria-hidden="true" />Загружаем историю…</p>}
     {error && <div className="gitlab-history-status"><p role="alert">{error}</p><button className="text-button" onClick={() => setRetry((value) => value + 1)}>Повторить</button></div>}
     {!loading && !error && (!commits.length ? <p className="gitlab-history-status">В этой ветке пока нет коммитов.</p>

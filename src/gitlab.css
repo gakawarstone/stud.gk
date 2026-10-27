@@ -148,12 +148,17 @@
 
 .gitlab-history-pane { flex: 1; min-height: 0; overflow: auto; padding: 0 12px 8px 0; }
 .gitlab-history-list { margin: 0; padding: 0; list-style: none; }
-.gitlab-history-commit { display: flex; flex-direction: column; gap: 5px; width: 100%; padding: 10px; border-radius: 6px; text-align: left; border-bottom: 1px solid var(--surface0); }
+.gitlab-history-date { margin: 14px 0 6px; padding: 0 10px; color: var(--muted); font-size: 11px; }
+.gitlab-history-list > li:first-child .gitlab-history-date { margin-top: 3px; }
+.gitlab-history-commit { position: relative; display: flex; flex-direction: column; gap: 5px; width: 100%; min-height: 56px; padding: 9px 10px; text-align: left; }
 .gitlab-history-commit:hover { background: var(--surface); }
-.gitlab-history-commit[aria-current="true"] { background: var(--surface0); }
-.gitlab-history-title { color: var(--text); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
-.gitlab-history-commit[aria-current="true"] .gitlab-history-title { color: var(--mauve); }
-.gitlab-history-commit code { color: var(--subtext); font: 11px/1.6 ui-monospace, monospace; }
+.gitlab-history-commit[aria-current="true"] { background: color-mix(in srgb, var(--mauve) 7%, transparent); }
+.gitlab-history-commit[aria-current="true"]::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; border-radius: 2px; background: var(--mauve); }
+.gitlab-history-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; color: var(--text); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.gitlab-history-commit[aria-current="true"] .gitlab-history-title { font-weight: 500; }
+.gitlab-history-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; width: 100%; min-width: 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.gitlab-history-meta > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gitlab-history-meta time { flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .gitlab-history-status { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0; padding: 14px 10px; color: var(--muted); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
 .gitlab-history-status p { flex-basis: 100%; margin: 0; }
 .gitlab-history-status a { color: var(--blue); }
@@ -176,6 +181,8 @@
 .gitlab-diff-lines td { padding: 0; vertical-align: top; }
 .gitlab-diff-lines .gitlab-diff-number { width: 1%; min-width: 36px; padding: 0 7px; border-right: 1px solid var(--surface0); text-align: right; color: var(--muted); user-select: none; }
 .gitlab-diff-lines pre { margin: 0; padding: 0 10px; font: inherit; white-space: pre; tab-size: 4; }
+.gitlab-diff-lines code { padding: 0; background: none; font: inherit; }
+.gitlab-diff-sign { display: inline-block; width: 1ch; color: var(--subtext); user-select: none; }
 .gitlab-diff-add { background: color-mix(in srgb, var(--green) 12%, transparent); }
 .gitlab-diff-remove { background: color-mix(in srgb, var(--red) 12%, transparent); }
 .gitlab-diff-hunk { color: var(--blue); background: color-mix(in srgb, var(--blue) 8%, transparent); }

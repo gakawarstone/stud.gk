@@ -5,6 +5,17 @@ import { parseGitlabDiff } from "./gitlab-diff";
 
 function FileDiff({ file }: { file: GitlabDiff }) {
   const lines = useMemo(() => parseGitlabDiff(file.diff), [file.diff]);
+  const [highlighted, setHighlighted] = useState<{ lines: typeof lines; oldPath: string; newPath: string; html: (string | null)[] } | null>(null);
+  useEffect(() => {
+    if (!file.diff || file.tooLarge || file.collapsed || file.diff.length > 200_000) return;
+    let cancelled = false;
+    void import("./gitlab-diff-highlight").then(({ highlightGitlabDiff }) => {
+      const html = highlightGitlabDiff(lines, file.newPath, file.oldPath);
+      if (!cancelled) setHighlighted({ lines, oldPath: file.oldPath, newPath: file.newPath, html });
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [lines, file.diff, file.oldPath, file.newPath, file.tooLarge, file.collapsed]);
+  const html = highlighted?.lines === lines && highlighted.oldPath === file.oldPath && highlighted.newPath === file.newPath ? highlighted.html : null;
   const additions = lines.filter((line) => line.kind === "add").length, deletions = lines.filter((line) => line.kind === "remove").length;
   return <details className="gitlab-diff-file" open>
     <summary>
@@ -18,7 +29,11 @@ function FileDiff({ file }: { file: GitlabDiff }) {
         : <div className="gitlab-diff-scroll" tabIndex={0} role="region" aria-label={`Дифф ${file.newPath}`}>
           <table className="gitlab-diff-lines" aria-label="Изменения строк"><thead className="sr-only"><tr><th>Старая строка</th><th>Новая строка</th><th>Изменение</th></tr></thead>
             <tbody>{lines.map((line, index) => <tr key={index} className={`gitlab-diff-${line.kind}`}>
-              <td className="gitlab-diff-number">{line.oldLine}</td><td className="gitlab-diff-number">{line.newLine}</td><td><pre>{line.text}</pre></td>
+              <td className="gitlab-diff-number">{line.oldLine}</td><td className="gitlab-diff-number">{line.newLine}</td><td><pre>
+                {line.kind === "hunk" || line.kind === "meta" ? line.text : <><span className="gitlab-diff-sign">{line.text[0]}</span>
+                  {html?.[index] != null ? <code className="gitlab-code hljs" dangerouslySetInnerHTML={{ __html: html[index]! }} />
+                    : <code className="gitlab-code">{line.text.slice(1)}</code>}</>}
+              </pre></td>
             </tr>)}</tbody>
           </table>
         </div>}
