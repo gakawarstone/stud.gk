@@ -5,28 +5,8 @@ import type { ExtraCourseTab } from "./course-tabs";
 import { CourseSchedule } from "./CourseSchedule";
 import { resourceDate as date } from "./course-schedule";
 
-export type CourseDetails = {
-  id: string;
-  title: string;
-  code?: string;
-  semester?: string;
-  description?: string;
-  location?: string;
-  url: string | null;
-};
-export type CourseResource = {
-  id: string;
-  kind: string;
-  courseId: string;
-  title: string;
-  description: string;
-  location?: string;
-  createdAt?: string | null;
-  updatedAt?: string | null;
-  start?: string | number | null;
-  end?: string | number | null;
-  cancelled?: boolean;
-};
+import type { CourseDetails, CourseResource } from "../shared/studip";
+export type { CourseDetails, CourseResource } from "../shared/studip";
 
 function ResourceDate({ value }: { value: string | number | null | undefined }) {
   const parsed = date(value);

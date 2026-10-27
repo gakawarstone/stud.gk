@@ -22,6 +22,7 @@ function repositoryRef(value) {
     throw new GitlabError("Некорректная ветка репозитория.", 400);
   return value;
 }
+/** @param {unknown} value */
 function repositoryPage(value = 1) {
   if (!/^[1-9]\d{0,5}$/.test(String(value)) || !["string", "number"].includes(typeof value))
     throw new GitlabError("Некорректная страница истории.", 400);
@@ -61,6 +62,7 @@ async function readBody(response, limit = 2 * 1024 * 1024, tooLarge = "Файл 
   } finally { await reader.cancel().catch(() => {}); }
 }
 export function createGitlabClient(request = publicRequest) {
+  /** @param {string} value @param {import('./types.js').GitlabOptions} options */
   function connection(value, { token, signal = AbortSignal.timeout(20000) } = {}) {
     const project = new URL(normalizeGitlabProject(value).url);
     if (token) {
@@ -98,6 +100,7 @@ export function createGitlabClient(request = publicRequest) {
     return { project, api, get, json, rawUrl, webUrl };
   }
   return {
+    /** @param {string} value @param {import('./types.js').GitlabOptions} options */
     async branches(value, options = {}) {
       const c = connection(value, options);
       const branches = [], seen = new Set();
@@ -119,6 +122,7 @@ export function createGitlabClient(request = publicRequest) {
       }
       return { branches };
     },
+    /** @param {string} value @param {import('./types.js').GitlabOptions} options */
     async commits(value, options = {}) {
       repositoryRef(options.ref);
       const page = repositoryPage(options.page), perPage = 30;
@@ -130,6 +134,7 @@ export function createGitlabClient(request = publicRequest) {
       if (commits.some((item) => !item)) throw new GitlabError("GitLab вернул некорректный коммит.");
       return { commits, nextPage: nextPage(headers, page, data.length, perPage) };
     },
+    /** @param {string} value @param {string} sha @param {import('./types.js').GitlabOptions} options */
     async commit(value, sha, options = {}) {
       commitId(sha);
       const page = repositoryPage(options.page), perPage = 20;
@@ -152,6 +157,7 @@ export function createGitlabClient(request = publicRequest) {
       return { commit: { ...commit, message: typeof metadata.message === "string" ? metadata.message : commit.title },
         diffs, nextPage: nextPage(headers, page, data.length, perPage) };
     },
+    /** @param {string} value @param {string} path @param {import('./types.js').GitlabOptions} options */
     async list(value, path = "", options = {}) {
       repositoryPath(path); repositoryRef(options.ref);
       const c = connection(value, options);
@@ -179,6 +185,7 @@ export function createGitlabClient(request = publicRequest) {
       entries.sort((a, b) => Number(b.directory) - Number(a.directory) || a.name.localeCompare(b.name, undefined, { numeric: true }));
       return { branch: ref, path, entries };
     },
+    /** @param {string} value @param {string} path @param {import('./types.js').GitlabOptions} options */
     async file(value, path, options = {}) {
       if (!repositoryPath(path)) throw new GitlabError("Укажи файл репозитория.", 400);
       repositoryRef(options.ref);
@@ -188,12 +195,14 @@ export function createGitlabClient(request = publicRequest) {
       try { if (!buffer.includes(0)) content = new TextDecoder("utf-8", { fatal: true }).decode(buffer); } catch { /* Binary files use the download or media viewer. */ }
       return { path, content, binary: content === null, size: buffer.length, webUrl: c.webUrl(path, options.ref) };
     },
+    /** @param {string} value @param {string} path @param {import('./types.js').GitlabOptions} options */
     async content(value, path, options = {}) {
       if (!repositoryPath(path)) throw new GitlabError("Укажи файл репозитория.", 400);
       repositoryRef(options.ref);
       const c = connection(value, options);
       return c.get(c.rawUrl(path, options.ref));
     },
+    /** @param {string} value @param {import('./types.js').GitlabOptions} options */
     async readme(value, options = {}) {
       const c = connection(value, options);
       const { data: metadata } = await c.json(c.api, true);

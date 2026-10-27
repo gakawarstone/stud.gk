@@ -11,6 +11,7 @@ const keyFor = (account, file) => hash([
 ]);
 
 // Only complete, unencoded responses are reusable across previews and downloads.
+/** @param {string} directory @param {{maxBytes?: number}} options */
 export async function createFileCache(directory, { maxBytes = FILE_CACHE_BYTES } = {}) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const entries = new Map();
@@ -56,6 +57,7 @@ export async function createFileCache(directory, { maxBytes = FILE_CACHE_BYTES }
   }
   await trim();
 
+  /** @param {string} key @param {import('./types.js').ReadOptions} options */
   async function cached(key, { signal, range }) {
     const entry = entries.get(key);
     if (!entry) return null;
@@ -86,13 +88,15 @@ export async function createFileCache(directory, { maxBytes = FILE_CACHE_BYTES }
       "Accept-Ranges": "bytes",
     };
     if (match) headers["Content-Range"] = `bytes ${start}-${end}/${entry.size}`;
+    /** @type {BodyInit} */
     let body = new Uint8Array();
-    if (entry.size) body = Readable.toWeb(handle.createReadStream({ start, end, signal }));
+    if (entry.size) body = /** @type {ReadableStream<Uint8Array>} */ (Readable.toWeb(handle.createReadStream({ start, end, signal })));
     else await handle.close();
     return new Response(body, { status: match ? 206 : 200, headers });
   }
 
   return {
+    /** @param {string} account @param {import('../shared/studip.js').CourseResource[]} files */
     async prune(account, files) {
       const accountKey = hash(account);
       const keys = new Set(files.filter((file) => file.kind === "file").map((file) => keyFor(account, file)));
@@ -102,6 +106,9 @@ export async function createFileCache(directory, { maxBytes = FILE_CACHE_BYTES }
           if (entry.account === accountKey && !keys.has(key)) await remove(key);
       }).catch(() => {});
     },
+    /** @param {string} account @param {import('../shared/studip.js').CourseResource} file
+     * @param {(options: import('./types.js').ReadOptions) => Promise<Response>} load
+     * @param {import('./types.js').ReadOptions} options */
     async download(account, file, load, options = {}) {
       const key = keyFor(account, file);
       const hit = await cached(key, options);

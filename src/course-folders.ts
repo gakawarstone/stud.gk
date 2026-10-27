@@ -1,14 +1,5 @@
-export type CourseFolder = {
-  id: string;
-  title: string;
-  parentId: string | null;
-  readable: boolean;
-};
-export type CourseFolders = {
-  rootId: string | null;
-  folders: CourseFolder[];
-  fileFolders: { fileRefId: string; folderId: string | null }[];
-};
+import type { CourseFolder, CourseFolders } from "../shared/studip";
+export type { CourseFolder, CourseFolders } from "../shared/studip";
 
 export function listFolder<T extends { remoteId?: string }>(
   data: CourseFolders,

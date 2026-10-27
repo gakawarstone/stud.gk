@@ -12,8 +12,10 @@ export class NextcloudError extends Error {
   }
 }
 
+/** @type {[string, number][]} */
+const blockedSubnets = [["0.0.0.0", 8], ["10.0.0.0", 8], ["100.64.0.0", 10], ["127.0.0.0", 8], ["169.254.0.0", 16], ["172.16.0.0", 12], ["192.0.0.0", 24], ["192.0.2.0", 24], ["192.168.0.0", 16], ["198.18.0.0", 15], ["198.51.100.0", 24], ["203.0.113.0", 24], ["224.0.0.0", 3]];
 const blocked = new BlockList();
-for (const [address, prefix] of [["0.0.0.0", 8], ["10.0.0.0", 8], ["100.64.0.0", 10], ["127.0.0.0", 8], ["169.254.0.0", 16], ["172.16.0.0", 12], ["192.0.0.0", 24], ["192.0.2.0", 24], ["192.168.0.0", 16], ["198.18.0.0", 15], ["198.51.100.0", 24], ["203.0.113.0", 24], ["224.0.0.0", 3]]) {
+for (const [address, prefix] of blockedSubnets) {
   blocked.addSubnet(address, prefix, "ipv4");
 }
 const globalV6 = new BlockList();
@@ -54,6 +56,7 @@ function davUrl(share, path, backend) {
 
 // Resolve once, reject local networks, and pin the checked address to the connection.
 // Redirects are returned to the caller and never followed with share credentials.
+/** @param {URL} url @param {import('./types.js').PublicRequestOptions} options @returns {Promise<Response>} */
 export async function publicRequest(url, { method = "GET", headers = {}, body, signal } = {}) {
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
   const addresses = isIP(hostname) ? [{ address: hostname, family: isIP(hostname) }]
@@ -71,7 +74,7 @@ export async function publicRequest(url, { method = "GET", headers = {}, body, s
       for (const [name, value] of Object.entries(response.headers)) {
         if (value !== undefined) responseHeaders.set(name, Array.isArray(value) ? value.join(", ") : value);
       }
-      resolve(new Response(Readable.toWeb(response), { status: response.statusCode, headers: responseHeaders }));
+      resolve(new Response(/** @type {ReadableStream<Uint8Array>} */ (Readable.toWeb(response)), { status: response.statusCode, headers: responseHeaders }));
     });
     request.setTimeout(30000, () => request.destroy(new Error("Nextcloud timeout")));
     request.on("error", reject);
@@ -83,8 +86,8 @@ const properties = '<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:d
 
 export function parseListing(xml, root, currentPath = "") {
   const $ = load(xml, { xml: true });
-  const nodes = (parent, name) => $(parent).children().filter((_, node) => node.name.split(":").pop() === name);
-  const responses = $("*").filter((_, node) => node.name.split(":").pop() === "response");
+  const nodes = (parent, name) => $(parent).children().filter((_, node) => ("name" in node ? node.name : "").split(":").pop() === name);
+  const responses = $("*").filter((_, node) => ("name" in node ? node.name : "").split(":").pop() === "response");
   if (!responses.length) throw new NextcloudError("Nextcloud вернул некорректный список файлов.");
   const entries = [];
   let title = "Nextcloud";
@@ -128,6 +131,7 @@ export function createNextcloudClient(request = publicRequest) {
       Authorization: `Basic ${Buffer.from(`${share.token}:`).toString("base64")}`, ...extra.headers } };
   }
   return {
+    /** @param {string} url @param {string} path @param {{signal?: AbortSignal}} options */
     async list(url, path = "", { signal } = {}) {
       const share = shareInfo(url);
       path = filePath(path);
@@ -155,6 +159,7 @@ export function createNextcloudClient(request = publicRequest) {
       }
       return { ...parseListing(Buffer.concat(chunks).toString("utf8"), davUrl(share, "", backend), path), backend };
     },
+    /** @param {string} url @param {string} path @param {import('./types.js').ReadOptions & {backend?: string}} options */
     async content(url, path, { backend = "dav", range, signal } = {}) {
       const share = shareInfo(url);
       const response = await request(davUrl(share, path, backend === "webdav" ? "webdav" : "dav"), options(share, {

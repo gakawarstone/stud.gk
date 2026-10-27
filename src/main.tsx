@@ -1,14 +1,7 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type FormEvent,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ArrowLeft,
-  ArrowUpRight,
   BellDot,
   ChevronRight,
   FileArchive,
@@ -23,11 +16,10 @@ import {
   LoaderCircle,
   LayoutGrid,
   LogOut,
-  ShieldCheck,
   TriangleAlert,
 } from "lucide-react";
 import "./styles.css";
-import { FileThumbnail, clearThumbnailCache } from "./FileThumbnail";
+import { FileThumbnail } from "./FileThumbnail";
 import { PdfViewer } from "./PdfViewer";
 import { courseIcon } from "./course-icons";
 import { listFolder, type CourseFolders } from "./course-folders";
@@ -35,45 +27,16 @@ import { FolderExplorer } from "./FolderExplorer";
 import { PdfFileIcon } from "./PdfFileIcon";
 import { CourseSidebar } from "./CourseSidebar";
 import { GitlabProject } from "./GitlabProject";
-import type { GitlabProject as Project } from "../server/gitlab.js";
 import { NextcloudSection } from "./NextcloudSection";
-import { CourseSections, type CourseDetails, type CourseResource } from "./CourseSections";
+import { CourseSections } from "./CourseSections";
 import { courseTabFromHash, courseTabLink } from "./course-tabs";
 
-type Course = CourseDetails & { color: string };
-type Change = {
-  id: string;
-  remoteId?: string;
-  resourceId?: string;
-  title: string;
-  description: string;
-  kind: "file" | "news" | "schedule" | "course";
-  courseId: string;
-  size?: number;
-  location?: string;
-  occurredAt: string;
-  action: "added" | "updated" | "removed";
-  read: boolean;
-};
-type Material = Omit<Change, "occurredAt" | "action" | "read"> & {
-  createdAt?: string | null;
-  updatedAt?: string | null;
-} & Pick<CourseResource, "start" | "end" | "cancelled">;
-type Feed = {
-  authenticated: boolean;
-  mode: "live" | "demo";
-  courses: Course[];
-  gitlabProjects?: Record<string, Project>;
-  changes: Change[];
-  resources: Material[];
-  lastSync: string | null;
-  syncing: boolean;
-  error: string | null;
-  unavailableSources?: { courseId: string; kind: string }[];
-  user: { id: string; name: string } | null;
-};
-type AuthState = Feed | { authenticated: false; authExpired: boolean };
-type Phase = "loading" | "login" | "live" | "demo";
+import { api, ApiError } from "./api";
+import { Login } from "./Login";
+import { useCourseOrder } from "./use-course-order";
+import { useFeedSession } from "./use-feed-session";
+import type { Change, Material } from "../shared/studip";
+
 function userInitials(name: string | undefined) {
   const parts = (name || "").trim().split(/\s+/).filter(Boolean);
   return (
@@ -83,34 +46,6 @@ function userInitials(name: string | undefined) {
       .join("")
       .toLocaleUpperCase() || "?"
   );
-}
-class ApiError extends Error {
-  constructor(
-    message: string,
-    public status: number,
-  ) {
-    super(message);
-  }
-}
-async function api<T>(url: string, body?: unknown): Promise<T> {
-  const response = await fetch(
-    url,
-    body === undefined
-      ? { credentials: "same-origin" }
-      : {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        },
-  );
-  const payload = await response.json();
-  if (!response.ok)
-    throw new ApiError(
-      payload.error || "Не удалось выполнить запрос.",
-      response.status,
-    );
-  return payload;
 }
 function materialDate(file: Material) {
   return (
@@ -175,111 +110,11 @@ function fileCountLabel(count: number) {
           : "файлов";
   return `${count} ${word}`;
 }
-function Login({
-  error,
-  busy,
-  onLogin,
-  onDemo,
-}: {
-  error: string | null;
-  busy: boolean;
-  onLogin: (username: string, password: string) => Promise<void>;
-  onDemo: () => void;
-}) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    try {
-      await onLogin(username, password);
-    } finally {
-      setPassword("");
-    }
-  }
-  return (
-    <div className="login-wrap">
-      <section className="login-card">
-        <span className="login-symbol">
-          <GraduationCap size={29} strokeWidth={1.6} />
-        </span>
-        <h1>Войти в Stud.IP</h1>
-        <p className="login-description">
-          Hochschule Flensburg.
-          <br />
-          Тот же логин и пароль, что и в Stud.IP.
-        </p>
-        <form onSubmit={submit}>
-          <label htmlFor="username">Логин</label>
-          <input
-            id="username"
-            name="username"
-            autoComplete="username"
-            autoCapitalize="none"
-            spellCheck={false}
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Твой логин университета"
-            maxLength={128}
-            disabled={busy}
-            required
-            autoFocus
-          />
-          <label htmlFor="password">Пароль</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Пароль Stud.IP"
-            maxLength={1024}
-            disabled={busy}
-            required
-          />
-          {error && (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
-          )}
-          <button
-            className="primary-button login-submit"
-            type="submit"
-            disabled={busy || !username.trim() || !password}
-          >
-            {busy ? (
-              <>
-                <LoaderCircle size={16} className="spin" />
-                Входим…
-              </>
-            ) : (
-              <>
-                Войти
-                <ArrowUpRight size={16} />
-              </>
-            )}
-          </button>
-        </form>
-        <p className="login-privacy">
-          <ShieldCheck size={15} />
-          <span>
-            Пароль не сохраняется.
-            <br />
-            Сессия останется на этом компьютере до 7 дней.
-          </span>
-        </p>
-      </section>
-      <button className="demo-link" onClick={onDemo} disabled={busy}>
-        Посмотреть демо
-      </button>
-    </div>
-  );
-}
 function App() {
-  const [phase, setPhase] = useState<Phase>("loading");
-  const [data, setData] = useState<Feed | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    phase, data, busy, error, generation, load, signedOut,
+    login, showDemo, logout, refresh: refreshFeed, markResourceViewed, saveGitlabProject: saveProject,
+  } = useFeedSession(resetSessionUi);
   const [fileError, setFileError] = useState<string | null>(null);
   const [viewedPdf, setViewedPdf] = useState<Material | null>(null);
   const [nextcloudToolbar, setNextcloudToolbar] = useState<HTMLDivElement | null>(null);
@@ -302,34 +137,7 @@ function App() {
     data: CourseFolders | null;
     error: string | null;
   } | null>(null);
-  const [courseOrder, setCourseOrder] = useState<string[]>(() => {
-    try {
-      const saved: unknown = JSON.parse(
-        localStorage.getItem("campus-course-order") || "[]",
-      );
-      return Array.isArray(saved)
-        ? [
-            ...new Set(
-              saved.filter((id): id is string => typeof id === "string"),
-            ),
-          ]
-        : [];
-    } catch {
-      return [];
-    }
-  });
-  const [courseDrag, setCourseDrag] = useState<{
-    id: string;
-    targetId: string | null;
-    x: number;
-    y: number;
-  } | null>(null);
-  const dragCleanup = useRef<(() => void) | null>(null);
-  const suppressCardClickUntil = useRef(0);
-  const ranks = new Map(courseOrder.map((id, index) => [id, index]));
-  const orderedCourses = [...(data?.courses ?? [])].sort(
-    (a, b) => (ranks.get(a.id) ?? Infinity) - (ranks.get(b.id) ?? Infinity),
-  );
+  const { orderedCourses, courseDrag, moveCourse, startCourseDrag, suppressCardClickUntil, cancelCourseDrag } = useCourseOrder(data?.courses ?? []);
   const selectedCourse = orderedCourses.find((c) => c.id === selectedCourseId);
   const courseSettingsScope = JSON.stringify([phase, data?.user?.id || "", selectedCourse?.id || ""]);
   const fileChanges = (data?.changes ?? []).filter(
@@ -350,70 +158,9 @@ function App() {
     )
       unreadFiles.set(change.resourceId, change);
   }
-  function moveCourse(id: string, targetId: string) {
-    const ids = orderedCourses.map((c) => c.id);
-    const from = ids.indexOf(id);
-    const to = ids.indexOf(targetId);
-    if (from < 0 || to < 0 || from === to) return;
-    ids.splice(from, 1);
-    ids.splice(to, 0, id);
-    setCourseOrder(ids);
-    localStorage.setItem("campus-course-order", JSON.stringify(ids));
-  }
-  function startCourseDrag(event: ReactPointerEvent<HTMLElement>, id: string) {
-    if (event.button !== 0 || !event.isPrimary) return;
-    const onHandle = (event.target as Element).closest(".course-drag-handle");
-    if (event.pointerType !== "mouse" && !onHandle) return;
-    dragCleanup.current?.();
-    const { clientX: startX, clientY: startY, pointerId } = event;
-    let started = false;
-    let targetId: string | null = null;
-    function move(e: PointerEvent) {
-      if (e.pointerId !== pointerId) return;
-      if (!started && Math.hypot(e.clientX - startX, e.clientY - startY) < 6)
-        return;
-      started = true;
-      e.preventDefault();
-      targetId =
-        document
-          .elementFromPoint(e.clientX, e.clientY)
-          ?.closest<HTMLElement>("[data-course-id]")?.dataset.courseId || null;
-      setCourseDrag({ id, targetId, x: e.clientX, y: e.clientY });
-      if (e.clientY < 60) window.scrollBy(0, -20);
-      else if (e.clientY > window.innerHeight - 60) window.scrollBy(0, 20);
-    }
-    function cleanup() {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", end);
-      window.removeEventListener("pointercancel", cancel);
-      window.removeEventListener("keydown", escape);
-      window.removeEventListener("blur", cancel);
-      dragCleanup.current = null;
-      setCourseDrag(null);
-      if (started) suppressCardClickUntil.current = Date.now() + 400;
-    }
-    function end(e: PointerEvent) {
-      if (e.pointerId !== pointerId) return;
-      if (started && targetId) moveCourse(id, targetId);
-      cleanup();
-    }
-    function cancel() {
-      cleanup();
-    }
-    function escape(e: KeyboardEvent) {
-      if (e.key === "Escape") cleanup();
-    }
-    window.addEventListener("pointermove", move, { passive: false });
-    window.addEventListener("pointerup", end);
-    window.addEventListener("pointercancel", cancel);
-    window.addEventListener("keydown", escape);
-    window.addEventListener("blur", cancel);
-    dragCleanup.current = cleanup;
-  }
-  useEffect(() => () => dragCleanup.current?.(), []);
   useEffect(() => {
     function navigate() {
-      dragCleanup.current?.();
+      cancelCourseDrag();
       setSelectedCourseId(courseFromHash());
       setSelectedTab(courseTabFromHash());
       setSelectedFolderId(folderFromHash());
@@ -425,8 +172,6 @@ function App() {
     window.addEventListener("hashchange", navigate);
     return () => window.removeEventListener("hashchange", navigate);
   }, []);
-  const generation = useRef(0);
-  const gitlabRevision = useRef(0);
   useEffect(() => {
     try {
       localStorage.setItem("stud-gk-file-view", fileView);
@@ -436,10 +181,11 @@ function App() {
     const courseId = selectedCourse?.id;
     if (!courseId || selectedTab !== "files" || fileView !== "folders" || (phase !== "live" && phase !== "demo")) return;
     let cancelled = false;
+    const controller = new AbortController();
     const version = generation.current;
     setFolderState({ courseId, data: null, error: null });
     const route = phase === "demo" ? "/api/demo/courses" : "/api/courses";
-    void api<CourseFolders>(`${route}/${encodeURIComponent(courseId)}/folders`)
+    void api<CourseFolders>(`${route}/${encodeURIComponent(courseId)}/folders`, undefined, controller.signal)
       .then((folders) => {
         if (!cancelled && version === generation.current) {
           setFolderState({ courseId, data: folders, error: null });
@@ -466,200 +212,29 @@ function App() {
           error: error instanceof ApiError ? error.message : "Не удалось загрузить папки. Попробуй ещё раз.",
         });
       });
-    return () => { cancelled = true; };
+    return () => { cancelled = true; controller.abort(); };
   }, [selectedCourse?.id, selectedTab, fileView, phase, data?.lastSync, folderRevision]);
-  async function markResourceViewed(resourceId: string) {
-    const version = generation.current;
-    const changes = (data?.changes ?? []).filter(
-      (change) => change.resourceId === resourceId && !change.read,
-    );
-    if (!changes.length) return;
-    const results = await Promise.allSettled(
-      changes.map(async (change) => {
-        if (phase === "live") await api("/api/changes/read", { id: change.id });
-        return change.id;
-      }),
-    );
-    if (version !== generation.current) return;
-    const read = new Set(
-      results.flatMap((result) =>
-        result.status === "fulfilled" ? [result.value] : [],
-      ),
-    );
-    setData((current) =>
-      current
-        ? {
-            ...current,
-            changes: current.changes.map((change) =>
-              read.has(change.id) ? { ...change, read: true } : change,
-            ),
-          }
-        : current,
-    );
-  }
-  const phaseRef = useRef<Phase>(phase);
-  phaseRef.current = phase;
-  const previousSync = useRef<string | null>(null);
-  function signedOut(message: string | null = null) {
+  function resetSessionUi() {
     setViewedPdf(null);
-    clearThumbnailCache();
-    dragCleanup.current?.();
-    generation.current++;
-    previousSync.current = null;
-    setData(null);
+    cancelCourseDrag();
     setFolderState(null);
     initialFolderCourse.current = null;
     setFileError(null);
-    window.history.replaceState(
-      null,
-      "",
-      window.location.pathname + window.location.search,
-    );
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
     setSelectedCourseId(null);
     setSelectedTab("files");
     setSelectedFolderId(null);
-    setPhase("login");
-    setError(message);
   }
-  async function load() {
-    const version = generation.current;
-    const projectVersion = gitlabRevision.current;
-    try {
-      const next =
-        phaseRef.current === "demo"
-          ? await api<Feed>("/api/demo")
-          : await api<AuthState>("/api/state");
-      if (version !== generation.current) return;
-      if (!next.authenticated && !("mode" in next)) {
-        setViewedPdf(null);
-        setData(null);
-        setPhase("login");
-        if (next.authExpired)
-          setError("Сессия истекла. Войди в Stud.IP заново.");
-        return;
-      }
-      const feed = next as Feed;
-      if (
-        previousSync.current &&
-        feed.mode === "live" &&
-        feed.lastSync !== previousSync.current &&
-        "Notification" in window &&
-        Notification.permission === "granted" &&
-        localStorage.getItem("campus-notifications") === "true"
-      ) {
-        const fresh = feed.changes.filter(
-          (c) =>
-            !c.read &&
-            c.kind === "file" &&
-            c.action !== "removed" &&
-            Date.parse(c.occurredAt) > Date.parse(previousSync.current!),
-        );
-        if (fresh.length)
-          new Notification("Stud.GK · Новые изменения", {
-            body: `${fresh.length} обновлений в твоих курсах.`,
-            icon: "/favicon.svg",
-          });
-      }
-      previousSync.current = feed.lastSync;
-      setData((current) => gitlabRevision.current === projectVersion
-        ? feed : { ...feed, gitlabProjects: current?.gitlabProjects });
-      setPhase(feed.mode);
-      setError(null);
-    } catch (e) {
-      if (version !== generation.current) return;
-      setError((e as Error).message);
-      if (phaseRef.current === "loading") setPhase("login");
-    }
-  }
-  useEffect(() => {
-    void load();
-  }, []);
-  useEffect(() => {
-    if (phase === "loading" || phase === "demo") return;
-    const timer = setInterval(
-      () => {
-        void load();
-      },
-      data?.syncing ? 2000 : 30000,
-    );
-    return () => clearInterval(timer);
-  }, [phase, data?.syncing]);
   useEffect(() => {
     const unread = unreadFiles.size;
     document.title = `${unread ? `(${unread}) ` : ""}Stud.GK · ${selectedCourse?.title || "Курсы"}`;
   }, [data, selectedCourse?.title]);
-  async function login(username: string, password: string) {
-    clearThumbnailCache();
-    setBusy(true);
-    setError(null);
-    try {
-      await api("/api/auth/login", { username, password });
-      generation.current++;
-      previousSync.current = null;
-      phaseRef.current = "live";
-      setPhase("loading");
-      await load();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function showDemo() {
-    clearThumbnailCache();
-    generation.current++;
-    previousSync.current = null;
-    phaseRef.current = "demo";
-    setError(null);
-    setPhase("loading");
-    await load();
-  }
-  async function logout() {
-    setBusy(true);
-    try {
-      await api("/api/auth/logout", {});
-      signedOut();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
   async function refresh() {
-    setBusy(true);
-    setError(null);
     setFileError(null);
-    try {
-      if (phase === "live") await api("/api/sync", {});
-      await load();
-    } catch (e) {
-      if ((e as ApiError).status === 401)
-        signedOut("Сессия истекла. Войди в Stud.IP заново.");
-      else setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    await refreshFeed();
   }
   async function saveGitlabProject(url: string | null) {
-    if (!selectedCourse) return;
-    const courseId = selectedCourse.id;
-    const version = generation.current;
-    try {
-      const result = await api<{ project: Project | null }>(`/api/courses/${encodeURIComponent(courseId)}/gitlab`, { url });
-      if (version !== generation.current) return;
-      gitlabRevision.current++;
-      setData((current) => {
-        if (!current) return current;
-        const projects = { ...current.gitlabProjects,
-          ...(result.project ? { [courseId]: result.project } : {}) };
-        if (!result.project) delete projects[courseId];
-        return { ...current, gitlabProjects: projects };
-      });
-    } catch (error) {
-      if (version === generation.current && error instanceof ApiError && error.status === 401)
-        signedOut("Сессия истекла. Войди в Stud.IP заново.");
-      throw error;
-    }
+    if (selectedCourse) await saveProject(selectedCourse.id, url);
   }
   const allFiles = (data?.resources ?? []).filter((r) => r.kind === "file");
   const courseFiles = allFiles
@@ -699,9 +274,17 @@ function App() {
   return (
     <div className="page">
       <header className={`header${selectedCourse ? " header--course" : ""}`}>
-        <div className="brand">
-          <GraduationCap size={24} strokeWidth={1.7} />
-          <span>Stud.GK</span>
+        <div className="brand" role="img" aria-label="Stud.GK">
+          <svg viewBox="0 0 64 64" fill="currentColor" aria-hidden="true">
+            <g fill="none" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="round">
+              <path d="M48 14H25.657Q24 14 22.828 15.172L16.828 21.172Q14 24 17.655 25.625L24.858 28.826" stroke="currentColor" />
+              <path d="M27.142 29.841L36.858 34.159" stroke="var(--peach)" />
+              <path d="M39.142 35.174L46.345 38.375Q50 40 47.172 42.828L41.172 48.828Q40 50 38.343 50H16" stroke="var(--sky)" />
+            </g>
+            <circle cx="48" cy="14" r="5" />
+            <circle cx="16" cy="50" r="5" fill="var(--sky)" />
+          </svg>
+          <span aria-hidden="true">tud.GK</span>
         </div>
         {(phase === "live" || phase === "demo") && (
           <div className="account">

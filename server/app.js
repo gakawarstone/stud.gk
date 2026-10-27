@@ -1,11 +1,7 @@
+import path from "node:path";
 import express from "express";
 import session from "express-session";
-import { rateLimit } from "express-rate-limit";
 import { CookieJar } from "tough-cookie";
-import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
-import path from "node:path";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
 import { BASE, createClient, fetchSnapshot, fetchCourseFolders, StudipError } from "./studip.js";
 import { loginStudip } from "./login.js";
 import {
@@ -14,19 +10,18 @@ import {
   SESSION_LIFETIME,
 } from "./sessions.js";
 import { reconcile } from "./changes.js";
-import { normalizeGitlabProject } from "./gitlab.js";
-import { createGitlabClient, GitlabError, validateGitlabToken } from "./gitlab-client.js";
-import { createDemo, createDemoFolders } from "./demo.js";
-import { previewType } from "./file-preview.js";
+import { createGitlabClient, GitlabError } from "./gitlab-client.js";
+import { createDemoFolders } from "./demo.js";
 import { nextcloudRoutes } from "./nextcloud-routes.js";
 import { createFileCache } from "./file-cache.js";
 
-const call = (object, method, ...args) =>
-  new Promise((resolve, reject) =>
-    object[method](...args, (error, value) =>
-      error ? reject(error) : resolve(value),
-    ),
-  );
+import { authRoutes } from "./auth-routes.js";
+import { gitlabRoutes } from "./gitlab-routes.js";
+import { fileRoutes } from "./file-routes.js";
+import { openAccountState } from "./account-state.js";
+import { call } from "./session-calls.js";
+
+/** @returns {import('../shared/studip.js').AccountState} */
 const empty = () => ({
   courses: [],
   resources: [],
@@ -35,6 +30,7 @@ const empty = () => ({
   semester: "",
 });
 
+/** @param {import('./types.js').AppOptions} options */
 export async function createApp({
   dataDir,
   authenticate = loginStudip,
@@ -52,39 +48,21 @@ export async function createApp({
   autoSync = true,
   sessionName = SESSION_NAME,
   fileCacheBytes,
-} = {}) {
-  await mkdir(dataDir, { recursive: true, mode: 0o700 });
-  const statePath = path.join(dataDir, "state.json");
-  let state;
-  try {
-    state = JSON.parse(await readFile(statePath, "utf8"));
-  } catch (e) {
-    if (e.code !== "ENOENT") throw new Error("Cannot read saved course data.");
-  }
-  state ??= { accounts: {} };
-  // Demo fixtures are not account data and must follow the current UI schema.
-  state.demo = createDemo();
-  state.accounts = Object.assign(Object.create(null), state.accounts);
+}) {
+  const accountState = await openAccountState(dataDir);
+  const { state, save } = accountState;
   const store = await EncryptedSessionStore.open(dataDir);
   const fileCache = await createFileCache(path.join(dataDir, "files"), { maxBytes: fileCacheBytes });
+  /** @param {import('../shared/studip.js').AccountState} account */
   const accessibleFiles = (account) => account.resources.filter((file) =>
     !(account.unavailableSources ?? []).some((source) =>
       source.kind === "file" && source.courseId === file.courseId));
   for (const [id, account] of Object.entries(state.accounts))
     await fileCache.prune(id, accessibleFiles(account));
-  let saveQueue = Promise.resolve();
-  function save() {
-    const json = JSON.stringify(state);
-    saveQueue = saveQueue
-      .catch(() => {})
-      .then(async () => {
-        await writeFile(`${statePath}.tmp`, json, { mode: 0o600 });
-        await rename(`${statePath}.tmp`, statePath);
-      });
-    return saveQueue;
-  }
-  const contexts = new Map(),
-    statuses = new Map();
+  /** @type {Map<string, import('./types.js').Context>} */
+  const contexts = new Map();
+  const statuses = new Map();
+  /** @param {string} id @param {import('./types.js').Auth} auth */
   function contextFor(id, auth) {
     if (!auth?.user || auth.expiresAt <= Date.now()) return null;
     let context = contexts.get(id);
@@ -102,6 +80,7 @@ export async function createApp({
     }
     return context;
   }
+  /** @param {import('./types.js').Context} context */
   function statusFor(context) {
     if (!statuses.has(context.user.id))
       statuses.set(context.user.id, {
@@ -111,11 +90,13 @@ export async function createApp({
       });
     return statuses.get(context.user.id);
   }
+  /** @param {import('./types.js').Context} context */
   async function expire(context) {
     context.revoked = true;
     contexts.delete(context.sessionId);
     await call(store, "destroy", context.sessionId);
   }
+  /** @param {import('./types.js').Context} context */
   async function sync(context) {
     const status = statusFor(context);
     if (context.revoked || context.expiresAt <= Date.now())
@@ -202,14 +183,15 @@ export async function createApp({
     req.context = contextFor(req.sessionID, req.session.auth);
     next();
   });
-  function requireLogin(req, res, next) {
+  /** @type {import('express').RequestHandler} */
+  const requireLogin = (req, res, next) => {
     if (!req.context)
       return res.status(401).json({
         error: "Сессия истекла. Войди в Stud.IP заново.",
         code: "SESSION_EXPIRED",
       });
     next();
-  }
+  };
   app.get("/api/state", (req, res) => {
     const context = req.context;
     if (!context)
@@ -218,7 +200,8 @@ export async function createApp({
         authExpired: Boolean(req.headers.cookie?.includes(`${sessionName}=`)),
       });
     const status = statusFor(context);
-    res.json({
+    /** @type {import('../shared/studip.js').Feed} */
+    const feed = {
       ...(state.accounts[context.user.id] ?? empty()),
       authenticated: true,
       mode: "live",
@@ -226,10 +209,12 @@ export async function createApp({
       syncing: status.syncing,
       error: status.error,
       source: BASE,
-    });
+    };
+    res.json(feed);
   });
-  app.get("/api/demo", (req, res) =>
-    res.json({
+  app.get("/api/demo", (req, res) => {
+    /** @type {import('../shared/studip.js').Feed} */
+    const feed = {
       ...state.demo,
       authenticated: false,
       mode: "demo",
@@ -237,274 +222,21 @@ export async function createApp({
       syncing: false,
       error: null,
       source: BASE,
-    }),
-  );
+    };
+    res.json(feed);
+  });
   app.get("/api/demo/courses/:id/folders", (req, res) => {
     if (!state.demo.courses.some((course) => course.id === req.params.id))
       throw new StudipError("Курс не найден.", 404);
     res.json(createDemoFolders(req.params.id, state.demo.resources));
   });
-  const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    limit: 10,
-    standardHeaders: "draft-8",
-    legacyHeaders: false,
-    skipSuccessfulRequests: true,
-    message: {
-      error: "Слишком много попыток входа. Подожди 15 минут и попробуй снова.",
-    },
-  });
-  app.post("/api/auth/login", loginLimiter, async (req, res) => {
-    const result = await authenticate(req.body.username, req.body.password);
-    const previous = contexts.get(req.sessionID);
-    await call(req.session, "regenerate");
-    if (previous) {
-      previous.revoked = true;
-      contexts.delete(previous.sessionId);
-    }
-    req.session.auth = {
-      user: result.user,
-      jar: result.jar.toJSON(),
-      expiresAt: Date.now() + SESSION_LIFETIME,
-    };
-    await call(req.session, "save");
-    const context = contextFor(req.sessionID, req.session.auth);
-    void sync(context).catch(() => {});
-    res.json({ ok: true, user: { name: result.user.name } });
-  });
-  app.post("/api/auth/logout", async (req, res) => {
-    const context = req.context;
-    if (context) {
-      context.revoked = true;
-      contexts.delete(context.sessionId);
-    }
-    await call(req.session, "destroy");
-    res.clearCookie(sessionName, {
-      path: "/",
-      httpOnly: true,
-      sameSite: "strict",
-      secure: req.secure,
-    });
-    res.json({ ok: true });
-  });
+  app.use("/api/auth", authRoutes({ authenticate, contexts, contextFor, sync, sessionName }));
   app.post("/api/sync", requireLogin, async (req, res) => {
     await sync(req.context);
     res.json({ ok: true });
   });
-  app.post("/api/courses/:id/gitlab", requireLogin, async (req, res) => {
-    const account = state.accounts[req.context.user.id];
-    if (!account?.courses.some((course) => course.id === req.params.id))
-      throw new StudipError("Курс не найден в твоих курсах.", 404);
-    let project = null;
-    if (req.body?.url !== null) {
-      try {
-        project = normalizeGitlabProject(req.body?.url);
-      } catch (error) {
-        throw new StudipError(error.message, 400);
-      }
-    }
-    const projects = { ...account.gitlabProjects, [req.params.id]: project };
-    if (!project) delete projects[req.params.id];
-    account.gitlabProjects = projects;
-    await save();
-    res.json({ project });
-  });
-  function linkedGitlab(req) {
-    const account = state.accounts[req.context.user.id];
-    if (!account?.courses.some((course) => course.id === req.params.id))
-      throw new StudipError("Курс не найден в твоих курсах.", 404);
-    const project = Object.hasOwn(account.gitlabProjects ?? {}, req.params.id)
-      ? account.gitlabProjects[req.params.id] : null;
-    if (!project) throw new StudipError("Сначала привяжи проект GitLab к курсу.", 404);
-    return new URL(normalizeGitlabProject(project.url).url);
-  }
-  app.get("/api/courses/:id/gitlab/readme", requireLogin, async (req, res) => {
-    const project = linkedGitlab(req);
-    const token = req.session.gitlabTokens?.[project.origin];
-    const controller = new AbortController();
-    const cancel = () => controller.abort();
-    res.once("close", cancel);
-    try {
-      const result = await getGitlabReadme(project.href, {
-        token, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]),
-      });
-      if (req.context.revoked || req.context.expiresAt <= Date.now())
-        throw new StudipError("Сессия истекла. Войди в Stud.IP заново.", 401);
-      res.json({ ...result, hasToken: Boolean(token) });
-    } finally {
-      res.off("close", cancel);
-    }
-  });
-  app.get("/api/courses/:id/gitlab/token", requireLogin, (req, res) => {
-    const project = linkedGitlab(req);
-    res.json({ connected: Boolean(req.session.gitlabTokens?.[project.origin]) });
-  });
-  app.post("/api/courses/:id/gitlab/token", requireLogin, async (req, res) => {
-    const project = linkedGitlab(req);
-    const token = req.body?.token === null ? null : validateGitlabToken(req.body?.token);
-    if (token && project.protocol !== "https:")
-      throw new GitlabError("Для подключения токена нужна ссылка GitLab с HTTPS.", 400);
-    const tokens = { ...req.session.gitlabTokens, [project.origin]: token };
-    if (!token) delete tokens[project.origin];
-    req.session.gitlabTokens = tokens;
-    await call(req.session, "save");
-    res.json({ connected: Boolean(token) });
-  });
-  for (const [route, read] of [["branches", (url, _path, options) => getGitlabBranches(url, options)],
-    ["commits", (url, _path, options) => getGitlabCommits(url, options)],
-    ["commit", (url, sha, options) => getGitlabCommit(url, sha, options)],
-    ["tree", getGitlabTree], ["file", getGitlabFile], ["content", getGitlabContent]]) {
-    app.get(`/api/courses/:id/gitlab/${route}`, requireLogin, async (req, res) => {
-      const project = linkedGitlab(req);
-      const controller = new AbortController();
-      const cancel = () => controller.abort();
-      res.once("close", cancel);
-      try {
-        const result = await read(project.href, (route === "commit" ? req.query.sha : req.query.path) ?? "", {
-          ref: req.query.ref, page: req.query.page, token: req.session.gitlabTokens?.[project.origin],
-          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]),
-        });
-        if (req.context.revoked || req.context.expiresAt <= Date.now()) {
-          if (route === "content") await result.body?.cancel();
-          throw new StudipError("Сессия истекла. Войди в Stud.IP заново.", 401);
-        }
-        if (route !== "content") return res.json(result);
-        const filename = String(req.query.path).split("/").pop();
-        const download = req.query.download === "1";
-        const mediaTypes = { pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif",
-          webp: "image/webp", avif: "image/avif", bmp: "image/bmp", mp4: "video/mp4", webm: "video/webm",
-          mp3: "audio/mpeg", wav: "audio/wav", ogg: "audio/ogg", m4a: "audio/mp4" };
-        const mime = mediaTypes[filename.split(".").pop().toLowerCase()];
-        res.attachment(filename).type(download ? "application/octet-stream" : previewType({ title: filename, mime }, result) || "application/octet-stream");
-        if (!download) res.set("Content-Disposition", res.get("Content-Disposition").replace(/^attachment/, "inline"));
-        await pipeline(Readable.fromWeb(result.body), res, { signal: controller.signal });
-      } catch (error) {
-        if (!res.headersSent && !controller.signal.aborted) throw error;
-        if (!res.destroyed) res.destroy();
-      } finally { res.off("close", cancel); }
-    });
-  }
-  app.get("/api/courses/:id/folders", requireLogin, async (req, res) => {
-    const context = req.context;
-    const account = state.accounts[context.user.id];
-    if (!account?.courses.some((course) => course.id === req.params.id))
-      throw new StudipError("Курс не найден в твоих курсах.", 404);
-    try {
-      const result = await getFolders(context.client, req.params.id);
-      if (context.revoked || context.expiresAt <= Date.now())
-        throw new StudipError("Сессия истекла. Войди в Stud.IP заново.", 401);
-      const allowedFiles = new Set(account.resources
-        .filter((file) => file.kind === "file" && file.courseId === req.params.id)
-        .map((file) => file.remoteId));
-      res.json({
-        ...result,
-        fileFolders: result.fileFolders.filter((file) => allowedFiles.has(file.fileRefId)),
-      });
-    } catch (error) {
-      if (error.status === 401) await expire(context);
-      throw error;
-    }
-  });
-  app.get(
-    [
-      "/api/files/:id/download",
-      "/api/files/:id/preview",
-      "/api/files/:id/content",
-    ],
-    requireLogin,
-    async (req, res) => {
-      const thumbnail = req.path.endsWith("/content");
-      const preview = thumbnail || req.path.endsWith("/preview");
-      const context = req.context;
-      const file = state.accounts[context.user.id]?.resources.find(
-        (r) => r.kind === "file" && r.remoteId === req.params.id,
-      );
-      if (!file) throw new StudipError("Файл не найден в твоих курсах.", 404);
-      const controller = new AbortController();
-      const cancel = () => {
-        if (!res.writableFinished) controller.abort();
-      };
-      res.once("close", cancel);
-      try {
-        const options = {
-          signal: controller.signal,
-          range: req.headers.range,
-        };
-        const load = (options) => getDownload(context.client, file, options);
-        const unavailable = state.accounts[context.user.id].unavailableSources?.some(
-          (source) => source.kind === "file" && source.courseId === file.courseId);
-        const response = unavailable
-          ? await load(options)
-          : await fileCache.download(context.user.id, file, load, options);
-        if (context.revoked || context.expiresAt <= Date.now()) {
-          await response.body.cancel();
-          throw new StudipError("Сессия истекла. Войди заново.", 401);
-        }
-        const contentType = preview
-          ? previewType(file, response)
-          : "application/octet-stream";
-        if (!contentType) {
-          await response.body.cancel();
-          const title = file.title.replace(
-            /[&<>"']/g,
-            (char) =>
-              ({
-                "&": "&amp;",
-                "<": "&lt;",
-                ">": "&gt;",
-                '"': "&quot;",
-                "'": "&#39;",
-              })[char],
-          );
-          return res
-            .status(415)
-            .type("html")
-            .send(
-              `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Просмотр файла</title><style>body{margin:0;padding:48px 24px;background:#1e1e2e;color:#cdd6f4;font:16px/1.6 system-ui}main{max-width:600px;margin:auto}h1{font-size:24px;overflow-wrap:anywhere}p{color:#a6adc8}a{display:inline-block;padding:10px 18px;border-radius:8px;background:#cba6f7;color:#181825;text-decoration:none}</style></head><body><main><h1>${title}</h1><p>Браузер не поддерживает просмотр этого формата.</p><a href="/api/files/${encodeURIComponent(file.remoteId)}/download">Скачать файл</a></main></body></html>`,
-            );
-        }
-        const filename =
-          file.title.replace(/[\x00-\x1f\x7f/\\]/g, "_").slice(0, 200) ||
-          "file";
-        res.status(response.status).attachment(filename).type(contentType);
-        if (preview) {
-          res.set(
-            "Content-Disposition",
-            res.get("Content-Disposition").replace(/^attachment/, "inline"),
-          );
-        }
-        const length = response.headers.get("content-length");
-        if (
-          /^\d+$/.test(length ?? "") &&
-          !response.headers.get("content-encoding")
-        )
-          res.set("Content-Length", length);
-        if (response.status === 206) {
-          const contentRange = response.headers.get("content-range");
-          if (/^bytes \d+-\d+\/\d+$/.test(contentRange ?? ""))
-            res.set("Content-Range", contentRange);
-        }
-        if (response.headers.get("accept-ranges") === "bytes")
-          res.set("Accept-Ranges", "bytes");
-        await pipeline(Readable.fromWeb(response.body), res, {
-          signal: controller.signal,
-        });
-        // Only a completed full transfer marks related Stud.GK notifications read.
-        if (!thumbnail && response.status === 200 && !context.revoked) {
-          const account = state.accounts[context.user.id];
-          for (const change of account.changes)
-            if (change.resourceId === file.id) change.read = true;
-          await save();
-        }
-      } catch (error) {
-        if (error.status === 401) await expire(context);
-        if (!res.headersSent && !controller.signal.aborted) throw error;
-        if (!res.destroyed) res.destroy();
-      } finally {
-        res.off("close", cancel);
-      }
-    },
-  );
+  app.use("/api", gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGitlabTree, getGitlabBranches, getGitlabCommits, getGitlabCommit, getGitlabFile, getGitlabContent }));
+  app.use("/api", fileRoutes({ state, save, expire, requireLogin, getFolders, getDownload, fileCache }));
   app.get("/api/changes", requireLogin, (req, res) => {
     const since = req.query.since;
     if (since && Number.isNaN(Date.parse(String(since))))
@@ -571,7 +303,7 @@ export async function createApp({
     close: async () => {
       clearInterval(timer);
       for (const c of contexts.values()) c.revoked = true;
-      await saveQueue;
+      await accountState.close();
       await fileCache.close();
       await store.queue;
     },

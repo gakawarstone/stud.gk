@@ -30,7 +30,7 @@ export function nextcloudRoutes(client = createNextcloudClient()) {
     res.on("close", cancel);
     try {
       const path = filePath(req.query.path);
-      const upstream = await client.content(req.query.share, path, { backend: req.query.backend, range: req.headers.range, signal: controller.signal });
+      const upstream = await client.content(req.query.share, path, { backend: typeof req.query.backend === "string" ? req.query.backend : undefined, range: req.headers.range, signal: controller.signal });
       if (upstream.status === 416) {
         await upstream.body?.cancel();
         const range = upstream.headers.get("content-range");
