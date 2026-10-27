@@ -38,7 +38,7 @@ export function GitlabBranchPicker({ branches, value, loading, onChange }: {
       aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? id : undefined} disabled={loading || !branches.length}
       onClick={() => { setQuery(""); setOpen(!open); }} onKeyDown={(event) => {
         if (["ArrowDown", "ArrowUp"].includes(event.key)) { event.preventDefault(); setQuery(""); setOpen(true); }
-      }}><GitBranch size={15} aria-hidden="true" /><span>{value || (loading ? "Загрузка…" : "Нет веток")}</span><ChevronDown size={13} aria-hidden="true" /></button>
+      }}><GitBranch size={16} aria-hidden="true" /><span>{value || (loading ? "Загрузка…" : "Нет веток")}</span><ChevronDown size={13} aria-hidden="true" /></button>
     {open && <div id={id} className="gitlab-branch-popover" role="dialog" aria-label="Сменить ветку" onKeyDown={navigate}>
       <label className="gitlab-branch-search"><Search size={15} aria-hidden="true" />
         <input ref={search} value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Найти ветку" placeholder="Найти ветку…" autoComplete="off" />

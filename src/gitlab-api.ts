@@ -1,4 +1,8 @@
 export type GitlabCommit = { id: string; shortId: string; title: string; author: string; committedAt: string | null; webUrl: string };
+export type GitlabHistory = { commits: GitlabCommit[]; nextPage: number | null };
+export type GitlabDiff = { oldPath: string; newPath: string; diff: string; newFile: boolean; deletedFile: boolean; renamedFile: boolean;
+  collapsed: boolean; tooLarge: boolean; oldMode: string | null; newMode: string | null };
+export type GitlabCommitDetail = { commit: GitlabCommit & { message: string }; diffs: GitlabDiff[]; nextPage: number | null };
 export type GitlabBranch = { name: string; default: boolean; commit: GitlabCommit | null };
 export type GitlabEntry = { path: string; name: string; directory: boolean; submodule?: boolean; id?: string };
 export type GitlabListing = { branch: string | null; path: string; entries: GitlabEntry[] };

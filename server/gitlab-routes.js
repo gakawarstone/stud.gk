@@ -8,8 +8,8 @@ import { previewType } from "./file-preview.js";
 import { call } from "./session-calls.js";
 
 /** @param {import('./types.js').RouteState & Required<Pick<import('./types.js').AppOptions,
- * 'getGitlabReadme' | 'getGitlabTree' | 'getGitlabBranches' | 'getGitlabFile' | 'getGitlabContent'>>} options */
-export function gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGitlabTree, getGitlabBranches, getGitlabFile, getGitlabContent }) {
+ * 'getGitlabReadme' | 'getGitlabTree' | 'getGitlabBranches' | 'getGitlabCommits' | 'getGitlabCommit' | 'getGitlabFile' | 'getGitlabContent'>>} options */
+export function gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGitlabTree, getGitlabBranches, getGitlabCommits, getGitlabCommit, getGitlabFile, getGitlabContent }) {
   const router = Router();
   router.post("/courses/:id/gitlab", requireLogin, async (req, res) => {
     const account = state.accounts[req.context.user.id];
@@ -71,7 +71,9 @@ export function gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGi
     res.json({ connected: Boolean(token) });
   });
   /** @type {[string, (url: string, path: string, options: import('./types.js').GitlabOptions) => Promise<unknown>][]} */
-  const readers = [["branches", (url, _path, options) => getGitlabBranches(url, options)], ["tree", getGitlabTree], ["file", getGitlabFile], ["content", getGitlabContent]];
+  const readers = [["branches", (url, _path, options) => getGitlabBranches(url, options)],
+    ["commits", (url, _path, options) => getGitlabCommits(url, options)], ["commit", getGitlabCommit],
+    ["tree", getGitlabTree], ["file", getGitlabFile], ["content", getGitlabContent]];
   for (const [route, read] of readers) {
     router.get(`/courses/:id/gitlab/${route}`, requireLogin, async (req, res) => {
       const project = linkedGitlab(req);
@@ -79,12 +81,13 @@ export function gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGi
       const cancel = () => controller.abort();
       res.once("close", cancel);
       try {
-        const path = req.query.path ?? "";
+        const path = (route === "commit" ? req.query.sha : req.query.path) ?? "";
         const ref = req.query.ref;
-        if (typeof path !== "string" || (ref !== undefined && typeof ref !== "string"))
-          throw new GitlabError("Некорректный путь или ветка репозитория.", 400);
+        const page = req.query.page;
+        if (typeof path !== "string" || (ref !== undefined && typeof ref !== "string") || (page !== undefined && typeof page !== "string"))
+          throw new GitlabError("Некорректный путь, ветка или страница репозитория.", 400);
         const result = await read(project.href, path, {
-          ref: typeof ref === "string" ? ref : undefined, token: req.session.gitlabTokens?.[project.origin],
+          ref: typeof ref === "string" ? ref : undefined, page: typeof page === "string" ? page : undefined, token: req.session.gitlabTokens?.[project.origin],
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]),
         });
         if (req.context.revoked || req.context.expiresAt <= Date.now()) {

@@ -17,7 +17,7 @@ export type Context = {
 };
 export type SavedState = { accounts: Record<string, AccountState>; demo: AccountState };
 export type ReadOptions = { signal?: AbortSignal; range?: string };
-export type GitlabOptions = { signal?: AbortSignal; token?: string; ref?: string };
+export type GitlabOptions = { signal?: AbortSignal; token?: string; ref?: string; page?: number | string };
 export type PublicRequestOptions = {
   headers?: Record<string, string>;
   method?: string;
@@ -33,6 +33,8 @@ export type AppOptions = {
   getGitlabReadme?: ReturnType<typeof createGitlabClient>["readme"];
   getGitlabTree?: ReturnType<typeof createGitlabClient>["list"];
   getGitlabBranches?: ReturnType<typeof createGitlabClient>["branches"];
+  getGitlabCommits?: ReturnType<typeof createGitlabClient>["commits"];
+  getGitlabCommit?: ReturnType<typeof createGitlabClient>["commit"];
   getGitlabFile?: ReturnType<typeof createGitlabClient>["file"];
   getGitlabContent?: ReturnType<typeof createGitlabClient>["content"];
   nextcloudClient?: ReturnType<typeof createNextcloudClient>;

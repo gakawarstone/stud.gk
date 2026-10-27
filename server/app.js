@@ -40,6 +40,8 @@ export async function createApp({
   getGitlabReadme = createGitlabClient().readme,
   getGitlabTree = createGitlabClient().list,
   getGitlabBranches = createGitlabClient().branches,
+  getGitlabCommits = createGitlabClient().commits,
+  getGitlabCommit = createGitlabClient().commit,
   getGitlabFile = createGitlabClient().file,
   getGitlabContent = createGitlabClient().content,
   nextcloudClient,
@@ -233,7 +235,7 @@ export async function createApp({
     await sync(req.context);
     res.json({ ok: true });
   });
-  app.use("/api", gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGitlabTree, getGitlabBranches, getGitlabFile, getGitlabContent }));
+  app.use("/api", gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGitlabTree, getGitlabBranches, getGitlabCommits, getGitlabCommit, getGitlabFile, getGitlabContent }));
   app.use("/api", fileRoutes({ state, save, expire, requireLogin, getFolders, getDownload, fileCache }));
   app.get("/api/changes", requireLogin, (req, res) => {
     const since = req.query.since;

@@ -21,6 +21,19 @@ async function fill(window, selector, value) {
     input.dispatchEvent(new Event('input', {bubbles:true}));
   })()`);
 }
+async function wheelOverDiff(window, deltaX, deltaY) {
+  window.show(); window.focus(); window.webContents.focus();
+  await new Promise(resolve => setTimeout(resolve, 100));
+  const point = await window.webContents.executeJavaScript(`(() => {
+    const diff = document.querySelector('.gitlab-diff-scroll').getBoundingClientRect();
+    const viewer = document.querySelector('.gitlab-commit-viewer').getBoundingClientRect();
+    const left = Math.max(diff.left, viewer.left), right = Math.min(diff.right, viewer.right);
+    const top = Math.max(diff.top, viewer.top), bottom = Math.min(diff.bottom, viewer.bottom, innerHeight);
+    return { x: Math.round((left + right) / 2), y: Math.round(top + Math.min(80, (bottom - top) / 2)) };
+  })()`);
+  window.webContents.sendInputEvent({ type: "mouseMove", ...point });
+  window.webContents.sendInputEvent({ type: "mouseWheel", ...point, deltaX, deltaY, hasPreciseScrollingDeltas: true, canScroll: true });
+}
 (async () => {
   profile = await mkdtemp(path.join(tmpdir(), "stud-gk-readme-"));
   app.setPath("userData", profile);
@@ -32,6 +45,12 @@ async function fill(window, selector, value) {
   const token = "smoke-private-token";
   const markdown = '# Actual fixture README\n\nA **private project**.\n\n| Task | State |\n| --- | --- |\n| README | Ready |\n\n```sh\nnpm install\n```\n\n[Guide](docs/guide.md)\n\n<script>window.readmeInjected = true</script>\n\n[Unsafe](javascript:alert(1))';
   const treeRequests = [];
+  const historyRequests = [], diffRequests = [];
+  let failDiff = true;
+  function fixtureCommit(letter, title) {
+    return { id: letter.repeat(40), shortId: letter.repeat(8), title, author: "Ada", committedAt: letter === "c" ? "2026-10-15T12:00:00Z" : "2026-10-16T12:00:00Z",
+      webUrl: "https://gitlab.example/team/project/-/commit/" + letter.repeat(40) };
+  }
   runtime = await startServer({ root, dataDir: path.join(profile, "data"), autoSync: false,
     authenticate: async () => ({ jar: new CookieJar(), user: { id: "fixture", name: "Fixture" } }),
     getSnapshot: async () => ({ courses: [
@@ -48,6 +67,25 @@ async function fill(window, selector, value) {
         commit: { id: (index ? "b" : "a").repeat(40), shortId: (index ? "b" : "a").repeat(8),
           title: index ? "Add Kotlin support" : "Update course materials", author: "Ada", committedAt: "2026-10-16T12:00:00Z",
           webUrl: "https://gitlab.example/team/project/-/commit/" + (index ? "b" : "a").repeat(40) } })) };
+    },
+    getGitlabCommits: async (_url, options) => {
+      assert.equal(options.token, token);
+      historyRequests.push({ ref: options.ref, page: options.page });
+      if (options.ref === "feature/kotlin") return { commits: [fixtureCommit("b", "Add Kotlin support")], nextPage: null };
+      return options.page === "2" ? { commits: [fixtureCommit("c", "Initial commit")], nextPage: null }
+        : { commits: [fixtureCommit("a", "Update course materials"), fixtureCommit("d", "Rename guide")], nextPage: 2 };
+    },
+    getGitlabCommit: async (_url, sha, options) => {
+      assert.equal(options.token, token); diffRequests.push({ sha, page: options.page });
+      if (failDiff) { failDiff = false; throw new GitlabError("Fixture diff unavailable", 502); }
+      const first = sha === "a".repeat(40), renamed = sha === "d".repeat(40), kotlin = sha === "b".repeat(40);
+      const extra = first ? Array.from({ length: 120 }, (_, index) => `+export const value${index} = "${index === 119 ? "DIFF_END " : ""}${"wide ".repeat(60)}";\n`).join("") : "";
+      const file = (oldPath, newPath, patch, flags = {}) => ({ oldPath, newPath, diff: patch, newFile: false, deletedFile: false,
+        renamedFile: false, collapsed: false, tooLarge: false, oldMode: "100644", newMode: "100644", ...flags });
+      return { commit: { ...fixtureCommit(sha[0], first ? "Update course materials" : renamed ? "Rename guide" : "Add Kotlin support"), message: "Full commit message\n\nCourse details" },
+        diffs: options.page === "2" ? [file("image.png", "image.png", "", { newFile: true }), file("large.txt", "large.txt", "", { tooLarge: true })]
+          : [file(renamed ? "old.md" : kotlin ? "Main.kt" : "src/index.ts", renamed ? "guide.md" : kotlin ? "Main.kt" : "src/index.ts",
+            kotlin ? '@@ -1,3 +1,4 @@\n fun main() {\n-    println("Old")\n+    val greeting = "Kotlin"\n+    println(greeting)\n }\n' : `@@ -8,2 +8,${first ? 122 : 2} @@\n-export const answer = 41;\n+export const answer = 42;\n${extra} <img src=x onerror=alert(1)>\n`, { renamedFile: renamed })], nextPage: first && options.page !== "2" ? 2 : null };
     },
     getGitlabTree: async (_url, folder, options) => {
       if (options.token !== token) throw new GitlabError("Private project", 403, "GITLAB_AUTH_REQUIRED");
@@ -66,7 +104,8 @@ async function fill(window, selector, value) {
   });
   const window = new BrowserWindow({ show: false, width: 1280, height: 850,
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } });
-  if (process.env.CAMPUS_SMOKE_SCREENSHOT || process.env.CAMPUS_SMOKE_CODE_SCREENSHOT) window.showInactive();
+  if (process.env.CAMPUS_SMOKE_SCREENSHOT || process.env.CAMPUS_SMOKE_CODE_SCREENSHOT
+    || process.env.CAMPUS_SMOKE_HISTORY_SCREENSHOT || process.env.CAMPUS_SMOKE_KOTLIN_DIFF_SCREENSHOT) window.showInactive();
   await window.loadURL(runtime.url);
   await waitFor(window, `document.querySelector('#username') !== null`);
   await fill(window, "#username", "fixture");
@@ -128,21 +167,34 @@ async function fill(window, selector, value) {
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-inline-viewer img')`), null);
   assert.match(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-source').textContent`), /export const answer/);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-inline-viewer .gitlab-viewer-toolbar, .gitlab-file-actions')`), null);
-  await waitFor(window, `document.querySelector('.gitlab-repo-sidebar > .gitlab-last-commit') !== null`);
+  await waitFor(window, `document.querySelector('.gitlab-repo-header > .gitlab-commit-bar .gitlab-commit-title') !== null`);
   assert.ok(await window.webContents.executeJavaScript(`(() => {
     const sidebar = document.querySelector('.gitlab-repo-sidebar').getBoundingClientRect();
-    const commit = document.querySelector('.gitlab-last-commit').getBoundingClientRect();
-    const header = document.querySelector('.gitlab-sidebar-header').getBoundingClientRect();
+    const browser = document.querySelector('.gitlab-browser').getBoundingClientRect();
+    const header = document.querySelector('.gitlab-repo-header').getBoundingClientRect();
+    const branch = document.querySelector('.gitlab-branch-trigger').getBoundingClientRect();
+    const commit = document.querySelector('.gitlab-commit-bar').getBoundingClientRect();
+    const toolbar = document.querySelector('.gitlab-repo-toolbar').getBoundingClientRect();
     const preview = document.querySelector('.gitlab-preview-pane').getBoundingClientRect();
-    const files = document.querySelector('.gitlab-tree-pane').getBoundingClientRect();
-    return Math.abs(sidebar.top - preview.top) < 1 && Math.abs(sidebar.bottom - preview.bottom) < 1
-      && sidebar.bottom - commit.bottom >= 9 && sidebar.bottom - commit.bottom <= 11
-      && header.bottom <= files.top && files.bottom <= commit.top && commit.right <= sidebar.right;
-  })()`), 'Branch and commit belong to the sidebar; the preview uses its full height');
+    const body = document.querySelector('.gitlab-viewer-body').getBoundingClientRect();
+    return Math.abs(browser.top + 1 - header.top) < 1 && Math.abs(sidebar.bottom - preview.bottom) < 1
+      && Math.abs(header.bottom - sidebar.top) < 1 && Math.abs(commit.top - toolbar.top) < 1
+      && Math.abs(sidebar.top - preview.top) < 1
+      && Math.abs((branch.top + branch.bottom) / 2 - (commit.top + commit.bottom) / 2) < 1
+      && branch.height >= 32 && branch.width >= toolbar.width - 28
+      && Math.abs((branch.left - toolbar.left) - (toolbar.right - branch.right)) <= 1.1
+      && Math.abs(commit.left - preview.left) < 1 && Math.abs(header.bottom - body.top) < 1
+      && Math.abs(body.left - preview.left) < 1 && Math.abs(body.right - preview.right) < 1;
+  })()`), 'Branch and commit share one header, and the file preview meets its edges without outer padding');
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-repo-sidebar .gitlab-commit-bar, .gitlab-repo-views')`), null);
+  assert.equal(await window.webContents.executeJavaScript(`document.body.innerText.includes('Файлы проекта') || document.body.innerText.includes('1 изменённый файл') || document.body.innerText.includes('Kotlin · UTF-8')`), false);
+  await window.webContents.executeJavaScript(`Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async value => { window.copiedGitlabSha = value; } } }); document.querySelector('.gitlab-copy-sha').click()`);
+  await waitFor(window, `window.copiedGitlabSha === '${'a'.repeat(40)}'`);
+  await waitFor(window, `document.querySelector('.gitlab-commit-actions [role="status"]').textContent === 'SHA скопирован'`);
   assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-viewer-body').scrollHeight > document.querySelector('.gitlab-viewer-body').clientHeight`));
   assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-viewer-body').scrollWidth > document.querySelector('.gitlab-viewer-body').clientWidth`));
-  assert.equal(await window.webContents.executeJavaScript(`getComputedStyle(document.querySelector('.gitlab-viewer-body'), '::-webkit-scrollbar').width`), '8px');
-  assert.equal(await window.webContents.executeJavaScript(`getComputedStyle(document.querySelector('.gitlab-viewer-body'), '::-webkit-scrollbar-button').display`), 'none');
+  assert.equal(await window.webContents.executeJavaScript(`getComputedStyle(document.querySelector('.gitlab-viewer-body'), '::-webkit-scrollbar').display`), 'none');
+  assert.equal(await window.webContents.executeJavaScript(`getComputedStyle(document.querySelector('.gitlab-viewer-body')).scrollbarWidth`), 'none');
   await window.webContents.executeJavaScript(`document.querySelector('.gitlab-viewer-body').scrollTop = 200`);
   assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-viewer-body').scrollTop > 0`));
   await window.webContents.executeJavaScript(`document.querySelector('.gitlab-viewer-body').scrollTop = 0`);
@@ -180,11 +232,79 @@ async function fill(window, selector, value) {
   window.webContents.sendInputEvent({ type: "keyUp", keyCode: "Escape" });
   await waitFor(window, `document.querySelector('.gitlab-inline-viewer') === null`);
   assert.equal(await window.webContents.executeJavaScript(`document.activeElement.dataset.entryPath`), "README.md");
-  await waitFor(window, `document.querySelector('.gitlab-last-commit')?.textContent.includes('Update course materials')`);
+  await waitFor(window, `document.querySelector('.gitlab-commit-bar')?.textContent.includes('Update course materials')`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-repository-name, .gitlab-branch-picker select')`), null);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-author').textContent`), "Ada");
   assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-meta time').textContent.length > 0`));
-  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-last-commit button, .gitlab-commit-sha, .gitlab-commit-history')`), null);
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-title').click()`);
+  await waitFor(window, `document.querySelector('.gitlab-history-list li') !== null && document.querySelector('.gitlab-commit-viewer [role="alert"]') !== null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-toggle').getAttribute('aria-pressed')`), "true");
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-viewer .text-button').click()`);
+  await waitFor(window, `document.querySelector('.gitlab-diff-add .hljs-keyword') !== null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-diff-add .hljs-number').textContent`), "42");
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-diff-remove .hljs-number').textContent`), "41");
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.gitlab-history-date').length`), 1);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-commit code')`), null);
+  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-commit').getBoundingClientRect().height <= 72`));
+  assert.match(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-meta time').textContent`), /^\d{2}:\d{2}$/);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-diff-remove .gitlab-diff-number').textContent`), "8");
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.gitlab-diff-add .gitlab-diff-number')[1].textContent`), "8");
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-diff-lines img')`), null);
+  assert.match(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-message').textContent`), /Course details/);
+  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-viewer').scrollHeight > document.querySelector('.gitlab-commit-viewer').clientHeight`));
+  const pageScroll = await window.webContents.executeJavaScript(`window.scrollY`);
+  await wheelOverDiff(window, 0, -400);
+  await waitFor(window, `document.querySelector('.gitlab-commit-viewer').scrollTop > 100`);
+  assert.equal(await window.webContents.executeJavaScript(`window.scrollY`), pageScroll);
+  await wheelOverDiff(window, 0, -10000);
+  await waitFor(window, `(() => { const viewer = document.querySelector('.gitlab-commit-viewer'); return viewer.scrollTop + viewer.clientHeight >= viewer.scrollHeight - 2; })()`);
+  assert.ok(await window.webContents.executeJavaScript(`(() => {
+    const row = Array.from(document.querySelectorAll('.gitlab-diff-lines tr')).find(row => row.textContent.includes('DIFF_END')).getBoundingClientRect();
+    const viewer = document.querySelector('.gitlab-commit-viewer').getBoundingClientRect();
+    return row.top >= viewer.top && row.bottom <= viewer.bottom;
+  })()`), 'The final added line can be reached by scrolling over the diff');
+  const verticalPosition = await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-viewer').scrollTop`);
+  await wheelOverDiff(window, -300, 0);
+  await waitFor(window, `document.querySelector('.gitlab-diff-scroll').scrollLeft > 100`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-viewer').scrollTop`), verticalPosition);
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-diff-scroll').scrollLeft = 0`);
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-viewer').scrollTop = 0`);
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-pane .gitlab-load-more').click()`);
+  await waitFor(window, `document.querySelectorAll('.gitlab-history-list li').length === 3`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.gitlab-history-date').length`), 2);
+  assert.deepEqual(historyRequests.slice(-2), [{ ref: "main", page: "1" }, { ref: "main", page: "2" }]);
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-viewer .gitlab-load-more').click()`);
+  await waitFor(window, `document.querySelectorAll('.gitlab-diff-file').length === 3`);
+  assert.match(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-diffs').textContent`), /бинарный/);
+  assert.match(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-diffs').textContent`), /GitLab не вернул/);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-viewer .gitlab-load-more')`), null);
+  await wheelOverDiff(window, 0, -10000);
+  await waitFor(window, `(() => {
+    const file = document.querySelector('.gitlab-diff-file:last-child').getBoundingClientRect();
+    const viewer = document.querySelector('.gitlab-commit-viewer').getBoundingClientRect();
+    return file.top >= viewer.top && file.bottom <= viewer.bottom;
+  })()`);
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-viewer').scrollTop = 0`);
+  window.setSize(480, 850);
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal(await window.webContents.executeJavaScript(`document.documentElement.scrollWidth > innerWidth`), false);
+  window.setSize(1280, 1000);
+  if (process.env.CAMPUS_SMOKE_HISTORY_SCREENSHOT)
+    await writeFile(process.env.CAMPUS_SMOKE_HISTORY_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
+  await window.webContents.executeJavaScript(`document.querySelectorAll('.gitlab-history-commit')[1].click()`);
+  await waitFor(window, `document.querySelector('.gitlab-diff-path')?.textContent === 'old.md → guide.md'`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.gitlab-diff-file').length`), 1);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.gitlab-history-commit')[1].getAttribute('aria-current')`), "true");
+  assert.equal(diffRequests.at(-1).sha, "d".repeat(40));
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-title').textContent`), "Rename guide");
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-sha').textContent`), "dddddddd");
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-header')`), null);
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-toggle').click()`);
+  await waitFor(window, `document.querySelector('.gitlab-tree') !== null && document.querySelector('.gitlab-commit-title').textContent === 'Update course materials'`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-toggle').getAttribute('aria-pressed')`), "false");
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-toggle').click()`);
+  await waitFor(window, `document.querySelector('.gitlab-history-commit') !== null && document.querySelector('.gitlab-diff-path')?.textContent === 'old.md → guide.md'`);
+
   await window.webContents.executeJavaScript(`document.querySelector('.gitlab-branch-trigger').click()`);
   await waitFor(window, `document.querySelector('[role="dialog"][aria-label="Сменить ветку"]') !== null`);
   if (process.env.CAMPUS_SMOKE_BRANCH_MENU_SCREENSHOT) {
@@ -199,10 +319,22 @@ async function fill(window, selector, value) {
   window.webContents.sendInputEvent({ type: "keyDown", keyCode: "Return" });
   window.webContents.sendInputEvent({ type: "keyUp", keyCode: "Return" });
   await waitFor(window, `document.querySelector('.gitlab-branch-popover') === null`);
+  await waitFor(window, `document.querySelector('.gitlab-history-commit')?.textContent.includes('Add Kotlin support')`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-viewer')`), null);
+  assert.equal(historyRequests.at(-1).ref, "feature/kotlin");
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-commit').click()`);
+  await waitFor(window, `document.querySelector('.gitlab-commit-title')?.textContent === 'Add Kotlin support' && document.querySelector('.gitlab-diff-file') !== null`);
+  await waitFor(window, `document.querySelector('.gitlab-diff-add .hljs-string')?.textContent === '"Kotlin"'`);
+  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-diff-context .hljs-keyword') !== null`));
+  if (process.env.CAMPUS_SMOKE_KOTLIN_DIFF_SCREENSHOT) {
+    await new Promise(resolve => setTimeout(resolve, 150));
+    await writeFile(process.env.CAMPUS_SMOKE_KOTLIN_DIFF_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
+  }
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-toggle').click()`);
   await waitFor(window, `document.querySelector('[data-entry-path="Main.kt"]') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('[data-entry-path="src"]')`), null);
   assert.ok(await window.webContents.executeJavaScript(`document.querySelector('[data-file-icon="kotlin"]')?.src.includes('data:image/svg+xml')`));
-  assert.match(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-last-commit').textContent`), /Add Kotlin support[\s\S]*Ada/);
+  assert.match(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-bar').textContent`), /Add Kotlin support[\s\S]*Ada/);
   await window.webContents.executeJavaScript(`document.querySelector('.gitlab-branch-trigger').click()`);
   await waitFor(window, `document.querySelector('.gitlab-branch-popover') !== null`);
   window.webContents.sendInputEvent({ type: "keyDown", keyCode: "Escape" });
@@ -245,7 +377,7 @@ async function fill(window, selector, value) {
   await waitFor(window, `document.querySelector('.gitlab-token-form [role="status"]')?.textContent.includes('подключён')`);
   await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-token-form button')).find(b => b.textContent.includes('Удалить')).click()`);
   await waitFor(window, `document.querySelector('#gitlab-access-token') !== null && document.querySelector('.gitlab-markdown') === null`);
-  console.log(JSON.stringify({ result: "passed", root, checks: "nested tree, folder cache/refresh, keyboard selection, inline highlighted code, minimal scrollbars, no file actions, Markdown, focus, shared token across courses, token status/replacement/removal, safe links, encrypted session, narrow layout" }));
+  console.log(JSON.stringify({ result: "passed", root, checks: "nested tree, folder cache/refresh, keyboard selection, inline highlighted code, compact commit strip, SHA copy, history toggle, date-grouped compact history, syntax-highlighted TypeScript and Kotlin diffs, hidden scrollbars, native wheel scrolling through long and wide diffs, commit history and diff pagination, diff retry, line numbers, rename/binary/large patches, branch changes, narrow layout, safe diff text, Markdown, shared token, encrypted session" }));
   window.destroy();
   await runtime.close();
   await rm(profile, { recursive: true, force: true });
