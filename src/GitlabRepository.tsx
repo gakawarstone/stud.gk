@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
-import { ArrowLeft, ChevronRight, Folder, FolderOpen, LoaderCircle } from "lucide-react";
+import { ChevronRight, Folder, FolderOpen, LoaderCircle } from "lucide-react";
 import { GitlabBranchPicker } from "./GitlabBranchPicker";
 import { GitlabCommitSummary } from "./GitlabCommitSummary";
 import { RepositoryFileIcon } from "./RepositoryFileIcon";
@@ -168,7 +168,6 @@ export function GitlabRepository({ endpoint, projectUrl, revision, demo, onAuthR
           onOpen={() => { if (displayedCommit) { setView("history"); setSelectedCommit(displayedCommit); } }} />
       </header>
       <aside className="gitlab-repo-sidebar" aria-label="Репозиторий GitLab">
-        {view === "history" && <button type="button" className="gitlab-history-back" onClick={() => setView("files")}><ArrowLeft size={14} aria-hidden="true" />К файлам</button>}
         {view === "history" ? activeBranch ? <GitlabHistory key={`${activeBranch}:${revision}`} endpoint={endpoint} branch={activeBranch} projectUrl={projectUrl}
           demo={demo} selected={selectedCommit?.id ?? null} onSelect={setSelectedCommit} onAuthRequired={onAuthRequired} />
           : <div className="gitlab-history-pane"><p className="gitlab-history-status">{branchesLoading ? "Загружаем ветки…" : "Нет доступной ветки для просмотра истории."}</p></div>

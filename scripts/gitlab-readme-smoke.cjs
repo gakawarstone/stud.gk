@@ -260,7 +260,7 @@ async function fill(window, selector, value) {
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-title').textContent`), "Rename guide");
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-sha').textContent`), "dddddddd");
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-header')`), null);
-  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-back').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-toggle').click()`);
   await waitFor(window, `document.querySelector('.gitlab-tree') !== null && document.querySelector('.gitlab-commit-title').textContent === 'Update course materials'`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-toggle').getAttribute('aria-pressed')`), "false");
   await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-toggle').click()`);
@@ -291,7 +291,7 @@ async function fill(window, selector, value) {
     await new Promise(resolve => setTimeout(resolve, 150));
     await writeFile(process.env.CAMPUS_SMOKE_KOTLIN_DIFF_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
   }
-  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-back').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-history-toggle').click()`);
   await waitFor(window, `document.querySelector('[data-entry-path="Main.kt"]') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('[data-entry-path="src"]')`), null);
   assert.ok(await window.webContents.executeJavaScript(`document.querySelector('[data-file-icon="kotlin"]')?.src.includes('data:image/svg+xml')`));

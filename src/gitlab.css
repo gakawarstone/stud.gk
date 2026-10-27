@@ -124,8 +124,6 @@
 .gitlab-commit-sha:hover, .gitlab-copy-sha:hover { color: var(--text); background: var(--surface0); }
 .gitlab-history-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 9px; border: 1px solid var(--surface1); border-radius: 5px; color: var(--subtext); font-size: 11px; }
 .gitlab-history-toggle:hover, .gitlab-history-toggle[aria-pressed="true"] { color: var(--mauve); background: var(--surface0); }
-.gitlab-history-back { display: flex; align-items: center; gap: 7px; flex-shrink: 0; padding: 7px 6px; margin: 0 12px 6px 0; color: var(--mauve); font-size: 12px; text-align: left; border-radius: 5px; }
-.gitlab-history-back:hover { background: var(--surface); }
 .gitlab-commit-avatar { display: grid; place-items: center; width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%; background: var(--surface1); color: var(--mauve); font-size: 10px; font-weight: 500; user-select: none; }
 .gitlab-commit-details { flex: 1 1 150px; min-width: 0; }
 .gitlab-commit-title { display: block; width: 100%; text-align: left; padding: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: 12px; font-weight: 500; line-height: 1.65; }
