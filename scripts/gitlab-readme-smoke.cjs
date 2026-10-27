@@ -152,21 +152,23 @@ async function fill(window, selector, value) {
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-inline-viewer img')`), null);
   assert.match(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-source').textContent`), /export const answer/);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-inline-viewer .gitlab-viewer-toolbar, .gitlab-file-actions')`), null);
-  await waitFor(window, `document.querySelector('.gitlab-preview-pane > .gitlab-commit-bar .gitlab-commit-title') !== null`);
+  await waitFor(window, `document.querySelector('.gitlab-repo-header > .gitlab-commit-bar .gitlab-commit-title') !== null`);
   assert.ok(await window.webContents.executeJavaScript(`(() => {
     const sidebar = document.querySelector('.gitlab-repo-sidebar').getBoundingClientRect();
     const browser = document.querySelector('.gitlab-browser').getBoundingClientRect();
+    const header = document.querySelector('.gitlab-repo-header').getBoundingClientRect();
     const branch = document.querySelector('.gitlab-branch-trigger').getBoundingClientRect();
     const commit = document.querySelector('.gitlab-commit-bar').getBoundingClientRect();
     const toolbar = document.querySelector('.gitlab-repo-toolbar').getBoundingClientRect();
     const preview = document.querySelector('.gitlab-preview-pane').getBoundingClientRect();
     const body = document.querySelector('.gitlab-viewer-body').getBoundingClientRect();
-    return Math.abs(browser.top - commit.top) < 1 && Math.abs(sidebar.bottom - preview.bottom) < 1
-      && toolbar.bottom <= sidebar.top && Math.abs(commit.top - preview.top) < 1
+    return Math.abs(browser.top + 1 - header.top) < 1 && Math.abs(sidebar.bottom - preview.bottom) < 1
+      && Math.abs(header.bottom - sidebar.top) < 1 && Math.abs(commit.top - toolbar.top) < 1
+      && Math.abs(sidebar.top - preview.top) < 1
       && Math.abs((branch.top + branch.bottom) / 2 - (commit.top + commit.bottom) / 2) < 1
       && branch.height >= 32 && branch.width >= 90 && branch.width < sidebar.width - 30
-      && commit.left >= preview.left && commit.bottom < body.top;
-  })()`), 'The commit strip starts at the top of the repository and aligns with the compact branch button');
+      && Math.abs(commit.left - preview.left) < 1 && commit.bottom < body.top;
+  })()`), 'Branch and commit share one header, with file tree and preview aligned beneath it');
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-repo-sidebar .gitlab-commit-bar, .gitlab-repo-views')`), null);
   assert.equal(await window.webContents.executeJavaScript(`document.body.innerText.includes('Файлы проекта') || document.body.innerText.includes('1 изменённый файл') || document.body.innerText.includes('Kotlin · UTF-8')`), false);
   await window.webContents.executeJavaScript(`Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async value => { window.copiedGitlabSha = value; } } }); document.querySelector('.gitlab-copy-sha').click()`);

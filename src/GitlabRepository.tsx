@@ -154,6 +154,7 @@ export function GitlabRepository({ endpoint, projectUrl, revision, demo, onAuthR
     else { setSelectedCommit((previous) => previous || commit || null); setView("history"); }
   }
   return <div className="gitlab-browser">
+      <header className="gitlab-repo-header">
         <div className="gitlab-repo-toolbar">
           <GitlabBranchPicker branches={branches} value={activeBranch} loading={branchesLoading} onChange={(next) => {
             setSelected(null); setSelectedCommit(null); setFolders({}); setFocused(null);
@@ -162,6 +163,10 @@ export function GitlabRepository({ endpoint, projectUrl, revision, demo, onAuthR
           }} />
           {branchesError && <button className="gitlab-branches-error" title={branchesError} onClick={() => setBranchesRetry((value) => value + 1)}>Повторить загрузку веток</button>}
         </div>
+        <GitlabCommitSummary key={displayedCommit?.id || activeBranch} commit={displayedCommit} loading={branchesLoading}
+          historyOpen={view === "history"} historyDisabled={!activeBranch} onToggleHistory={toggleHistory}
+          onOpen={() => { if (displayedCommit) { setView("history"); setSelectedCommit(displayedCommit); } }} />
+      </header>
       <aside className="gitlab-repo-sidebar" aria-label="Репозиторий GitLab">
         {view === "history" && <button type="button" className="gitlab-history-back" onClick={() => setView("files")}><ArrowLeft size={14} aria-hidden="true" />К файлам</button>}
         {view === "history" ? activeBranch ? <GitlabHistory key={`${activeBranch}:${revision}`} endpoint={endpoint} branch={activeBranch} projectUrl={projectUrl}
@@ -172,9 +177,6 @@ export function GitlabRepository({ endpoint, projectUrl, revision, demo, onAuthR
         </nav>}
       </aside>
       <div className="gitlab-preview-pane">
-        <GitlabCommitSummary key={displayedCommit?.id || activeBranch} commit={displayedCommit} loading={branchesLoading}
-          historyOpen={view === "history"} historyDisabled={!activeBranch} onToggleHistory={toggleHistory}
-          onOpen={() => { if (displayedCommit) { setView("history"); setSelectedCommit(displayedCommit); } }} />
         <div className="gitlab-preview-content">
         {view === "history" ? selectedCommit ? <GitlabCommitViewer key={`${activeBranch}:${selectedCommit.id}:${revision}`} commit={selectedCommit} endpoint={endpoint}
           demo={demo} onAuthRequired={onAuthRequired} /> : <div className="gitlab-preview-empty"><span>Выбери коммит в истории</span></div>
