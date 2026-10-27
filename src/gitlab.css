@@ -92,11 +92,12 @@
 
 .gitlab-file-icon[data-file-icon="markdown"], .gitlab-file-icon[data-file-icon="rust"], .gitlab-file-icon[data-file-icon="gradle"] { filter: brightness(0) saturate(100%) invert(83%) sepia(9%) saturate(631%) hue-rotate(191deg) brightness(97%) contrast(90%); }
 
-.gitlab-branch-picker { position: relative; flex: 1; min-width: 0; width: 100%; max-width: 240px; }
-.gitlab-branch-trigger { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--mauve) 45%, var(--surface1)); border-radius: 8px; color: var(--text); background: var(--surface0); font-size: 13px; }
-.gitlab-branch-trigger > span { flex: 1; text-align: left; min-width: 0; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, monospace; }
-.gitlab-branch-trigger > svg { flex-shrink: 0; color: var(--mauve); }
-.gitlab-branch-trigger:hover, .gitlab-branch-trigger[aria-expanded="true"] { background: color-mix(in srgb, var(--mauve) 14%, var(--surface0)); border-color: var(--mauve); color: var(--text); }
+.gitlab-branch-picker { position: relative; flex: 0 1 auto; min-width: 0; max-width: 100%; }
+.gitlab-branch-trigger { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-height: 36px; padding: 7px 11px; border: 1px solid var(--surface0); border-radius: 7px; color: var(--text); background: var(--surface); font-size: 13px; }
+.gitlab-branch-trigger > span { text-align: left; min-width: 0; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, monospace; }
+.gitlab-branch-trigger > svg { flex-shrink: 0; color: var(--muted); }
+.gitlab-branch-trigger > svg:first-child { color: var(--mauve); }
+.gitlab-branch-trigger:hover, .gitlab-branch-trigger[aria-expanded="true"] { background: var(--surface0); border-color: var(--surface1); color: var(--text); }
 .gitlab-branch-trigger:disabled { opacity: .6; cursor: default; }
 .gitlab-branch-popover { position: absolute; top: calc(100% + 8px); left: 0; z-index: 15; width: min(310px, calc(100vw - 130px)); padding: 5px; border: 1px solid var(--surface1); border-radius: 9px; background: var(--surface); box-shadow: 0 10px 30px #11111b60; }
 .gitlab-branch-search { display: flex; align-items: center; gap: 8px; margin: 3px 3px 6px; padding: 8px; border: 1px solid var(--surface1); border-radius: 5px; color: var(--muted); }

@@ -164,9 +164,9 @@ async function fill(window, selector, value) {
     return Math.abs(browser.top - commit.top) < 1 && Math.abs(sidebar.bottom - preview.bottom) < 1
       && toolbar.bottom <= sidebar.top && Math.abs(commit.top - preview.top) < 1
       && Math.abs((branch.top + branch.bottom) / 2 - (commit.top + commit.bottom) / 2) < 1
-      && branch.height >= 44 && branch.width >= 150
+      && branch.height >= 32 && branch.width >= 90 && branch.width < sidebar.width - 30
       && commit.left >= preview.left && commit.bottom < body.top;
-  })()`), 'The commit strip starts at the top of the repository and aligns with the larger branch button');
+  })()`), 'The commit strip starts at the top of the repository and aligns with the compact branch button');
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-repo-sidebar .gitlab-commit-bar, .gitlab-repo-views')`), null);
   assert.equal(await window.webContents.executeJavaScript(`document.body.innerText.includes('Файлы проекта') || document.body.innerText.includes('1 изменённый файл') || document.body.innerText.includes('Kotlin · UTF-8')`), false);
   await window.webContents.executeJavaScript(`Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async value => { window.copiedGitlabSha = value; } } }); document.querySelector('.gitlab-copy-sha').click()`);
