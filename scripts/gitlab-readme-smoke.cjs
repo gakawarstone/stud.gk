@@ -155,14 +155,18 @@ async function fill(window, selector, value) {
   await waitFor(window, `document.querySelector('.gitlab-preview-pane > .gitlab-commit-bar .gitlab-commit-title') !== null`);
   assert.ok(await window.webContents.executeJavaScript(`(() => {
     const sidebar = document.querySelector('.gitlab-repo-sidebar').getBoundingClientRect();
+    const browser = document.querySelector('.gitlab-browser').getBoundingClientRect();
+    const branch = document.querySelector('.gitlab-branch-trigger').getBoundingClientRect();
     const commit = document.querySelector('.gitlab-commit-bar').getBoundingClientRect();
     const toolbar = document.querySelector('.gitlab-repo-toolbar').getBoundingClientRect();
     const preview = document.querySelector('.gitlab-preview-pane').getBoundingClientRect();
     const body = document.querySelector('.gitlab-viewer-body').getBoundingClientRect();
-    return Math.abs(sidebar.top - preview.top) < 1 && Math.abs(sidebar.bottom - preview.bottom) < 1
+    return Math.abs(browser.top - commit.top) < 1 && Math.abs(sidebar.bottom - preview.bottom) < 1
       && toolbar.bottom <= sidebar.top && Math.abs(commit.top - preview.top) < 1
+      && Math.abs((branch.top + branch.bottom) / 2 - (commit.top + commit.bottom) / 2) < 1
+      && branch.height >= 44 && branch.width >= 150
       && commit.left >= preview.left && commit.bottom < body.top;
-  })()`), 'The branch is above both columns, and the commit strip sits above the file preview');
+  })()`), 'The commit strip starts at the top of the repository and aligns with the larger branch button');
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-repo-sidebar .gitlab-commit-bar, .gitlab-repo-views')`), null);
   assert.equal(await window.webContents.executeJavaScript(`document.body.innerText.includes('Файлы проекта') || document.body.innerText.includes('1 изменённый файл') || document.body.innerText.includes('Kotlin · UTF-8')`), false);
   await window.webContents.executeJavaScript(`Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async value => { window.copiedGitlabSha = value; } } }); document.querySelector('.gitlab-copy-sha').click()`);
