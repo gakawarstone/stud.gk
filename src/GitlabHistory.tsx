@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { LoaderCircle } from "lucide-react";
+import { GitCommitHorizontal, LoaderCircle } from "lucide-react";
 import { GitlabApiError, gitlabApi, type GitlabCommit, type GitlabHistory as History } from "./gitlab-api";
 
 export function demoCommits(projectUrl: string, branch: string): GitlabCommit[] {
@@ -48,9 +48,12 @@ export function GitlabHistory({ endpoint, branch, projectUrl, demo, selected, on
       }) : "Дата не указана"}</div>}
       <button type="button" className="gitlab-history-commit" aria-current={selected === commit.id ? "true" : undefined}
         title={`${commit.title || "Без заголовка"}\n${commit.id}`} onClick={() => onSelect(commit)}>
-        <span className="gitlab-history-title">{commit.title || "Без заголовка"}</span>
-        <span className="gitlab-history-meta"><span>{commit.author || "Неизвестный автор"}</span>
-          {date && <time dateTime={commit.committedAt!} title={date.toLocaleString("ru")}>{date.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" })}</time>}
+        <GitCommitHorizontal className="gitlab-history-icon" size={15} strokeWidth={1.6} aria-hidden="true" />
+        <span className="gitlab-history-entry">
+          <span className="gitlab-history-title">{commit.title || "Без заголовка"}</span>
+          <span className="gitlab-history-meta"><span>{commit.author || "Неизвестный автор"}</span>
+            {date && <time dateTime={commit.committedAt!} title={date.toLocaleString("ru")}>{date.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" })}</time>}
+          </span>
         </span>
       </button>
     </li>; })}</ol>

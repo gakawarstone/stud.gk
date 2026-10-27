@@ -146,14 +146,17 @@
 
 .gitlab-history-pane { flex: 1; min-height: 0; overflow: auto; padding: 0 12px 8px 0; }
 .gitlab-history-list { margin: 0; padding: 0; list-style: none; }
-.gitlab-history-date { margin: 14px 0 6px; padding: 0 10px; color: var(--muted); font-size: 11px; }
+.gitlab-history-date { margin: 12px 0 6px; padding: 0 8px; color: var(--muted); font-size: 11px; }
 .gitlab-history-list > li:first-child .gitlab-history-date { margin-top: 3px; }
-.gitlab-history-commit { position: relative; display: flex; flex-direction: column; gap: 5px; width: 100%; min-height: 56px; padding: 9px 10px; text-align: left; }
+.gitlab-history-commit { display: flex; align-items: flex-start; gap: 8px; width: 100%; min-height: 50px; margin-bottom: 2px; padding: 7px 8px; border-radius: 5px; text-align: left; }
 .gitlab-history-commit:hover { background: var(--surface); }
-.gitlab-history-commit[aria-current="true"] { background: color-mix(in srgb, var(--mauve) 7%, transparent); }
-.gitlab-history-commit[aria-current="true"]::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; border-radius: 2px; background: var(--mauve); }
-.gitlab-history-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; color: var(--text); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
-.gitlab-history-commit[aria-current="true"] .gitlab-history-title { font-weight: 500; }
+.gitlab-history-commit[aria-current="true"] { background: var(--surface0); }
+.gitlab-history-commit:focus-visible { outline-offset: -1px; }
+.gitlab-history-icon { flex-shrink: 0; margin-top: 2px; color: var(--faint); }
+.gitlab-history-entry { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
+.gitlab-history-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; color: var(--subtext); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.gitlab-history-commit:hover .gitlab-history-title { color: var(--text); }
+.gitlab-history-commit[aria-current="true"] .gitlab-history-title, .gitlab-history-commit[aria-current="true"] .gitlab-history-icon { color: var(--mauve); }
 .gitlab-history-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; width: 100%; min-width: 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .gitlab-history-meta > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gitlab-history-meta time { flex-shrink: 0; font-variant-numeric: tabular-nums; }
