@@ -43,6 +43,16 @@ test("course project links are private, persist across sync and restart, and can
         if (!token) throw new GitlabError("Private project", 403, "GITLAB_AUTH_REQUIRED");
         return { branches: [{ name: "main", default: true, commit: null }, { name: "feature/kotlin", default: false, commit: null }] };
       },
+      getGitlabCommits: async (url, { token, ref, page }) => {
+        gitlabRequests.push({ url, token, ref, page });
+        if (!token) throw new GitlabError("Private project", 403, "GITLAB_AUTH_REQUIRED");
+        return { commits: [{ id: "a".repeat(40), title: "Course update" }], nextPage: 3 };
+      },
+      getGitlabCommit: async (url, sha, { token, page }) => {
+        gitlabRequests.push({ url, token, sha, page });
+        if (!token) throw new GitlabError("Private project", 403, "GITLAB_AUTH_REQUIRED");
+        return { commit: { id: sha }, diffs: [{ newPath: "README.md", diff: "@@ -1 +1 @@\n-old\n+new\n" }], nextPage: null };
+      },
       getGitlabTree: async (_, folder, { token }) => {
         if (!token) throw new GitlabError("Private project", 403, "GITLAB_AUTH_REQUIRED");
         return { branch: "main", path: folder, entries: [{ path: "src/index.ts", name: "index.ts", directory: false }] };
@@ -113,6 +123,11 @@ test("course project links are private, persist across sync and restart, and can
   assert.equal((await request(readmeRoute)).status, 401);
   assert.equal((await request(readmeRoute, bob)).status, 404);
   assert.equal((await request(readmeRoute, alice)).data.code, "GITLAB_AUTH_REQUIRED");
+  for (const suffix of ["/commits?ref=feature%2Fcourse&page=2", `/commit?sha=${"a".repeat(40)}&page=2`]) {
+    assert.equal((await request(route + suffix)).status, 401);
+    assert.equal((await request(route + suffix, bob)).status, 404);
+    assert.equal((await request(route + suffix, alice)).data.code, "GITLAB_AUTH_REQUIRED");
+  }
   assert.equal((await request(tokenRoute, alice, { token: "test" }, "https://other.example")).status, 403);
   assert.equal((await request(tokenRoute, alice, { token: "bad token" })).status, 400);
   const secret = "private-gitlab-test-token";
@@ -128,6 +143,14 @@ test("course project links are private, persist across sync and restart, and can
   assert.equal(readme.data.readme.content, "# Private README");
   assert.equal(readme.data.hasToken, true);
   assert.equal(gitlabRequests.at(-1).token, secret);
+  const history = await request(`${route}/commits?ref=feature%2Fcourse&page=2`, alice);
+  assert.equal(history.status, 200);
+  assert.equal(history.data.nextPage, 3);
+  assert.deepEqual(gitlabRequests.at(-1), { url, token: secret, ref: "feature/course", page: "2" });
+  const diff = await request(`${route}/commit?sha=${"a".repeat(40)}&page=2`, alice);
+  assert.equal(diff.status, 200);
+  assert.match(diff.data.diffs[0].diff, /\+new/);
+  assert.deepEqual(gitlabRequests.at(-1), { url, token: secret, sha: "a".repeat(40), page: "2" });
   assert.equal((await request(`${route}/tree?path=src`, alice)).data.entries[0].name, "index.ts");
   assert.equal((await request(`${route}/file?path=src%2Findex.ts&ref=main`, alice)).data.content, "export const answer = 42;");
   assert.equal((await request(`${route}/tree`, bob)).status, 404);

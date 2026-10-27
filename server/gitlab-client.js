@@ -22,7 +22,31 @@ function repositoryRef(value) {
     throw new GitlabError("Некорректная ветка репозитория.", 400);
   return value;
 }
-async function readBody(response, limit = 2 * 1024 * 1024) {
+function repositoryPage(value = 1) {
+  if (!/^[1-9]\d{0,5}$/.test(String(value)) || !["string", "number"].includes(typeof value))
+    throw new GitlabError("Некорректная страница истории.", 400);
+  return Number(value);
+}
+function commitId(value) {
+  if (typeof value !== "string" || !/^[a-f0-9]{7,64}$/i.test(value))
+    throw new GitlabError("Некорректный идентификатор коммита.", 400);
+  return value;
+}
+function normalizeCommit(commit, project) {
+  if (!commit || typeof commit.id !== "string" || !/^[a-f0-9]{7,64}$/i.test(commit.id)) return null;
+  return { id: commit.id, shortId: commit.id.slice(0, 8),
+    title: typeof commit.title === "string" ? commit.title : "",
+    author: typeof commit.author_name === "string" ? commit.author_name : "",
+    committedAt: typeof commit.committed_date === "string" && Number.isFinite(Date.parse(commit.committed_date)) ? commit.committed_date : null,
+    webUrl: `${project.href}/-/commit/${encodeURIComponent(commit.id)}` };
+}
+function nextPage(headers, page, length, perPage) {
+  const next = headers.get("x-next-page");
+  if (next === "" || (next === null && length < perPage)) return null;
+  if (next !== null && next !== String(page + 1)) throw new GitlabError("GitLab вернул некорректную страницу истории.");
+  return page + 1;
+}
+async function readBody(response, limit = 2 * 1024 * 1024, tooLarge = "Файл слишком большой для просмотра. Его можно скачать.") {
   const reader = response.body?.getReader();
   if (!reader) return Buffer.alloc(0);
   let length = 0; const chunks = [];
@@ -31,7 +55,7 @@ async function readBody(response, limit = 2 * 1024 * 1024) {
       const { done, value } = await reader.read();
       if (done) return Buffer.concat(chunks);
       length += value.byteLength;
-      if (length > limit) throw new GitlabError("Файл слишком большой для просмотра. Его можно скачать.", 413);
+      if (length > limit) throw new GitlabError(tooLarge, 413);
       chunks.push(value);
     }
   } finally { await reader.cancel().catch(() => {}); }
@@ -55,7 +79,7 @@ export function createGitlabClient(request = publicRequest) {
         if ([401, 403].includes(response.status) || (projectRequest && response.status === 404))
           throw new GitlabError(token ? "Нет доступа к проекту. Проверь адрес и права токена GitLab."
             : "Проект закрыт или не найден. Для закрытого проекта подключи токен GitLab.", 403, token ? "GITLAB_ACCESS_DENIED" : "GITLAB_AUTH_REQUIRED");
-        if (response.status === 404) throw new GitlabError("Файл или папка не найдены в этой ветке.", 404);
+        if (response.status === 404) throw new GitlabError("Файл, папка или коммит не найдены в репозитории.", 404);
         if (response.status === 429) throw new GitlabError("GitLab ограничил частоту запросов. Попробуй немного позже.", 429);
         throw new GitlabError("Не удалось получить данные GitLab. Попробуй ещё раз.");
       }
@@ -66,7 +90,7 @@ export function createGitlabClient(request = publicRequest) {
     }
     async function json(url, projectRequest = false) {
       const response = await get(url, true, projectRequest);
-      try { return { data: JSON.parse((await readBody(response)).toString("utf8")), headers: response.headers }; }
+      try { return { data: JSON.parse((await readBody(response, 2 * 1024 * 1024, "Ответ GitLab слишком большой для просмотра. Открой проект в GitLab.")).toString("utf8")), headers: response.headers }; }
       catch (error) { if (error instanceof GitlabError) throw error; throw new GitlabError("GitLab вернул некорректные данные."); }
     }
     const rawUrl = (path, ref) => `${api}/repository/files/${encodeURIComponent(path)}/raw?${new URLSearchParams({ ref: ref || "HEAD" })}`;
@@ -85,15 +109,8 @@ export function createGitlabClient(request = publicRequest) {
           repositoryRef(item.name);
           if (seen.has(item.name)) continue;
           seen.add(item.name);
-          const commit = item.commit;
           branches.push({ name: item.name, default: item.default === true,
-            commit: commit && /^[a-f0-9]{7,64}$/i.test(commit.id) ? {
-              id: commit.id, shortId: commit.id.slice(0, 8),
-              title: typeof commit.title === "string" ? commit.title : "",
-              author: typeof commit.author_name === "string" ? commit.author_name : "",
-              committedAt: typeof commit.committed_date === "string" ? commit.committed_date : null,
-              webUrl: `${c.project.href}/-/commit/${encodeURIComponent(commit.id)}`,
-            } : null });
+            commit: normalizeCommit(item.commit, c.project) });
         }
         const next = headers.get("x-next-page");
         if (next === "" || (!next && data.length < 100)) break;
@@ -101,6 +118,39 @@ export function createGitlabClient(request = publicRequest) {
         if (page === 50) throw new GitlabError("В репозитории слишком много веток. Открой список в GitLab.", 413);
       }
       return { branches };
+    },
+    async commits(value, options = {}) {
+      repositoryRef(options.ref);
+      const page = repositoryPage(options.page), perPage = 30;
+      const c = connection(value, options);
+      const query = new URLSearchParams({ ref_name: options.ref || "HEAD", page: String(page), per_page: String(perPage) });
+      const { data, headers } = await c.json(`${c.api}/repository/commits?${query}`, true);
+      if (!Array.isArray(data)) throw new GitlabError("GitLab вернул некорректную историю коммитов.");
+      const commits = data.map((item) => normalizeCommit(item, c.project));
+      if (commits.some((item) => !item)) throw new GitlabError("GitLab вернул некорректный коммит.");
+      return { commits, nextPage: nextPage(headers, page, data.length, perPage) };
+    },
+    async commit(value, sha, options = {}) {
+      commitId(sha);
+      const page = repositoryPage(options.page), perPage = 20;
+      const c = connection(value, options);
+      const url = `${c.api}/repository/commits/${encodeURIComponent(sha)}`;
+      const { data: metadata } = await c.json(url);
+      const commit = normalizeCommit(metadata, c.project);
+      if (!commit || !commit.id.toLowerCase().startsWith(sha.toLowerCase())) throw new GitlabError("GitLab вернул некорректный коммит.");
+      const query = new URLSearchParams({ page: String(page), per_page: String(perPage) });
+      const { data, headers } = await c.json(`${c.api}/repository/commits/${encodeURIComponent(commit.id)}/diff?${query}`);
+      if (!Array.isArray(data)) throw new GitlabError("GitLab вернул некорректный дифф коммита.");
+      const diffs = data.map((item) => {
+        if (!item || typeof item.old_path !== "string" || typeof item.new_path !== "string")
+          throw new GitlabError("GitLab вернул некорректный файл диффа.");
+        return { oldPath: item.old_path, newPath: item.new_path, diff: typeof item.diff === "string" ? item.diff : "",
+          newFile: item.new_file === true, deletedFile: item.deleted_file === true, renamedFile: item.renamed_file === true,
+          collapsed: item.collapsed === true, tooLarge: item.too_large === true,
+          oldMode: typeof item.a_mode === "string" ? item.a_mode : null, newMode: typeof item.b_mode === "string" ? item.b_mode : null };
+      });
+      return { commit: { ...commit, message: typeof metadata.message === "string" ? metadata.message : commit.title },
+        diffs, nextPage: nextPage(headers, page, data.length, perPage) };
     },
     async list(value, path = "", options = {}) {
       repositoryPath(path); repositoryRef(options.ref);

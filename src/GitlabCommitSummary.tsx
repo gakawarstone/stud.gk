@@ -8,7 +8,7 @@ function relativeDate(value: string, now: number) {
   const [unit, divisor] = units.find(([, size]) => Math.abs(seconds) >= size) || ["second", 1];
   return Math.abs(seconds) < 60 ? "только что" : new Intl.RelativeTimeFormat("ru", { numeric: "auto" }).format(Math.round(seconds / divisor), unit);
 }
-export function GitlabCommitSummary({ commit }: { commit: GitlabCommit }) {
+export function GitlabCommitSummary({ commit, onOpen }: { commit: GitlabCommit; onOpen: () => void }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(timer); }, []);
   const author = commit.author || "Неизвестный автор";
@@ -17,7 +17,7 @@ export function GitlabCommitSummary({ commit }: { commit: GitlabCommit }) {
   return <div className="gitlab-last-commit" aria-label="Последний коммит">
     <span className="gitlab-commit-avatar" aria-hidden="true">{initials}</span>
     <div className="gitlab-commit-details">
-      <a className="gitlab-commit-title" href={commit.webUrl} target="_blank" rel="noopener noreferrer" title={commit.title}>{commit.title || "Последний коммит"}</a>
+      <button type="button" className="gitlab-commit-title" onClick={onOpen} title="Посмотреть дифф последнего коммита">{commit.title || "Последний коммит"}</button>
       <div className="gitlab-commit-meta"><span className="gitlab-commit-author" title={author}>{author}</span>
         {date && <><span aria-hidden="true">·</span><time dateTime={commit.committedAt!} title={new Date(commit.committedAt!).toLocaleString()}>{date}</time></>}
       </div>

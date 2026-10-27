@@ -44,6 +44,8 @@ export async function createApp({
   getGitlabReadme = createGitlabClient().readme,
   getGitlabTree = createGitlabClient().list,
   getGitlabBranches = createGitlabClient().branches,
+  getGitlabCommits = createGitlabClient().commits,
+  getGitlabCommit = createGitlabClient().commit,
   getGitlabFile = createGitlabClient().file,
   getGitlabContent = createGitlabClient().content,
   nextcloudClient,
@@ -348,15 +350,18 @@ export async function createApp({
     await call(req.session, "save");
     res.json({ connected: Boolean(token) });
   });
-  for (const [route, read] of [["branches", (url, _path, options) => getGitlabBranches(url, options)], ["tree", getGitlabTree], ["file", getGitlabFile], ["content", getGitlabContent]]) {
+  for (const [route, read] of [["branches", (url, _path, options) => getGitlabBranches(url, options)],
+    ["commits", (url, _path, options) => getGitlabCommits(url, options)],
+    ["commit", (url, sha, options) => getGitlabCommit(url, sha, options)],
+    ["tree", getGitlabTree], ["file", getGitlabFile], ["content", getGitlabContent]]) {
     app.get(`/api/courses/:id/gitlab/${route}`, requireLogin, async (req, res) => {
       const project = linkedGitlab(req);
       const controller = new AbortController();
       const cancel = () => controller.abort();
       res.once("close", cancel);
       try {
-        const result = await read(project.href, req.query.path ?? "", {
-          ref: req.query.ref, token: req.session.gitlabTokens?.[project.origin],
+        const result = await read(project.href, (route === "commit" ? req.query.sha : req.query.path) ?? "", {
+          ref: req.query.ref, page: req.query.page, token: req.session.gitlabTokens?.[project.origin],
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]),
         });
         if (req.context.revoked || req.context.expiresAt <= Date.now()) {
