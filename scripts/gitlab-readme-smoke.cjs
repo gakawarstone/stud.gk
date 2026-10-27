@@ -167,8 +167,9 @@ async function fill(window, selector, value) {
       && Math.abs(sidebar.top - preview.top) < 1
       && Math.abs((branch.top + branch.bottom) / 2 - (commit.top + commit.bottom) / 2) < 1
       && branch.height >= 32 && branch.width >= 90 && branch.width < sidebar.width - 30
-      && Math.abs(commit.left - preview.left) < 1 && commit.bottom < body.top;
-  })()`), 'Branch and commit share one header, with file tree and preview aligned beneath it');
+      && Math.abs(commit.left - preview.left) < 1 && Math.abs(header.bottom - body.top) < 1
+      && Math.abs(body.left - preview.left) < 1 && Math.abs(body.right - preview.right) < 1;
+  })()`), 'Branch and commit share one header, and the file preview meets its edges without outer padding');
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-repo-sidebar .gitlab-commit-bar, .gitlab-repo-views')`), null);
   assert.equal(await window.webContents.executeJavaScript(`document.body.innerText.includes('Файлы проекта') || document.body.innerText.includes('1 изменённый файл') || document.body.innerText.includes('Kotlin · UTF-8')`), false);
   await window.webContents.executeJavaScript(`Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async value => { window.copiedGitlabSha = value; } } }); document.querySelector('.gitlab-copy-sha').click()`);

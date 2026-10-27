@@ -75,6 +75,8 @@
 .gitlab-tree-status > span { display: inline-flex; align-items: center; gap: 7px; }
 .gitlab-tree-status p { margin: 0; }
 .gitlab-preview-pane { grid-area: preview; display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; overflow: hidden; padding: 12px 14px; }
+.gitlab-preview-pane.gitlab-preview-file { padding: 0; }
+.gitlab-preview-file .gitlab-code-view pre { padding-top: 0; padding-bottom: 0; }
 .gitlab-preview-content { flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
 .gitlab-preview-empty { display: grid; place-items: center; height: 100%; min-height: 240px; color: var(--muted); font-size: 12px; }
 .gitlab-inline-viewer { height: 100%; min-height: 0; display: flex; flex-direction: column; }

@@ -176,7 +176,7 @@ export function GitlabRepository({ endpoint, projectUrl, revision, demo, onAuthR
           <ul ref={tree} className="gitlab-tree" role="tree" aria-label="Файлы GitLab">{children("", 0)}</ul>
         </nav>}
       </aside>
-      <div className="gitlab-preview-pane">
+      <div className={`gitlab-preview-pane${view === "files" ? " gitlab-preview-file" : ""}`}>
         <div className="gitlab-preview-content">
         {view === "history" ? selectedCommit ? <GitlabCommitViewer key={`${activeBranch}:${selectedCommit.id}:${revision}`} commit={selectedCommit} endpoint={endpoint}
           demo={demo} onAuthRequired={onAuthRequired} /> : <div className="gitlab-preview-empty"><span>Выбери коммит в истории</span></div>
