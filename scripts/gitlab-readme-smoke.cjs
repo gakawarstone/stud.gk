@@ -90,6 +90,8 @@ async function wheelOverDiff(window, deltaX, deltaY) {
     getGitlabTree: async (_url, folder, options) => {
       if (options.token !== token) throw new GitlabError("Private project", 403, "GITLAB_AUTH_REQUIRED");
       treeRequests.push(folder);
+      if (new URL(_url).pathname === "/labs/exercises") return { branch: "main", path: folder,
+        entries: [{ path: "exercises.md", name: "exercises.md", directory: false }] };
       if (options.ref === "feature/kotlin") return { branch: options.ref, path: folder, entries: [{ path: "Main.kt", name: "Main.kt", directory: false }] };
       return { branch: "main", path: folder, entries: folder === "src/components"
         ? [{ path: "src/components/Button.tsx", name: "Button.tsx", directory: false }]
@@ -98,7 +100,7 @@ async function wheelOverDiff(window, deltaX, deltaY) {
     },
     getGitlabFile: async (_url, file, options) => {
       assert.equal(options.token, token); assert.ok(["main", "feature/kotlin"].includes(options.ref));
-      return { path: file, content: file === "README.md" ? markdown : file === "Main.kt" ? 'fun main() { println("Kotlin") }' : 'export const answer: number = 42;\nconst html = "<img src=x onerror=alert(1)>";\n' + Array.from({ length: 120 }, (_, i) => `const value${i}: string = "${'source '.repeat(35)}";`).join('\n'),
+      return { path: file, content: file === "exercises.md" ? "# Weekly exercises\n\nPractice repository for Software Engineering.\n\n## Week 3: testing\n\n- Write tests for the parser.\n- Cover invalid input and empty results.\n- Submit a merge request with your solution.\n\n```sh\nnpm install\nnpm test\n```" : file === "README.md" ? markdown : file === "Main.kt" ? 'fun main() { println("Kotlin") }' : 'export const answer: number = 42;\nconst html = "<img src=x onerror=alert(1)>";\n' + Array.from({ length: 120 }, (_, i) => `const value${i}: string = "${'source '.repeat(35)}";`).join('\n'),
         binary: false, size: 100, webUrl: `https://gitlab.example/team/project/-/blob/main/${file}` };
     },
   });
@@ -371,13 +373,98 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   await window.webContents.executeJavaScript(`document.querySelector('.gitlab-project-form').requestSubmit()`);
   await waitFor(window, `document.querySelector('[data-entry-path="README.md"]') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-token-form')`), null);
+  // Several projects in the same course, including another GitLab server.
+  await window.webContents.executeJavaScript(`document.querySelector('[data-entry-path="README.md"]').click()`);
+  await waitFor(window, `document.querySelector('.gitlab-markdown') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-add-project').click()`);
+  await waitFor(window, `document.querySelector('#gitlab-project-url') !== null`);
+  await fill(window, "#gitlab-project-url", "https://gitlab.example/another-group/another-project.git");
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-project-form').requestSubmit()`);
+  await waitFor(window, `document.querySelector('.gitlab-project-form [role="alert"]') !== null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.gitlab-project-tab').length`), 1);
+  await fill(window, "#gitlab-project-url", "https://gitlab.example/labs/exercises");
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-project-form').requestSubmit()`);
+  await waitFor(window, `document.querySelector('[data-entry-path="exercises.md"]') !== null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.gitlab-project-tab').length`), 2);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-token-form')`), null);
+  await window.webContents.executeJavaScript(`document.querySelector('[data-entry-path="exercises.md"]').click()`);
+  await waitFor(window, `document.querySelector('.gitlab-inline-viewer') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-project-tab').click()`);
+  await waitFor(window, `document.querySelector('[data-entry-path="README.md"]') !== null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-inline-viewer')`), null, "Switching projects clears the previous file");
+  await window.webContents.executeJavaScript(`document.querySelectorAll('.gitlab-project-tab')[1].click()`);
+  await waitFor(window, `document.querySelector('[data-entry-path="exercises.md"]') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Настройки GitLab"]').click()`);
+  await waitFor(window, `document.querySelector('.gitlab-settings-menu') !== null`);
+  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-settings-menu [role="menuitem"]')).find(b => b.textContent.includes('Изменить')).click()`);
+  await waitFor(window, `document.querySelector('#gitlab-project-url') !== null`);
+  await fill(window, "#gitlab-project-url", "https://university.example/labs/exercises");
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-project-form').requestSubmit()`);
+  await waitFor(window, `document.querySelector('#gitlab-access-token') !== null`);
+  assert.equal(new URL(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-create-token').href`)).host, "university.example");
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-project-tab').click()`);
+  await waitFor(window, `document.querySelector('[data-entry-path="README.md"]') !== null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-token-form')`), null, "Another server's auth form does not leak into the selected project");
+  await window.webContents.executeJavaScript(`document.querySelectorAll('.gitlab-project-tab')[1].click()`);
+  await waitFor(window, `document.querySelector('#gitlab-access-token') !== null`);
+  await fill(window, "#gitlab-access-token", token);
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-token-form').requestSubmit()`);
+  await waitFor(window, `document.querySelector('[data-entry-path="exercises.md"]') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('[data-entry-path="exercises.md"]').click()`);
+  await waitFor(window, `document.querySelector('.gitlab-markdown h1')?.textContent === 'Weekly exercises'`);
+  if (process.env.CAMPUS_SMOKE_PROJECTS_SCREENSHOT)
+    await writeFile(process.env.CAMPUS_SMOKE_PROJECTS_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-add-project').click()`);
+  await waitFor(window, `document.querySelector('#gitlab-project-url') !== null`);
+  await fill(window, "#gitlab-project-url", "https://gitlab.com/course/team-project");
+  if (process.env.CAMPUS_SMOKE_ADD_PROJECT_SCREENSHOT)
+    await writeFile(process.env.CAMPUS_SMOKE_ADD_PROJECT_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
+  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-project-form button')).find(b => b.textContent.includes('Отмена')).click()`);
+  await waitFor(window, `document.querySelector('[data-entry-path="exercises.md"]') !== null`);
+  window.reload();
+  await waitFor(window, `document.querySelectorAll('.gitlab-project-tab').length === 2 && document.querySelector('[data-entry-path="README.md"]') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelectorAll('.gitlab-project-tab')[1].click()`);
+  await waitFor(window, `document.querySelector('[data-entry-path="exercises.md"]') !== null`);
+  window.setSize(480, 850);
+  await new Promise(resolve => setTimeout(resolve, 100));
+  assert.equal(await window.webContents.executeJavaScript(`document.documentElement.scrollWidth > innerWidth`), false);
+  window.setSize(1280, 1000);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Настройки GitLab"]').click()`);
+  await waitFor(window, `document.querySelector('.gitlab-settings-menu') !== null`);
+  if (process.env.CAMPUS_SMOKE_PROJECT_SETTINGS_SCREENSHOT)
+    await writeFile(process.env.CAMPUS_SMOKE_PROJECT_SETTINGS_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
+  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-settings-menu [role="menuitem"]')).find(b => b.textContent.includes('Отвязать')).click()`);
+  await waitFor(window, `document.querySelectorAll('.gitlab-project-tab').length === 1 && document.querySelector('[data-entry-path="README.md"]') !== null`);
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Настройки GitLab"]').click()`);
   await waitFor(window, `document.querySelector('.gitlab-settings-menu') !== null`);
   await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-settings-menu [role="menuitem"]')).find(b => b.textContent.includes('Доступ')).click()`);
   await waitFor(window, `document.querySelector('.gitlab-token-form [role="status"]')?.textContent.includes('подключён')`);
   await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-token-form button')).find(b => b.textContent.includes('Удалить')).click()`);
   await waitFor(window, `document.querySelector('#gitlab-access-token') !== null && document.querySelector('.gitlab-markdown') === null`);
-  console.log(JSON.stringify({ result: "passed", root, checks: "nested tree, folder cache/refresh, keyboard selection, inline highlighted code, compact commit strip, SHA copy, history toggle, date-grouped compact history, syntax-highlighted TypeScript and Kotlin diffs, hidden scrollbars, native wheel scrolling through long and wide diffs, commit history and diff pagination, diff retry, line numbers, rename/binary/large patches, branch changes, narrow layout, safe diff text, Markdown, shared token, encrypted session" }));
+  // Demo mode upgrades the old local URL and saves several projects locally.
+  await window.webContents.executeJavaScript(`fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })`);
+  window.reload();
+  await waitFor(window, `document.querySelector('.demo-link') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('.demo-link').click()`);
+  await waitFor(window, `document.querySelector('.course-card-link') !== null`);
+  await window.webContents.executeJavaScript(`(async () => {
+    const demo = await (await fetch('/api/demo')).json();
+    const id = demo.courses[0].id;
+    localStorage.setItem('stud-gk-demo-gitlab:' + id, 'https://gitlab.com/demo/materials');
+    location.hash = new URLSearchParams({ course: id, tab: 'gitlab' }).toString();
+  })()`);
+  await waitFor(window, `document.querySelectorAll('.gitlab-project-tab').length === 1`);
+  assert.match(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-project-tab').textContent`), /demo\/materials/);
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-add-project').click()`);
+  await waitFor(window, `document.querySelector('#gitlab-project-url') !== null`);
+  await fill(window, "#gitlab-project-url", "https://demo.example/demo/exercises");
+  await window.webContents.executeJavaScript(`document.querySelector('.gitlab-project-form').requestSubmit()`);
+  await waitFor(window, `document.querySelectorAll('.gitlab-project-tab').length === 2`);
+  window.reload();
+  await waitFor(window, `document.querySelector('.demo-link') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('.demo-link').click()`);
+  await waitFor(window, `document.querySelectorAll('.gitlab-project-tab').length === 2`);
+  console.log(JSON.stringify({ result: "passed", root, checks: "nested tree, folder cache/refresh, keyboard selection, inline highlighted code, compact commit strip, SHA copy, history toggle, date-grouped compact history, syntax-highlighted TypeScript and Kotlin diffs, hidden scrollbars, native wheel scrolling through long and wide diffs, commit history and diff pagination, diff retry, line numbers, rename/binary/large patches, branch changes, narrow layout, safe diff text, Markdown, multiple projects per course, duplicate rejection, project switching, selected project editing and unlinking, cross-server auth isolation, reload persistence, demo storage migration, shared token, encrypted session" }));
   window.destroy();
   await runtime.close();
   await rm(profile, { recursive: true, force: true });

@@ -173,16 +173,17 @@ export class FeedSession {
     const data = this.state.data;
     if (data) this.update({ data: { ...data, changes: data.changes.map((change) => read.has(change.id) ? { ...change, read: true } : change) } });
   };
-  saveGitlabProject = async (courseId: string, url: string | null) => {
+  saveGitlabProject = async (courseId: string, url: string | null, projectId?: string) => {
     const version = this.generation.current;
     try {
-      const result = await this.request<{ project: GitlabProject | null }>(`/api/courses/${encodeURIComponent(courseId)}/gitlab`, { url });
+      const result = await this.request<{ projects: GitlabProject[] }>(`/api/courses/${encodeURIComponent(courseId)}/gitlab/projects${projectId ? `/${encodeURIComponent(projectId)}` : ""}`, { url });
       if (version !== this.generation.current || !this.state.data) return;
       this.cancelLoad();
       const gitlabProjects = { ...this.state.data.gitlabProjects };
-      if (result.project) gitlabProjects[courseId] = result.project;
+      if (result.projects.length) gitlabProjects[courseId] = result.projects;
       else delete gitlabProjects[courseId];
       this.update({ data: { ...this.state.data, gitlabProjects } });
+      return result.projects;
     } catch (error) {
       if (version === this.generation.current && error instanceof ApiError && error.status === 401) this.signedOut(SESSION_EXPIRED);
       throw error;

@@ -18,3 +18,9 @@ export function normalizeGitlabProject(value) {
   url.hash = "";
   return { url: url.href };
 }
+
+// Upgrade the original single-project value without changing its URL.
+export function gitlabProjectList(value) {
+  if (Array.isArray(value)) return value;
+  return value?.url ? [{ id: "legacy", url: value.url }] : [];
+}

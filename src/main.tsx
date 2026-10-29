@@ -233,8 +233,8 @@ function App() {
     setFileError(null);
     await refreshFeed();
   }
-  async function saveGitlabProject(url: string | null) {
-    if (selectedCourse) await saveProject(selectedCourse.id, url);
+  async function saveGitlabProject(url: string | null, projectId?: string) {
+    if (selectedCourse) return saveProject(selectedCourse.id, url, projectId);
   }
   const allFiles = (data?.resources ?? []).filter((r) => r.kind === "file");
   const courseFiles = allFiles
@@ -251,8 +251,8 @@ function App() {
   const folderListing = folderData ? listFolder(folderData, selectedFolderId, courseFiles) : null;
   const folders = fileView === "folders" ? folderListing?.folders ?? [] : [];
   const files = fileView === "folders" ? folderListing?.files ?? [] : courseFiles;
-  const linkedProject = selectedCourse && data?.gitlabProjects && Object.hasOwn(data.gitlabProjects, selectedCourse.id)
-    ? data.gitlabProjects[selectedCourse.id] : null;
+  const linkedProjects = selectedCourse && data?.gitlabProjects && Object.hasOwn(data.gitlabProjects, selectedCourse.id)
+    ? data.gitlabProjects[selectedCourse.id] : [];
   function changeFileView(view: "all" | "folders") {
     if (view === "folders" && fileView !== "folders") initialFolderCourse.current = null;
     setFileView(view);
@@ -405,7 +405,7 @@ function App() {
             <div className={selectedCourse ? "course-content" : undefined}>
             {selectedCourse && selectedTab !== "files" ? selectedTab === "gitlab" ? <GitlabProject
               key={`${phase}:${selectedCourse.id}`} courseId={selectedCourse.id}
-              project={linkedProject} demo={phase === "demo"} onSave={saveGitlabProject} toolbarTarget={gitlabToolbar}
+              projects={linkedProjects} demo={phase === "demo"} onSave={saveGitlabProject} toolbarTarget={gitlabToolbar}
             /> : selectedTab === "nextcloud" ? <NextcloudSection
               key={courseSettingsScope} storageKey={`stud-gk-nextcloud:${courseSettingsScope}`} toolbarTarget={nextcloudToolbar}
             /> : <CourseSections
