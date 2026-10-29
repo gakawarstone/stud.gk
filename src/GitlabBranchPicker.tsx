@@ -34,21 +34,21 @@ export function GitlabBranchPicker({ branches, value, loading, onChange }: {
   return <div className="gitlab-branch-picker" ref={root} onBlur={(event) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
   }}>
-    <button ref={trigger} className="gitlab-branch-trigger" type="button" aria-label={`Ветка GitLab: ${value || "нет веток"}`}
+    <button ref={trigger} className="gitlab-branch-trigger" type="button" aria-label={`GitLab branch: ${value || "no branches"}`}
       aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? id : undefined} disabled={loading || !branches.length}
       onClick={() => { setQuery(""); setOpen(!open); }} onKeyDown={(event) => {
         if (["ArrowDown", "ArrowUp"].includes(event.key)) { event.preventDefault(); setQuery(""); setOpen(true); }
-      }}><GitBranch size={16} aria-hidden="true" /><span>{value || (loading ? "Загрузка…" : "Нет веток")}</span><ChevronDown size={13} aria-hidden="true" /></button>
-    {open && <div id={id} className="gitlab-branch-popover" role="dialog" aria-label="Сменить ветку" onKeyDown={navigate}>
+      }}><GitBranch size={16} aria-hidden="true" /><span>{value || (loading ? "Loading…" : "No branches")}</span><ChevronDown size={13} aria-hidden="true" /></button>
+    {open && <div id={id} className="gitlab-branch-popover" role="dialog" aria-label="Switch branch" onKeyDown={navigate}>
       <label className="gitlab-branch-search"><Search size={15} aria-hidden="true" />
-        <input ref={search} value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Найти ветку" placeholder="Найти ветку…" autoComplete="off" />
+        <input ref={search} value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Find branch" placeholder="Find branch…" autoComplete="off" />
       </label>
-      <div className="gitlab-branch-options" role="listbox" aria-label="Ветки GitLab">
+      <div className="gitlab-branch-options" role="listbox" aria-label="GitLab branches">
         {matches.map((branch) => <button key={branch.name} type="button" role="option" aria-selected={branch.name === value} title={branch.name}
           onClick={() => { close(); if (branch.name !== value) onChange(branch.name); }}>
           <GitBranch size={14} aria-hidden="true" /><span>{branch.name}</span>{branch.name === value && <Check size={15} aria-hidden="true" />}
         </button>)}
-        {!matches.length && <p role="status">Ветки не найдены</p>}
+        {!matches.length && <p role="status">No branches found</p>}
       </div>
     </div>}
   </div>;

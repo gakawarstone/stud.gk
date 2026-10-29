@@ -9,9 +9,9 @@ import { NextcloudViewer, nextcloudFileKind, type NextcloudEntry } from "./Nextc
 type Listing = { title: string; path: string; backend: string; entries: NextcloudEntry[] };
 
 function sizeLabel(size: number) {
-  return size >= 1024 ** 3 ? `${(size / 1024 ** 3).toFixed(1)} ГБ`
-    : size >= 1024 ** 2 ? `${(size / 1024 ** 2).toFixed(1)} МБ`
-    : size >= 1024 ? `${Math.round(size / 1024)} КБ` : `${size} Б`;
+  return size >= 1024 ** 3 ? `${(size / 1024 ** 3).toFixed(1)} GB`
+    : size >= 1024 ** 2 ? `${(size / 1024 ** 2).toFixed(1)} MB`
+    : size >= 1024 ? `${Math.round(size / 1024)} KB` : `${size} B`;
 }
 
 export function NextcloudSection({ storageKey, toolbarTarget }: { storageKey: string; toolbarTarget: HTMLElement | null }) {
@@ -42,7 +42,7 @@ export function NextcloudSection({ storageKey, toolbarTarget }: { storageKey: st
       body: JSON.stringify({ url: savedUrl, path }), signal: controller.signal,
     }).then(async (response) => {
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Не удалось получить файлы Nextcloud.");
+      if (!response.ok) throw new Error(data.error || "Could not retrieve Nextcloud files.");
       if (!controller.signal.aborted) setListing(data);
     }).catch((error) => {
       if (!controller.signal.aborted) setLoadError(error.message);
@@ -60,7 +60,7 @@ export function NextcloudSection({ storageKey, toolbarTarget }: { storageKey: st
     {editing && <form className="nextcloud-form" noValidate onSubmit={(event) => {
       event.preventDefault();
       const url = nextcloudUrl(input);
-      if (!url) { setError("Введи полную публичную ссылку Nextcloud с https:// или http://."); return; }
+      if (!url) { setError("Enter a complete public Nextcloud URL starting with https:// or http://."); return; }
       try {
         localStorage.setItem(storageKey, url);
         setSavedUrl(url);
@@ -70,52 +70,52 @@ export function NextcloudSection({ storageKey, toolbarTarget }: { storageKey: st
         setViewed(null);
         setEditing(false);
         setRevision((value) => value + 1);
-      } catch { setError("Не удалось сохранить ссылку. Проверь, разрешено ли локальное хранилище."); }
+      } catch { setError("Could not save the link. Check that local storage is enabled."); }
     }}>
-      <label htmlFor="nextcloud-url">Ссылка на общую папку или файл Nextcloud</label>
+      <label htmlFor="nextcloud-url">Nextcloud shared folder or file URL</label>
       <input ref={urlInput} id="nextcloud-url" name="nextcloud-url" type="url" inputMode="url"
         autoComplete="off" spellCheck={false} placeholder="https://nextcloud.example.org/s/…"
         value={input} aria-invalid={Boolean(error)}
         aria-describedby={`nextcloud-help${error ? " nextcloud-error" : ""}`}
         onChange={(event) => { setInput(event.target.value); setError(null); }} />
-      <p id="nextcloud-help" className="course-section-notice">Вставь публичную ссылку без пароля. Файлы появятся здесь.</p>
+      <p id="nextcloud-help" className="course-section-notice">Paste a public link without a password. Files will appear here.</p>
       {error && <p id="nextcloud-error" className="nextcloud-error" role="alert">{error}</p>}
       <div className="nextcloud-actions">
-        <button className="nextcloud-save" type="submit">Сохранить ссылку</button>
-        {savedUrl && <button type="button" onClick={() => { setEditing(false); setInput(savedUrl); setError(null); }}>Отмена</button>}
+        <button className="nextcloud-save" type="submit">Save link</button>
+        {savedUrl && <button type="button" onClick={() => { setEditing(false); setInput(savedUrl); setError(null); }}>Cancel</button>}
       </div>
     </form>}
     {savedUrl && <>
-      {path && <nav className="nextcloud-breadcrumbs" aria-label="Папка Nextcloud">
-        <button type="button" onClick={() => setPath("")}>Все файлы</button>
+      {path && <nav className="nextcloud-breadcrumbs" aria-label="Nextcloud folder">
+        <button type="button" onClick={() => setPath("")}>All files</button>
         {path.split("/").filter(Boolean).map((part, index, parts) => <span key={index}>
           <ChevronRight size={14} aria-hidden="true" />
           <button type="button" disabled={index === parts.length - 1} onClick={() => setPath(parts.slice(0, index + 1).join("/"))}>{part}</button>
         </span>)}
       </nav>}
-      {loading && <p className="nextcloud-loading" role="status"><LoaderCircle size={18} className="spin" /> Загружаем файлы…</p>}
-      {loadError && <div className="nextcloud-load-error" role="alert"><p>{loadError}</p><button className="nextcloud-save" type="button" onClick={() => setRevision((value) => value + 1)}>Повторить</button></div>}
-      {listing && <div className="file-grid nextcloud-files" aria-label="Файлы Nextcloud">
+      {loading && <p className="nextcloud-loading" role="status"><LoaderCircle size={18} className="spin" /> Loading files…</p>}
+      {loadError && <div className="nextcloud-load-error" role="alert"><p>{loadError}</p><button className="nextcloud-save" type="button" onClick={() => setRevision((value) => value + 1)}>Retry</button></div>}
+      {listing && <div className="file-grid nextcloud-files" aria-label="Nextcloud files">
         {listing.entries.map((file) => {
           const kind = nextcloudFileKind(file);
           const Icon = file.directory ? Folder : kind === "video" ? Film : kind === "audio" ? Headphones : kind === "image" ? Image : FileText;
           return <article className="file-card nextcloud-file" key={file.path}>
-            <button type="button" className="file-card-link" aria-label={`${file.directory ? "Открыть папку" : "Открыть"} ${file.name}`}
+            <button type="button" className="file-card-link" aria-label={`${file.directory ? "Open folder" : "Open"} ${file.name}`}
               aria-haspopup={file.directory ? undefined : "dialog"} onClick={() => file.directory ? setPath(file.path) : setViewed(file)}>
               {!file.directory && (kind === "pdf" || kind === "image" || kind === "video") ? <FileThumbnail url={fileUrl(file, "preview")} version={file.etag} kind={kind} />
                 : <div className={`file-preview ${file.directory ? "folder" : kind}`}><Icon size={42} strokeWidth={1.4} />
-                  <span className="file-type">{file.directory ? "Папка" : kind === "video" ? "Видео" : kind === "audio" ? "Аудио" : file.name.split(".").pop()?.toUpperCase()}</span>
+                  <span className="file-type">{file.directory ? "Folder" : kind === "video" ? "Video" : kind === "audio" ? "Audio" : file.name.split(".").pop()?.toUpperCase()}</span>
                 </div>}
               <div className="file-info"><h2 title={file.name}>{file.name}</h2>
                 <div className="file-meta">{!file.directory && <span>{sizeLabel(file.size)}</span>}
-                  {file.modified && <time dateTime={file.modified}>{new Date(file.modified).toLocaleDateString("ru-RU")}</time>}
+                  {file.modified && <time dateTime={file.modified}>{new Date(file.modified).toLocaleDateString("en-GB")}</time>}
                 </div>
               </div>
             </button>
-            {!file.directory && <a className="nextcloud-download" href={fileUrl(file, "download")} aria-label={`Скачать ${file.name}`}><Download size={17} /></a>}
+            {!file.directory && <a className="nextcloud-download" href={fileUrl(file, "download")} aria-label={`Download ${file.name}`}><Download size={17} /></a>}
           </article>;
         })}
-        {!listing.entries.length && <p className="course-section-notice">В этой папке пока нет файлов.</p>}
+        {!listing.entries.length && <p className="course-section-notice">No files in this folder yet.</p>}
       </div>}
     </>}
     {viewed && <NextcloudViewer key={viewed.path} file={viewed} contentUrl={fileUrl(viewed, "preview")} downloadUrl={fileUrl(viewed, "download")} onClose={() => setViewed(null)} />}

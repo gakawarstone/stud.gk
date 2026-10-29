@@ -16,11 +16,11 @@ export function fileRoutes({ state, save, expire, requireLogin, getFolders, getD
     const context = req.context;
     const account = state.accounts[context.user.id];
     if (!account?.courses.some((course) => course.id === req.params.id))
-      throw new StudipError("Курс не найден в твоих курсах.", 404);
+      throw new StudipError("Course not found in your courses.", 404);
     try {
       const result = await getFolders(context.client, String(req.params.id));
       if (context.revoked || context.expiresAt <= Date.now())
-        throw new StudipError("Сессия истекла. Войди в Stud.IP заново.", 401);
+        throw new StudipError("Your session has expired. Sign in to Stud.IP again.", 401);
       const allowedFiles = new Set(account.resources
         .filter((file) => file.kind === "file" && file.courseId === req.params.id)
         .map((file) => file.remoteId));
@@ -47,7 +47,7 @@ export function fileRoutes({ state, save, expire, requireLogin, getFolders, getD
       const file = state.accounts[context.user.id]?.resources.find(
         (r) => r.kind === "file" && r.remoteId === req.params.id,
       );
-      if (!file) throw new StudipError("Файл не найден в твоих курсах.", 404);
+      if (!file) throw new StudipError("File not found in your courses.", 404);
       const controller = new AbortController();
       const cancel = () => {
         if (!res.writableFinished) controller.abort();
@@ -66,7 +66,7 @@ export function fileRoutes({ state, save, expire, requireLogin, getFolders, getD
           : await fileCache.download(context.user.id, file, load, options);
         if (context.revoked || context.expiresAt <= Date.now()) {
           await response.body.cancel();
-          throw new StudipError("Сессия истекла. Войди заново.", 401);
+          throw new StudipError("Your session has expired. Sign in again.", 401);
         }
         const contentType = preview
           ? previewType(file, response)
@@ -88,7 +88,7 @@ export function fileRoutes({ state, save, expire, requireLogin, getFolders, getD
             .status(415)
             .type("html")
             .send(
-              `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Просмотр файла</title><style>body{margin:0;padding:48px 24px;background:#1e1e2e;color:#cdd6f4;font:16px/1.6 system-ui}main{max-width:600px;margin:auto}h1{font-size:24px;overflow-wrap:anywhere}p{color:#a6adc8}a{display:inline-block;padding:10px 18px;border-radius:8px;background:#cba6f7;color:#181825;text-decoration:none}</style></head><body><main><h1>${title}</h1><p>Браузер не поддерживает просмотр этого формата.</p><a href="/api/files/${encodeURIComponent(file.remoteId)}/download">Скачать файл</a></main></body></html>`,
+              `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>File preview</title><style>body{margin:0;padding:48px 24px;background:#1e1e2e;color:#cdd6f4;font:16px/1.6 system-ui}main{max-width:600px;margin:auto}h1{font-size:24px;overflow-wrap:anywhere}p{color:#a6adc8}a{display:inline-block;padding:10px 18px;border-radius:8px;background:#cba6f7;color:#181825;text-decoration:none}</style></head><body><main><h1>${title}</h1><p>The browser cannot preview this file format.</p><a href="/api/files/${encodeURIComponent(file.remoteId)}/download">Download file</a></main></body></html>`,
             );
         }
         const filename =

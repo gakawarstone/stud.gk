@@ -103,7 +103,7 @@ async function login(window) {
   await window.webContents.executeJavaScript(`fixture.resolve(2, {authenticated:false, authExpired:true})`);
   await waitFor(window, `document.getElementById('username') !== null && fixture.timers.size === 0`);
   assert.equal(await window.webContents.executeJavaScript(`location.hash`), "");
-  assert.match(await window.webContents.executeJavaScript(`document.querySelector('.form-error').textContent`), /Сессия истекла/);
+  assert.match(await window.webContents.executeJavaScript(`document.querySelector('.form-error').textContent`), /Your session has expired/);
   await window.webContents.executeJavaScript(`document.querySelector('.demo-link').click()`);
   await waitFor(window, `document.querySelector('.demo-badge') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`fixture.timers.size`), 0);

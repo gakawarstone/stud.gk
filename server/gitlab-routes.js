@@ -14,7 +14,7 @@ export function gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGi
   router.post("/courses/:id/gitlab", requireLogin, async (req, res) => {
     const account = state.accounts[req.context.user.id];
     if (!account?.courses.some((course) => course.id === String(req.params.id)))
-      throw new StudipError("Курс не найден в твоих курсах.", 404);
+      throw new StudipError("Course not found in your courses.", 404);
     let project = null;
     if (req.body?.url !== null) {
       try {
@@ -32,10 +32,10 @@ export function gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGi
   function linkedGitlab(req) {
     const account = state.accounts[req.context.user.id];
     if (!account?.courses.some((course) => course.id === String(req.params.id)))
-      throw new StudipError("Курс не найден в твоих курсах.", 404);
+      throw new StudipError("Course not found in your courses.", 404);
     const project = Object.hasOwn(account.gitlabProjects ?? {}, String(req.params.id))
       ? account.gitlabProjects[String(req.params.id)] : null;
-    if (!project) throw new StudipError("Сначала привяжи проект GitLab к курсу.", 404);
+    if (!project) throw new StudipError("Link a GitLab project to the course first.", 404);
     return new URL(normalizeGitlabProject(project.url).url);
   }
   router.get("/courses/:id/gitlab/readme", requireLogin, async (req, res) => {
@@ -49,7 +49,7 @@ export function gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGi
         token, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]),
       });
       if (req.context.revoked || req.context.expiresAt <= Date.now())
-        throw new StudipError("Сессия истекла. Войди в Stud.IP заново.", 401);
+        throw new StudipError("Your session has expired. Sign in to Stud.IP again.", 401);
       res.json({ ...result, hasToken: Boolean(token) });
     } finally {
       res.off("close", cancel);
@@ -63,7 +63,7 @@ export function gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGi
     const project = linkedGitlab(req);
     const token = req.body?.token === null ? null : validateGitlabToken(req.body?.token);
     if (token && project.protocol !== "https:")
-      throw new GitlabError("Для подключения токена нужна ссылка GitLab с HTTPS.", 400);
+      throw new GitlabError("An HTTPS GitLab URL is required to connect a token.", 400);
     const tokens = { ...req.session.gitlabTokens, [project.origin]: token };
     if (!token) delete tokens[project.origin];
     req.session.gitlabTokens = tokens;
@@ -85,17 +85,17 @@ export function gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGi
         const ref = req.query.ref;
         const page = req.query.page;
         if (typeof path !== "string" || (ref !== undefined && typeof ref !== "string") || (page !== undefined && typeof page !== "string"))
-          throw new GitlabError("Некорректный путь, ветка или страница репозитория.", 400);
+          throw new GitlabError("Invalid repository path, branch, or page.", 400);
         const result = await read(project.href, path, {
           ref: typeof ref === "string" ? ref : undefined, page: typeof page === "string" ? page : undefined, token: req.session.gitlabTokens?.[project.origin],
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]),
         });
         if (req.context.revoked || req.context.expiresAt <= Date.now()) {
           if (result instanceof Response) await result.body?.cancel();
-          throw new StudipError("Сессия истекла. Войди в Stud.IP заново.", 401);
+          throw new StudipError("Your session has expired. Sign in to Stud.IP again.", 401);
         }
         if (route !== "content") return res.json(result);
-        if (!(result instanceof Response)) throw new GitlabError("GitLab вернул некорректный файл.");
+        if (!(result instanceof Response)) throw new GitlabError("GitLab returned an invalid file.");
         const filename = path.split("/").pop();
         const download = req.query.download === "1";
         const mediaTypes = { pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif",

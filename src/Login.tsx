@@ -28,14 +28,14 @@ export function Login({
         <span className="login-symbol">
           <GraduationCap size={29} strokeWidth={1.6} />
         </span>
-        <h1>Войти в Stud.IP</h1>
+        <h1>Sign in to Stud.IP</h1>
         <p className="login-description">
           Hochschule Flensburg.
           <br />
-          Тот же логин и пароль, что и в Stud.IP.
+          Use your Stud.IP username and password.
         </p>
         <form onSubmit={submit}>
-          <label htmlFor="username">Логин</label>
+          <label htmlFor="username">Username</label>
           <input
             id="username"
             name="username"
@@ -44,13 +44,13 @@ export function Login({
             spellCheck={false}
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="Твой логин университета"
+            placeholder="Your university username"
             maxLength={128}
             disabled={busy}
             required
             autoFocus
           />
-          <label htmlFor="password">Пароль</label>
+          <label htmlFor="password">Password</label>
           <input
             id="password"
             name="password"
@@ -58,7 +58,7 @@ export function Login({
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Пароль Stud.IP"
+            placeholder="Stud.IP password"
             maxLength={1024}
             disabled={busy}
             required
@@ -76,11 +76,11 @@ export function Login({
             {busy ? (
               <>
                 <LoaderCircle size={16} className="spin" />
-                Входим…
+                Signing in…
               </>
             ) : (
               <>
-                Войти
+                Sign in
                 <ArrowUpRight size={16} />
               </>
             )}
@@ -89,14 +89,14 @@ export function Login({
         <p className="login-privacy">
           <ShieldCheck size={15} />
           <span>
-            Пароль не сохраняется.
+            Your password is not stored.
             <br />
-            Сессия останется на этом компьютере до 7 дней.
+            Your session stays on this computer for up to 7 days.
           </span>
         </p>
       </section>
       <button className="demo-link" onClick={onDemo} disabled={busy}>
-        Посмотреть демо
+        Try demo
       </button>
     </div>
   );

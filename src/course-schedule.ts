@@ -20,12 +20,12 @@ export function scheduleEntries(items: CourseResource[], now: Date) {
     const isNext = item.id === next?.item.id;
     const ongoing = Boolean(start && end && start <= now && end > now);
     const days = start ? Math.round((calendarDay(start) - calendarDay(now)) / 86400000) : null;
-    const status = item.cancelled ? "Отменено"
-      : !start ? "Дата не указана"
-      : ongoing ? "Идёт сейчас"
-      : days === 0 ? "Сегодня"
-      : isNext ? new Intl.RelativeTimeFormat("ru", { numeric: "auto" }).format(days!, "day")
-      : "Запланировано";
+    const status = item.cancelled ? "Cancelled"
+      : !start ? "No date specified"
+      : ongoing ? "In progress"
+      : days === 0 ? "Today"
+      : isNext ? new Intl.RelativeTimeFormat("en-GB", { numeric: "auto" }).format(days!, "day")
+      : "Scheduled";
     return { item, start, end, isNext, status: status.charAt(0).toUpperCase() + status.slice(1) };
   });
 }
@@ -34,10 +34,10 @@ export type ScheduleEntry = ReturnType<typeof scheduleEntries>[number];
 
 export function scheduleTime({ start, end }: Pick<ScheduleEntry, "start" | "end">) {
   if (!start) return null;
-  const clock = (value: Date) => value.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+  const clock = (value: Date) => value.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   if (!end) return clock(start);
   const endDay = start.toDateString() === end.toDateString() ? ""
-    : `${end.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })} · `;
+    : `${end.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} · `;
   return `${clock(start)} – ${endDay}${clock(end)}`;
 }
 

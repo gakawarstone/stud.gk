@@ -10,7 +10,7 @@ export type { CourseDetails, CourseResource } from "../shared/studip";
 
 function ResourceDate({ value }: { value: string | number | null | undefined }) {
   const parsed = date(value);
-  return parsed ? <time dateTime={parsed.toISOString()}>{parsed.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}</time> : null;
+  return parsed ? <time dateTime={parsed.toISOString()}>{parsed.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })}</time> : null;
 }
 
 function NewsPost({ item, onRead }: { item: CourseResource; onRead: (id: string) => void }) {
@@ -19,7 +19,7 @@ function NewsPost({ item, onRead }: { item: CourseResource; onRead: (id: string)
   const read = useRef(onRead);
   read.current = onRead;
   const id = useId();
-  const text = item.description || "Текст объявления отсутствует.";
+  const text = item.description || "No announcement text.";
   const isLong = text.length > 420;
   let remaining = expanded || !isLong ? text.length : 420;
 
@@ -71,16 +71,16 @@ export function CourseSections({ course, tab, resources, unavailable, onRead }: 
   const news = [...items].sort((a, b) => (date(b.createdAt || b.updatedAt)?.getTime() ?? 0) - (date(a.createdAt || a.updatedAt)?.getTime() ?? 0));
   return <section className={`course-section${tab === "schedule" ? " course-section-schedule" : tab === "news" ? " course-section-news" : ""}`} aria-label={courseTabs[tab].label}>
     {tab === "course" && <h2 className="course-section-title">{courseTabs[tab].label}</h2>}
-    {unavailable && <p className="course-section-notice" role="status">Нет доступа к этому разделу в Stud.IP.</p>}
+    {unavailable && <p className="course-section-notice" role="status">You do not have access to this section in Stud.IP.</p>}
     {tab === "news" && (news.length ? news.map((item) => <NewsPost item={item} onRead={onRead} key={item.id} />)
-      : !unavailable && <p className="course-section-notice">Объявлений пока нет.</p>)}
+      : !unavailable && <p className="course-section-notice">No announcements yet.</p>)}
     {tab === "schedule" && (items.length ? <CourseSchedule items={items} courseTitle={course.title} />
-      : !unavailable && <p className="course-section-notice">Занятий пока нет.</p>)}
+      : !unavailable && <p className="course-section-notice">No classes yet.</p>)}
     {tab === "course" && <div className="course-info">
       <h3>{course.title}</h3>
       {(course.code || course.semester || course.location) && <p className="course-event-meta">{[course.code, course.semester, course.location].filter(Boolean).map((value, i) => <span key={i}>{value}</span>)}</p>}
       {(course.description || items[0]?.description) && <p className="course-resource-body">{course.description || items[0]?.description}</p>}
-      {course.url && <a className="course-original-link" href={course.url} target="_blank" rel="noreferrer">Открыть в Stud.IP ↗</a>}
+      {course.url && <a className="course-original-link" href={course.url} target="_blank" rel="noreferrer">Open in Stud.IP ↗</a>}
     </div>}
   </section>;
 }

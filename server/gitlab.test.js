@@ -20,7 +20,7 @@ test("GitLab links support nested namespaces and self-hosted instances", () => {
     "https://gitlab.com", "https://gitlab.com/team", "https://gitlab.com/team//project",
     "https://gitlab.com/team/project/-/tree/main", "https://gitlab.com/team/%2fproject",
     `https://gitlab.com/team/${"a".repeat(2048)}`]) {
-    assert.throws(() => normalizeGitlabProject(value), /ссылку на проект GitLab/);
+    assert.throws(() => normalizeGitlabProject(value), /GitLab project URL/);
   }
 });
 

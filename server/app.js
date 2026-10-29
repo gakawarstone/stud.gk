@@ -100,9 +100,9 @@ export async function createApp({
   async function sync(context) {
     const status = statusFor(context);
     if (context.revoked || context.expiresAt <= Date.now())
-      throw new StudipError("Войди в Stud.IP заново.", 401);
+      throw new StudipError("Sign in to Stud.IP again.", 401);
     if (status.syncing)
-      throw new StudipError("Обновление уже выполняется.", 409);
+      throw new StudipError("A refresh is already in progress.", 409);
     status.syncing = true;
     status.lastAttempt = Date.now();
     try {
@@ -125,7 +125,7 @@ export async function createApp({
       status.error =
         error instanceof StudipError
           ? error.message
-          : "Не удалось обновить курсы. Предыдущие данные сохранены.";
+          : "Could not refresh courses. Your previous data has been kept.";
       if (error.status === 401) await expire(context);
       throw error;
     } finally {
@@ -147,7 +147,7 @@ export async function createApp({
       } catch {
         return res
           .status(403)
-          .json({ error: "Недопустимый источник запроса." });
+          .json({ error: "Invalid request origin." });
       }
       if (
         req.headers["sec-fetch-site"] === "cross-site" ||
@@ -155,10 +155,10 @@ export async function createApp({
       ) {
         return res
           .status(403)
-          .json({ error: "Запрос разрешён только из приложения." });
+          .json({ error: "Requests are only allowed from the app." });
       }
       if (!req.is("application/json"))
-        return res.status(415).json({ error: "Нужен JSON-запрос." });
+        return res.status(415).json({ error: "A JSON request is required." });
     }
     next();
   });
@@ -187,7 +187,7 @@ export async function createApp({
   const requireLogin = (req, res, next) => {
     if (!req.context)
       return res.status(401).json({
-        error: "Сессия истекла. Войди в Stud.IP заново.",
+        error: "Your session has expired. Sign in to Stud.IP again.",
         code: "SESSION_EXPIRED",
       });
     next();
@@ -227,7 +227,7 @@ export async function createApp({
   });
   app.get("/api/demo/courses/:id/folders", (req, res) => {
     if (!state.demo.courses.some((course) => course.id === req.params.id))
-      throw new StudipError("Курс не найден.", 404);
+      throw new StudipError("Course not found.", 404);
     res.json(createDemoFolders(req.params.id, state.demo.resources));
   });
   app.use("/api/auth", authRoutes({ authenticate, contexts, contextFor, sync, sessionName }));
@@ -240,7 +240,7 @@ export async function createApp({
   app.get("/api/changes", requireLogin, (req, res) => {
     const since = req.query.since;
     if (since && Number.isNaN(Date.parse(String(since))))
-      return res.status(400).json({ error: "Некорректная дата since." });
+      return res.status(400).json({ error: "Invalid since date." });
     const current = state.accounts[req.context.user.id] ?? empty();
     res.json({
       changes: current.changes.filter(
@@ -252,24 +252,24 @@ export async function createApp({
   app.post("/api/changes/read", requireLogin, async (req, res) => {
     const { id } = req.body;
     if (typeof id !== "string")
-      throw new StudipError("Некорректная запись.", 400);
+      throw new StudipError("Invalid change entry.", 400);
     const current = state.accounts[req.context.user.id] ?? empty();
     const change = current.changes.find((c) => c.id === id);
-    if (!change) throw new StudipError("Запись не найдена.", 404);
+    if (!change) throw new StudipError("Change entry not found.", 404);
     change.read = true;
     await save();
     res.json({ ok: true });
   });
   app.use("/api/nextcloud", nextcloudRoutes(nextcloudClient));
   app.use("/api", (req, res) =>
-    res.status(404).json({ error: "Маршрут не найден." }),
+    res.status(404).json({ error: "Route not found." }),
   );
   app.use((err, req, res, next) =>
     res.status(err.status || 500).json({
       error:
         err instanceof StudipError || err instanceof GitlabError
           ? err.message
-          : "Не удалось выполнить запрос.",
+          : "Could not complete the request.",
       ...(err.status === 401 ? { code: "SESSION_EXPIRED" } : {}),
       ...(err instanceof GitlabError ? { code: err.code } : {}),
     }),

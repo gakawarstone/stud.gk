@@ -32,7 +32,7 @@ export function GitlabRepository({ endpoint, projectUrl, revision, demo, onAuthR
       : gitlabApi<{ branches: GitlabBranch[] }>(`${endpoint}/branches`, controller.signal);
     void request.then((value) => { if (!controller.signal.aborted) setBranches(value.branches); })
       .catch((error) => { if (!controller.signal.aborted) {
-        setBranchesError(error.message || "Не удалось загрузить ветки.");
+        setBranchesError(error.message || "Could not load branches.");
         if (error instanceof GitlabApiError && error.code === "GITLAB_AUTH_REQUIRED") onAuthRequired();
       } }).finally(() => { if (!controller.signal.aborted) setBranchesLoading(false); });
     return () => controller.abort();
@@ -65,7 +65,7 @@ export function GitlabRepository({ endpoint, projectUrl, revision, demo, onAuthR
           if (entry.directory && expandedRef.current.has(entry.path)) void load(entry.path);
       } catch (error) {
         if (cancelled || controller.signal.aborted) return;
-        cache[path] = { entries: [], loading: false, error: error instanceof Error ? error.message : "Не удалось загрузить папку." };
+        cache[path] = { entries: [], loading: false, error: error instanceof Error ? error.message : "Could not load the folder." };
         setFolders({ ...cache });
         if (error instanceof GitlabApiError && error.code === "GITLAB_AUTH_REQUIRED") onAuthRequired();
       } finally { requests.delete(path); }
@@ -122,10 +122,10 @@ export function GitlabRepository({ endpoint, projectUrl, revision, demo, onAuthR
   function status(path: string, depth: number) {
     const state = folders[path];
     return state?.error ? <li role="none" className="gitlab-tree-status" style={{ paddingLeft: depth * 14 + 6 }}>
-      <p role="alert">{state.error}</p><button className="text-button" onClick={(event) => { event.stopPropagation(); loadFolder.current(path); }}>Повторить</button>
+      <p role="alert">{state.error}</p><button className="text-button" onClick={(event) => { event.stopPropagation(); loadFolder.current(path); }}>Retry</button>
     </li> : !state || state.loading ? <li role="none" className="gitlab-tree-status" style={{ paddingLeft: depth * 14 + 6 }}>
-      <span role="status"><LoaderCircle size={13} className="spin" aria-hidden="true" />Загрузка…</span>
-    </li> : !state.entries.length ? <li role="none" className="gitlab-tree-status" style={{ paddingLeft: depth * 14 + 6 }}>Папка пуста</li> : null;
+      <span role="status"><LoaderCircle size={13} className="spin" aria-hidden="true" />Loading…</span>
+    </li> : !state.entries.length ? <li role="none" className="gitlab-tree-status" style={{ paddingLeft: depth * 14 + 6 }}>This folder is empty</li> : null;
   }
   function children(path: string, depth: number): React.ReactNode {
     const state = folders[path];
@@ -161,27 +161,27 @@ export function GitlabRepository({ endpoint, projectUrl, revision, demo, onAuthR
             const empty = new Set<string>(); expandedRef.current = empty; setExpanded(empty);
             branchRef.current = next; setBranch(next); setRequestedBranch(next);
           }} />
-          {branchesError && <button className="gitlab-branches-error" title={branchesError} onClick={() => setBranchesRetry((value) => value + 1)}>Повторить загрузку веток</button>}
+          {branchesError && <button className="gitlab-branches-error" title={branchesError} onClick={() => setBranchesRetry((value) => value + 1)}>Retry loading branches</button>}
         </div>
         <GitlabCommitSummary key={displayedCommit?.id || activeBranch} commit={displayedCommit} loading={branchesLoading}
           historyOpen={view === "history"} historyDisabled={!activeBranch} onToggleHistory={toggleHistory}
           onOpen={() => { if (displayedCommit) { setView("history"); setSelectedCommit(displayedCommit); } }} />
       </header>
-      <aside className="gitlab-repo-sidebar" aria-label="Репозиторий GitLab">
+      <aside className="gitlab-repo-sidebar" aria-label="GitLab repository">
         {view === "history" ? activeBranch ? <GitlabHistory key={`${activeBranch}:${revision}`} endpoint={endpoint} branch={activeBranch} projectUrl={projectUrl}
           demo={demo} selected={selectedCommit?.id ?? null} onSelect={setSelectedCommit} onAuthRequired={onAuthRequired} />
-          : <div className="gitlab-history-pane"><p className="gitlab-history-status">{branchesLoading ? "Загружаем ветки…" : "Нет доступной ветки для просмотра истории."}</p></div>
-          : <nav className="gitlab-tree-pane" aria-label="Файлы репозитория">
-          <ul ref={tree} className="gitlab-tree" role="tree" aria-label="Файлы GitLab">{children("", 0)}</ul>
+          : <div className="gitlab-history-pane"><p className="gitlab-history-status">{branchesLoading ? "Loading branches…" : "No branch available to view history."}</p></div>
+          : <nav className="gitlab-tree-pane" aria-label="Repository files">
+          <ul ref={tree} className="gitlab-tree" role="tree" aria-label="GitLab files">{children("", 0)}</ul>
         </nav>}
       </aside>
       <div className={`gitlab-preview-pane${view === "files" ? " gitlab-preview-file" : ""}`}>
         <div className="gitlab-preview-content">
         {view === "history" ? selectedCommit ? <GitlabCommitViewer key={`${activeBranch}:${selectedCommit.id}:${revision}`} commit={selectedCommit} endpoint={endpoint}
-          demo={demo} onAuthRequired={onAuthRequired} /> : <div className="gitlab-preview-empty"><span>Выбери коммит в истории</span></div>
+          demo={demo} onAuthRequired={onAuthRequired} /> : <div className="gitlab-preview-empty"><span>Select a commit from the history</span></div>
           : selected ? <GitlabFileViewer key={`${activeBranch}:${selected.path}:${revision}`} entry={selected} endpoint={endpoint} projectUrl={projectUrl}
           branch={branch} demo={demo} embedded onClose={() => { const path = selected.path; setSelected(null); focusPath(path); }} />
-          : <div className="gitlab-preview-empty"><span>Выбери файл в дереве</span></div>}
+          : <div className="gitlab-preview-empty"><span>Select a file from the tree</span></div>}
         </div>
       </div>
     </div>;

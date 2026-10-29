@@ -33,7 +33,7 @@ export function GitlabProject({ courseId, project: savedProject, demo, onSave, t
         setDemoProject(next);
       } else await onSave(next?.url ?? null);
       setEditing(false); setUrl(""); setConnectionOpen(false); setAuthRequired(false); setRevision((value) => value + 1);
-    } catch (error) { setError(error instanceof Error ? error.message : "Не удалось сохранить проект."); }
+    } catch (error) { setError(error instanceof Error ? error.message : "Could not save the project."); }
     finally { setBusy(false); }
   }
   function submit(event: FormEvent) { event.preventDefault(); void save(url); }
@@ -43,14 +43,14 @@ export function GitlabProject({ courseId, project: savedProject, demo, onSave, t
   return <section className="gitlab-section" aria-label="GitLab" aria-busy={busy}>
     {settings && (toolbarTarget ? createPortal(settings, toolbarTarget) : <div className="gitlab-local-toolbar">{settings}</div>)}
     {(!project || editing) && <form className="gitlab-form gitlab-project-form" onSubmit={submit}>
-      <label htmlFor="gitlab-project-url">Ссылка на проект GitLab</label>
+      <label htmlFor="gitlab-project-url">GitLab project URL</label>
       <input id="gitlab-project-url" type="url" value={url} onChange={(event) => setUrl(event.target.value)}
         placeholder="https://gitlab.com/group/project" required maxLength={2048} autoComplete="off" spellCheck={false} disabled={busy} />
       <div className="gitlab-actions">
         <button className="primary-button" type="submit" disabled={busy || !url.trim()}>
-          {busy && <LoaderCircle size={14} className="spin" aria-hidden="true" />}{project ? "Сохранить" : "Добавить проект"}
+          {busy && <LoaderCircle size={14} className="spin" aria-hidden="true" />}{project ? "Save" : "Add project"}
         </button>
-        {project && <button className="text-button" type="button" disabled={busy} onClick={() => setEditing(false)}>Отмена</button>}
+        {project && <button className="text-button" type="button" disabled={busy} onClick={() => setEditing(false)}>Cancel</button>}
       </div>
     </form>}
     {error && <p className="form-error" role="alert">{error}</p>}

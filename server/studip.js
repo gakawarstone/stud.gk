@@ -17,7 +17,7 @@ export function apiUrl(path) {
     url.username ||
     url.password
   ) {
-    throw new StudipError("Stud.IP вернул недопустимую ссылку пагинации.");
+    throw new StudipError("Stud.IP returned an invalid pagination link.");
   }
   return url;
 }
@@ -34,7 +34,7 @@ export function createClient(cookie, fetcher = fetch) {
       /[\r\n]/.test(cookie) ||
       cookie.length > 16000)
   ) {
-    throw new StudipError("Укажи действующую сессию Stud.IP.", 400);
+    throw new StudipError("Provide a valid Stud.IP session.", 400);
   }
   async function get(path) {
     const url = apiUrl(path);
@@ -51,7 +51,7 @@ export function createClient(cookie, fetcher = fetch) {
       });
     } catch {
       throw new StudipError(
-        "Не удалось связаться со Stud.IP. Попробуй ещё раз.",
+        "Could not connect to Stud.IP. Try again.",
       );
     }
     if (jar)
@@ -59,23 +59,23 @@ export function createClient(cookie, fetcher = fetch) {
         await jar.setCookie(value, url.href);
     if (response.status === 401)
       throw new StudipError(
-        "Сессия Stud.IP истекла или не подходит. Подключись заново.",
+        "Your Stud.IP session has expired or is invalid. Sign in again.",
         401,
       );
     if (response.status === 403)
-      throw new StudipError("Stud.IP не разрешает читать эти данные.", 403);
+      throw new StudipError("Stud.IP does not allow access to this data.", 403);
     if (!response.ok)
       throw new StudipError(
-        `Stud.IP вернул ошибку ${response.status}. Данные сохранены.`,
+        `Stud.IP returned error ${response.status}. Your data has been kept.`,
       );
     let payload;
     try {
       payload = await response.json();
     } catch {
-      throw new StudipError("Stud.IP вернул ответ в неожиданном формате.");
+      throw new StudipError("Stud.IP returned a response in an unexpected format.");
     }
     if (!payload || !("data" in payload) || payload.errors)
-      throw new StudipError("Некорректный ответ JSON API.");
+      throw new StudipError("Invalid JSON API response.");
     return payload;
   }
   async function list(path) {
@@ -85,11 +85,11 @@ export function createClient(cookie, fetcher = fetch) {
     while (next) {
       const url = apiUrl(next).href;
       if (visited.has(url) || visited.size >= 200)
-        throw new StudipError("Не удалось полностью получить список Stud.IP.");
+        throw new StudipError("Could not retrieve the complete Stud.IP list.");
       visited.add(url);
       const payload = await get(url);
       if (!Array.isArray(payload.data))
-        throw new StudipError("Stud.IP вернул некорректный список.");
+        throw new StudipError("Stud.IP returned an invalid list.");
       items.push(...payload.data);
       next =
         typeof payload.links?.next === "object"
@@ -126,7 +126,7 @@ export function createClient(cookie, fetcher = fetch) {
       });
     } catch {
       throw new StudipError(
-        "Не удалось скачать файл из Stud.IP. Попробуй ещё раз.",
+        "Could not download the file from Stud.IP. Try again.",
       );
     } finally {
       // Only waiting for headers is timed out; large files may take longer to stream.
@@ -141,18 +141,18 @@ export function createClient(cookie, fetcher = fetch) {
       error =
         target.origin === BASE &&
         /(?:login|auth|\/dispatch\.php\/start)/i.test(target.pathname)
-          ? new StudipError("Сессия Stud.IP истекла. Войди заново.", 401)
+          ? new StudipError("Your Stud.IP session has expired. Sign in again.", 401)
           : new StudipError(
-              "Stud.IP перенаправляет скачивание на другой адрес. Этот файл пока недоступен в Stud.GK.",
+              "Stud.IP redirected the download to another address. This file is currently unavailable in Stud.GK.",
             );
     } else if (response.status === 401)
-      error = new StudipError("Сессия Stud.IP истекла. Войди заново.", 401);
+      error = new StudipError("Your Stud.IP session has expired. Sign in again.", 401);
     else if (response.status === 403)
-      error = new StudipError("Stud.IP не разрешает скачать этот файл.", 403);
+      error = new StudipError("Stud.IP does not allow downloading this file.", 403);
     else if (response.status === 404)
-      error = new StudipError("Файл больше не доступен в Stud.IP.", 404);
+      error = new StudipError("This file is no longer available in Stud.IP.", 404);
     else if (!response.ok || !response.body)
-      error = new StudipError("Stud.IP не смог отдать файл. Попробуй ещё раз.");
+      error = new StudipError("Stud.IP could not deliver the file. Try again.");
     else if (
       /text\/html/i.test(response.headers.get("content-type") || "") &&
       !response.headers.get("content-disposition")
@@ -160,7 +160,7 @@ export function createClient(cookie, fetcher = fetch) {
       // Do not save a login page as the requested file.
       await response.body.cancel();
       await get("users/me");
-      error = new StudipError("Stud.IP вернул страницу вместо файла.");
+      error = new StudipError("Stud.IP returned a web page instead of a file.");
     }
     if (error) {
       await response.body?.cancel();
@@ -185,7 +185,7 @@ export function normalize(resource, kind, courseId) {
     remoteId: resource.id,
     kind,
     courseId,
-    title: plain(a.name || a.title || a["display-value"]) || "Без названия",
+    title: plain(a.name || a.title || a["display-value"]) || "Untitled",
     description: plain(a.description || a.body || a.content),
     createdAt: a.mkdate ?? null,
     updatedAt: a.chdate ?? null,
@@ -215,7 +215,7 @@ export async function fetchCourseFolders(client, courseId) {
   ]);
   const folders = rawFolders.map((folder) => ({
     id: folder.id,
-    title: plain(folder.attributes?.name) || "Без названия",
+    title: plain(folder.attributes?.name) || "Untitled",
     parentId: folder.relationships?.parent?.data?.id ?? null,
     readable: folder.attributes?.["is-readable"] !== false,
   }));
@@ -241,12 +241,12 @@ export async function fetchSnapshot(client, user) {
   );
   const courses = rawCourses.map((r, i) => ({
     id: r.id,
-    title: plain(r.attributes?.title) || "Без названия",
-    code: r.attributes?.["course-number"] || `Курс ${i + 1}`,
+    title: plain(r.attributes?.title) || "Untitled",
+    code: r.attributes?.["course-number"] || `Course ${i + 1}`,
     description: plain(r.attributes?.description),
     location: plain(r.attributes?.location),
     color: tones[i % tones.length],
-    semester: current?.attributes?.title || "Все семестры",
+    semester: current?.attributes?.title || "All semesters",
     url: `${BASE}/dispatch.php/course/overview?cid=${encodeURIComponent(r.id)}`,
   }));
   const resources = [],
@@ -282,6 +282,6 @@ export async function fetchSnapshot(client, user) {
     courses,
     resources,
     unavailableSources,
-    semester: current?.attributes?.title || "Все семестры",
+    semester: current?.attributes?.title || "All semesters",
   };
 }

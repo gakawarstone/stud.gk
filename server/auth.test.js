@@ -24,7 +24,7 @@ async function fixture(directory) {
     authenticate: async (username, password) => {
       validateCredentials(username, password);
       if (password !== "test-secret-password")
-        throw new StudipError("Неверный логин или пароль Stud.IP.", 401);
+        throw new StudipError("Incorrect Stud.IP username or password.", 401);
       const jar = new CookieJar();
       await jar.setCookie(
         `PHPSESSID=private-${username}-token; Path=/; Secure; HttpOnly`,
