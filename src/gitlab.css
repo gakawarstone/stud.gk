@@ -1,4 +1,4 @@
-.gitlab-section { min-width: 0; }
+.gitlab-section { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
 .gitlab-local-toolbar { display: flex; justify-content: flex-end; margin-bottom: 10px; }
 .gitlab-toolbar { flex-shrink: 0; }
 .gitlab-tools { position: relative; }
@@ -55,7 +55,7 @@
 .gitlab-code .hljs-meta { color: var(--pink); }
 @media (max-width: 650px) { .gitlab-viewer-toolbar { gap: 3px; padding: 8px; } .gitlab-viewer-toolbar > a, .gitlab-viewer-toolbar > button { width: 30px; } }
 
-.gitlab-browser { display: grid; grid-template-columns: minmax(180px, 240px) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "header header" "sidebar preview"; border: 1px solid var(--surface0); border-radius: 10px; height: calc(100dvh - 160px); min-height: 380px; }
+.gitlab-browser { display: grid; flex: 1; grid-template-columns: minmax(180px, 240px) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "header header" "sidebar preview"; border: 1px solid var(--surface0); border-radius: 10px; min-height: 380px; }
 .gitlab-repo-header { grid-area: header; display: grid; grid-template-columns: subgrid; min-width: 0; border-bottom: 1px solid var(--surface0); border-radius: 9px 9px 0 0; background: var(--surface); }
 .gitlab-repo-sidebar { grid-area: sidebar; padding: 12px 0 0 12px; display: flex; flex-direction: column; min-width: 0; min-height: 0; border-right: 1px solid var(--surface0); }
 .gitlab-repo-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 64px; min-width: 0; padding: 8px 12px; border-right: 1px solid var(--surface0); }
