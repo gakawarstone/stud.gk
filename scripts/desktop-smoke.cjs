@@ -409,8 +409,10 @@ async function nextcloudShareUrl(window) {
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news a').href`), "https://example.org/Kurs_(WS26)");
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news a').rel`), "noopener noreferrer");
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.course-news a').length`), 8, "Hidden links must not be focusable");
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news-more').textContent`), "Read more");
   await window.webContents.executeJavaScript(`document.querySelector('.course-news-more').click()`);
   await waitFor(window, `document.querySelector('.course-news-more').getAttribute('aria-expanded') === 'true'`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news-more').textContent`), "Show less");
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news .course-resource-body').textContent`), longNews);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.course-news a').length`), 9);
   window.focus();

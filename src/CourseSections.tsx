@@ -55,7 +55,7 @@ function NewsPost({ item, onRead }: { item: CourseResource; onRead: (id: string)
     </div>
     {isLong && <button type="button" className="course-news-more" aria-expanded={expanded} aria-controls={`${id}-body`}
       onClick={() => setExpanded((value) => !value)}>
-      {expanded ? "Weniger anzeigen" : "Weiterlesen"}<ChevronDown size={14} aria-hidden="true" />
+      {expanded ? "Show less" : "Read more"}<ChevronDown size={14} aria-hidden="true" />
     </button>}
   </article>;
 }
