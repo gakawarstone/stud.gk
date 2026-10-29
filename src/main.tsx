@@ -272,7 +272,7 @@ function App() {
   );
   const syncing = busy || data?.syncing;
   return (
-    <div className="page">
+    <div className={`page${selectedCourse ? " page--course" : ""}`}>
       <header className={`header${selectedCourse ? " header--course" : ""}`}>
         <div className="brand" role="img" aria-label="Stud.GK">
           <svg viewBox="0 0 64 64" fill="currentColor" aria-hidden="true">
@@ -286,6 +286,35 @@ function App() {
           </svg>
           <span aria-hidden="true">tud.GK</span>
         </div>
+        {selectedCourse && (
+          <div className="course-toolbar">
+            <nav className="course-path" aria-label="Навигация по курсам">
+              <a className="back-to-courses" href="#">
+                <ArrowLeft size={16} /> Все курсы
+              </a>
+              <ChevronRight className="path-separator" size={16} />
+              <h1 className="course-heading" title={selectedCourse.title}>
+                {selectedTab === "files" && fileView === "folders" ? (
+                  <a href={folderLink(selectedCourse.id)}>{selectedCourse.title}</a>
+                ) : selectedCourse.title}
+              </h1>
+            </nav>
+            {selectedTab === "files" && <div className="file-view-switch" role="group" aria-label="Вид файлов">
+              <button type="button" aria-pressed={fileView === "all"}
+                aria-label="Все файлы" title="Все файлы"
+                onClick={() => changeFileView("all")}>
+                <LayoutGrid size={15} aria-hidden="true" />
+              </button>
+              <button type="button" aria-pressed={fileView === "folders"}
+                aria-label="Папки" title="Папки"
+                onClick={() => changeFileView("folders")}>
+                <FolderTree size={15} aria-hidden="true" />
+              </button>
+            </div>}
+            {selectedTab === "nextcloud" && <div className="nextcloud-toolbar" ref={setNextcloudToolbar} />}
+            {selectedTab === "gitlab" && <div className="gitlab-toolbar" ref={setGitlabToolbar} />}
+          </div>
+        )}
         {(phase === "live" || phase === "demo") && (
           <div className="account">
             {phase === "demo" ? (
@@ -327,38 +356,8 @@ function App() {
           onDemo={() => void showDemo()}
         />
       ) : (
-        <main className="feed-main">
-          {selectedCourse ? (
-            <div className="course-toolbar">
-            <nav className="course-path" aria-label="Навигация по курсам">
-              <a className="back-to-courses" href="#">
-                <ArrowLeft size={16} /> Все курсы
-              </a>
-              <ChevronRight className="path-separator" size={16} />
-              <h1 className="course-heading" title={selectedCourse.title}>
-                {selectedTab === "files" && fileView === "folders" ? (
-                  <a href={folderLink(selectedCourse.id)}>{selectedCourse.title}</a>
-                ) : selectedCourse.title}
-              </h1>
-            </nav>
-              {selectedTab === "files" && <div className="file-view-switch" role="group" aria-label="Вид файлов">
-                <button type="button" aria-pressed={fileView === "all"}
-                  aria-label="Все файлы" title="Все файлы"
-                  onClick={() => changeFileView("all")}>
-                  <LayoutGrid size={15} aria-hidden="true" />
-                </button>
-                <button type="button" aria-pressed={fileView === "folders"}
-                  aria-label="Папки" title="Папки"
-                  onClick={() => changeFileView("folders")}>
-                  <FolderTree size={15} aria-hidden="true" />
-                </button>
-              </div>}
-              {selectedTab === "nextcloud" && <div className="nextcloud-toolbar" ref={setNextcloudToolbar} />}
-              {selectedTab === "gitlab" && <div className="gitlab-toolbar" ref={setGitlabToolbar} />}
-            </div>
-          ) : (
-            <h1 className="visually-hidden">Курсы</h1>
-          )}
+        <main className={`feed-main${selectedCourse ? " feed-main--course" : ""}`}>
+          {!selectedCourse && <h1 className="visually-hidden">Курсы</h1>}
           {(syncError || fileError) && (
             <div className="feed-error" role="alert">
               {syncError || fileError}
