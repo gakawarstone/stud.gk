@@ -25,13 +25,13 @@ export function GitlabProjectPicker({ projects, selected, adding, onSelect, onAd
   return <div ref={root} className="gitlab-project-picker" data-project-count={projects.length} onBlur={(event) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
   }}>
-    <button ref={button} type="button" className="gitlab-project-trigger" aria-label="Выбрать проект GitLab" title={selected.url}
+    <button ref={button} type="button" className="gitlab-project-trigger" aria-label="Select GitLab project" title={selected.url}
       aria-haspopup="menu" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(!open)}
       onKeyDown={(event) => { if (["ArrowDown", "ArrowUp"].includes(event.key)) { event.preventDefault(); setOpen(true); } }}>
-      <GitFork size={15} aria-hidden="true" /><span>{adding ? "Добавить проект" : new URL(selected.url).pathname.split("/").pop()}</span>
+      <GitFork size={15} aria-hidden="true" /><span>{adding ? "Add project" : new URL(selected.url).pathname.split("/").pop()}</span>
       <ChevronDown size={13} aria-hidden="true" />
     </button>
-    {open && <div ref={menu} id={id} className="gitlab-project-menu" role="menu" aria-label="Проекты GitLab" onKeyDown={(event) => {
+    {open && <div ref={menu} id={id} className="gitlab-project-menu" role="menu" aria-label="GitLab projects" onKeyDown={(event) => {
       const items = [...menu.current!.querySelectorAll<HTMLButtonElement>("button")];
       const current = items.indexOf(document.activeElement as HTMLButtonElement);
       if (current >= 0 && ["Enter", " "].includes(event.key)) { event.preventDefault(); items[current].click(); return; }
@@ -48,7 +48,7 @@ export function GitlabProjectPicker({ projects, selected, adding, onSelect, onAd
         </button>;
       })}
       <button className="gitlab-add-project" type="button" role="menuitem" onClick={() => action(onAdd)}>
-        <Plus size={16} aria-hidden="true" />Добавить проект
+        <Plus size={16} aria-hidden="true" />Add project
       </button>
     </div>}
   </div>;

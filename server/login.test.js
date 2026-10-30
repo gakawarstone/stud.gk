@@ -57,7 +57,7 @@ test("wrong credentials do not produce a logged-in user", async () => {
     ++call < 3 ? new Response(loginForm) : new Response(null, { status: 401 });
   await assert.rejects(
     loginStudip("student", "wrong", fetcher),
-    (error) => error.status === 401 && /Неверный логин/.test(error.message),
+    (error) => error.status === 401 && /Incorrect Stud.IP username/.test(error.message),
   );
 });
 test("the password and cookies never follow redirects off the university host", async () => {
@@ -71,7 +71,7 @@ test("the password and cookies never follow redirects off the university host", 
           headers: { Location: "https://other.example/login" },
         });
   };
-  await assert.rejects(loginStudip("student", "secret", fetcher), /внешний/);
+  await assert.rejects(loginStudip("student", "secret", fetcher), /external/);
   assert.equal(urls.length, 2);
   assert.ok(urls.every((url) => url.startsWith(BASE)));
 });

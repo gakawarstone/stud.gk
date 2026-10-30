@@ -16,18 +16,18 @@ function ProjectForm({ initialUrl = "", onSave, onCancel }: {
   async function submit(event: FormEvent) {
     event.preventDefault(); setError(null); setBusy(true);
     try { await onSave(normalizeGitlabProject(url).url); }
-    catch (error) { setError(error instanceof Error ? error.message : "Не удалось сохранить проект."); }
+    catch (error) { setError(error instanceof Error ? error.message : "Could not save the project."); }
     finally { setBusy(false); }
   }
   return <form className="gitlab-form gitlab-project-form" onSubmit={(event) => void submit(event)} aria-busy={busy}>
-    <label htmlFor="gitlab-project-url">Ссылка на проект GitLab</label>
+    <label htmlFor="gitlab-project-url">GitLab project URL</label>
     <input id="gitlab-project-url" type="url" value={url} onChange={(event) => setUrl(event.target.value)}
       placeholder="https://gitlab.com/group/project" required maxLength={2048} autoComplete="off" spellCheck={false} disabled={busy} />
     <div className="gitlab-actions">
       <button className="primary-button" type="submit" disabled={busy || !url.trim()}>
-        {busy && <LoaderCircle size={14} className="spin" aria-hidden="true" />}{initialUrl ? "Сохранить" : "Добавить проект"}
+        {busy && <LoaderCircle size={14} className="spin" aria-hidden="true" />}{initialUrl ? "Save" : "Add project"}
       </button>
-      {onCancel && <button className="text-button" type="button" disabled={busy} onClick={onCancel}>Отмена</button>}
+      {onCancel && <button className="text-button" type="button" disabled={busy} onClick={onCancel}>Cancel</button>}
     </div>
     {error && <p className="form-error" role="alert">{error}</p>}
   </form>;
@@ -55,7 +55,7 @@ export function GitlabProject({ courseId, projects: savedProjects, demo, onSave,
     let next: Project[] | undefined;
     if (demo) {
       if (url && projects.some((item) => item.id !== projectId && item.url === url))
-        throw new Error("Этот проект GitLab уже добавлен к курсу.");
+        throw new Error("This GitLab project is already linked to the course.");
       const updated = url ? { id: projectId ?? url, url } : null;
       next = projectId ? projects.flatMap((item) => item.id === projectId ? updated ? [updated] : [] : [item])
         : updated ? [...projects, updated] : projects;
@@ -87,7 +87,7 @@ function ProjectView({ courseId, project, demo, onSave, toolbarTarget }: {
   async function unlink() {
     setBusy(true); setError(null);
     try { await onSave(null); }
-    catch (error) { setError(error instanceof Error ? error.message : "Не удалось отвязать проект."); }
+    catch (error) { setError(error instanceof Error ? error.message : "Could not unlink the project."); }
     finally { setBusy(false); }
   }
   const settings = <GitlabSettings url={project.url} onRefresh={() => setRevision((value) => value + 1)}

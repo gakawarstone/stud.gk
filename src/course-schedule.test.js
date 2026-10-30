@@ -25,7 +25,7 @@ test("hides past events and cancellations, keeps upcoming cancellations and unda
     event("cancelled", "2026-10-20T10:00:00+02:00", { cancelled: true }),
   ], now);
   assert.deepEqual(entries.map(({ item }) => item.id), ["cancelled", "future", "undated"]);
-  assert.deepEqual(entries.map(({ status }) => status), ["Отменено", "Через 5 дней", "Дата не указана"]);
+  assert.deepEqual(entries.map(({ status }) => status), ["Cancelled", "In 5 days", "No date specified"]);
   assert.deepEqual(entries.filter(({ isNext }) => isNext).map(({ item }) => item.id), ["future"]);
 });
 
@@ -42,15 +42,15 @@ test("an ongoing event stays highlighted until its end, including across midnigh
     event("ongoing", "2026-10-15T23:30:00+02:00", { end: "2026-10-16T01:00:00+02:00" }),
     event("later", "2026-10-16T10:00:00+02:00"),
   ], new Date("2026-10-16T00:30:00+02:00"));
-  assert.equal(entries[0].status, "Идёт сейчас");
+  assert.equal(entries[0].status, "In progress");
   assert.equal(entries[0].isNext, true);
-  assert.equal(entries[1].status, "Сегодня");
+  assert.equal(entries[1].status, "Today");
   assert.equal(entries[1].isNext, false);
 });
 
 test("relative days follow calendar dates through daylight-saving changes", () => {
   const [entry] = scheduleEntries([event("next", "2026-10-26T10:00:00+01:00")], new Date("2026-10-24T23:30:00+02:00"));
-  assert.equal(entry.status, "Послезавтра");
+  assert.equal(entry.status, "In 2 days");
 });
 
 test("only removes the repeated course suffix and preserves distinctive event titles", () => {

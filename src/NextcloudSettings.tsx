@@ -40,12 +40,12 @@ export function NextcloudSettings({ url, loading, onRefresh, onEdit }: {
 
   return <div className="nextcloud-tools" ref={container}
     onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false); }}>
-    <button ref={button} type="button" aria-label="Настройки Nextcloud" title="Настройки Nextcloud"
+    <button ref={button} type="button" aria-label="Nextcloud settings" title="Nextcloud settings"
       aria-haspopup="menu" aria-expanded={open} aria-controls={open ? menuId : undefined}
       onClick={() => setOpen(!open)} onKeyDown={(event) => {
         if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); setOpen(true); }
       }}><Settings size={17} aria-hidden="true" /></button>
-    {open && <div ref={menu} id={menuId} className="nextcloud-settings-menu" role="menu" aria-label="Настройки Nextcloud"
+    {open && <div ref={menu} id={menuId} className="nextcloud-settings-menu" role="menu" aria-label="Nextcloud settings"
       onKeyDown={(event) => {
         const items = [...menu.current!.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)')];
         const current = items.indexOf(document.activeElement as HTMLElement);
@@ -54,12 +54,12 @@ export function NextcloudSettings({ url, loading, onRefresh, onEdit }: {
           : event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : null;
         if (next !== null) { event.preventDefault(); items[next]?.focus(); }
       }}>
-      <button type="button" role="menuitem" aria-label="Обновить файлы Nextcloud" disabled={loading}
-        onClick={() => { close(); onRefresh(); }}><RefreshCw size={16} aria-hidden="true" /><span>Обновить файлы</span></button>
-      <button type="button" role="menuitem" aria-label="Изменить ссылку Nextcloud"
-        onClick={() => { close(false); onEdit(); }}><Link size={16} aria-hidden="true" /><span>Изменить ссылку</span></button>
-      <a role="menuitem" href={url} target="_blank" rel="noreferrer" aria-label="Открыть Nextcloud в браузере"
-        onClick={() => close()}><ExternalLink size={16} aria-hidden="true" /><span>Открыть в браузере</span></a>
+      <button type="button" role="menuitem" aria-label="Refresh Nextcloud files" disabled={loading}
+        onClick={() => { close(); onRefresh(); }}><RefreshCw size={16} aria-hidden="true" /><span>Refresh files</span></button>
+      <button type="button" role="menuitem" aria-label="Edit Nextcloud link"
+        onClick={() => { close(false); onEdit(); }}><Link size={16} aria-hidden="true" /><span>Edit link</span></button>
+      <a role="menuitem" href={url} target="_blank" rel="noreferrer" aria-label="Open Nextcloud in browser"
+        onClick={() => close()}><ExternalLink size={16} aria-hidden="true" /><span>Open in browser</span></a>
     </div>}
   </div>;
 }

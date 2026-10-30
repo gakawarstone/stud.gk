@@ -105,7 +105,7 @@ test("consumes all pages and catches pagination loops", async () => {
   const loop = createClient("session=test", async () =>
     response([], { next: "/jsonapi.php/v1/files" }),
   );
-  await assert.rejects(loop.list("files"), /полностью/);
+  await assert.rejects(loop.list("files"), /complete/);
 });
 test("expired sessions and incomplete responses fail instead of creating empty snapshots", async () => {
   const expired = createClient(
@@ -120,7 +120,7 @@ test("expired sessions and incomplete responses fail instead of creating empty s
     "session=test",
     async () => new Response("{}"),
   );
-  await assert.rejects(malformed.list("courses"), /Некорректный/);
+  await assert.rejects(malformed.list("courses"), /Invalid JSON API response/);
   const failed = {
     list: async (path) => {
       if (path.startsWith("semesters"))

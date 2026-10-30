@@ -2,7 +2,7 @@ import { api, ApiError } from "./api.ts";
 import type { AuthState, Feed } from "../shared/studip.ts";
 import type { GitlabProject } from "../server/gitlab.js";
 
-export const SESSION_EXPIRED = "Сессия истекла. Войди в Stud.IP заново.";
+export const SESSION_EXPIRED = "Your session has expired. Sign in to Stud.IP again.";
 type SessionState = {
   phase: "loading" | "login" | "live" | "demo";
   data: Feed | null;

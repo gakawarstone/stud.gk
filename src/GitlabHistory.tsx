@@ -3,9 +3,9 @@ import { GitCommitHorizontal, LoaderCircle } from "lucide-react";
 import { GitlabApiError, gitlabApi, type GitlabCommit, type GitlabHistory as History } from "./gitlab-api";
 
 export function demoCommits(projectUrl: string, branch: string): GitlabCommit[] {
-  return ["Обновить материалы курса", "Добавить пример", "Создать репозиторий"].map((title, index) => ({
+  return ["Update course materials", "Add example", "Create repository"].map((title, index) => ({
     id: (branch === "develop" ? "def" : "abc")[index].repeat(40), shortId: (branch === "develop" ? "def" : "abc")[index].repeat(8),
-    title, author: "Автор курса", committedAt: `2026-10-${16 - index}T12:00:00Z`,
+    title, author: "Course author", committedAt: `2026-10-${16 - index}T12:00:00Z`,
     webUrl: `${projectUrl}/-/commit/${(branch === "develop" ? "def" : "abc")[index].repeat(40)}`,
   }));
 }
@@ -32,34 +32,34 @@ export function GitlabHistory({ endpoint, branch, projectUrl, demo, selected, on
       setNextPage(value.nextPage);
     }).catch((error) => {
       if (controller.signal.aborted) return;
-      setError(error.message || "Не удалось загрузить историю.");
+      setError(error.message || "Could not load history.");
       if (error instanceof GitlabApiError && error.code === "GITLAB_AUTH_REQUIRED") onAuthRequired();
     }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [endpoint, branch, projectUrl, demo, page, retry, onAuthRequired]);
-  return <nav className="gitlab-history-pane" aria-label={`История коммитов ${branch}`} aria-busy={loading}>
+  return <nav className="gitlab-history-pane" aria-label={`Commit history ${branch}`} aria-busy={loading}>
     <ol className="gitlab-history-list">{commits.map((commit, index) => {
       const date = commit.committedAt ? new Date(commit.committedAt) : null;
       const previous = commits[index - 1]?.committedAt;
-      const startsDay = index === 0 || date?.toLocaleDateString("ru") !== (previous ? new Date(previous).toLocaleDateString("ru") : undefined);
+      const startsDay = index === 0 || date?.toLocaleDateString("en-GB") !== (previous ? new Date(previous).toLocaleDateString("en-GB") : undefined);
       return <li key={commit.id}>
-      {startsDay && <div className="gitlab-history-date">{date ? date.toLocaleDateString("ru", {
+      {startsDay && <div className="gitlab-history-date">{date ? date.toLocaleDateString("en-GB", {
         day: "numeric", month: "long", ...(date.getFullYear() !== new Date().getFullYear() ? { year: "numeric" } : {}),
-      }) : "Дата не указана"}</div>}
+      }) : "No date specified"}</div>}
       <button type="button" className="gitlab-history-commit" aria-current={selected === commit.id ? "true" : undefined}
-        title={`${commit.title || "Без заголовка"}\n${commit.id}`} onClick={() => onSelect(commit)}>
+        title={`${commit.title || "Untitled"}\n${commit.id}`} onClick={() => onSelect(commit)}>
         <GitCommitHorizontal className="gitlab-history-icon" size={15} strokeWidth={1.6} aria-hidden="true" />
         <span className="gitlab-history-entry">
-          <span className="gitlab-history-title">{commit.title || "Без заголовка"}</span>
-          <span className="gitlab-history-meta"><span>{commit.author || "Неизвестный автор"}</span>
-            {date && <time dateTime={commit.committedAt!} title={date.toLocaleString("ru")}>{date.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" })}</time>}
+          <span className="gitlab-history-title">{commit.title || "Untitled"}</span>
+          <span className="gitlab-history-meta"><span>{commit.author || "Unknown author"}</span>
+            {date && <time dateTime={commit.committedAt!} title={date.toLocaleString("en-GB")}>{date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</time>}
           </span>
         </span>
       </button>
     </li>; })}</ol>
-    {loading && <p className="gitlab-history-status" role="status"><LoaderCircle size={14} className="spin" aria-hidden="true" />Загружаем историю…</p>}
-    {error && <div className="gitlab-history-status"><p role="alert">{error}</p><button className="text-button" onClick={() => setRetry((value) => value + 1)}>Повторить</button></div>}
-    {!loading && !error && (!commits.length ? <p className="gitlab-history-status">В этой ветке пока нет коммитов.</p>
-      : nextPage && <button className="gitlab-load-more" onClick={() => setPage(nextPage)}>Загрузить ещё коммиты</button>)}
+    {loading && <p className="gitlab-history-status" role="status"><LoaderCircle size={14} className="spin" aria-hidden="true" />Loading history…</p>}
+    {error && <div className="gitlab-history-status"><p role="alert">{error}</p><button className="text-button" onClick={() => setRetry((value) => value + 1)}>Retry</button></div>}
+    {!loading && !error && (!commits.length ? <p className="gitlab-history-status">No commits in this branch yet.</p>
+      : nextPage && <button className="gitlab-load-more" onClick={() => setPage(nextPage)}>Load more commits</button>)}
   </nav>;
 }

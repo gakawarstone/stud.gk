@@ -84,7 +84,7 @@ function fileAppearance(title: string) {
   return {
     Icon: FileText,
     label:
-      extension && extension.length <= 8 ? extension.toUpperCase() : "Файл",
+      extension && extension.length <= 8 ? extension.toUpperCase() : "File",
     tone: "document",
   };
 }
@@ -98,17 +98,7 @@ function folderLink(courseId: string, folderId?: string) {
   return `#${new URLSearchParams({ course: courseId, ...(folderId ? { folder: folderId } : {}) })}`;
 }
 function fileCountLabel(count: number) {
-  const last = count % 10;
-  const lastTwo = count % 100;
-  const word =
-    lastTwo >= 11 && lastTwo <= 14
-      ? "файлов"
-      : last === 1
-        ? "файл"
-        : last >= 2 && last <= 4
-          ? "файла"
-          : "файлов";
-  return `${count} ${word}`;
+  return `${count} ${count === 1 ? "file" : "files"}`;
 }
 function App() {
   const {
@@ -204,12 +194,12 @@ function App() {
       .catch((error) => {
         if (cancelled || version !== generation.current) return;
         if (error instanceof ApiError && error.status === 401) {
-          signedOut("Сессия истекла. Войди в Stud.IP заново.");
+          signedOut("Your session has expired. Sign in to Stud.IP again.");
           return;
         }
         setFolderState({
           courseId, data: null,
-          error: error instanceof ApiError ? error.message : "Не удалось загрузить папки. Попробуй ещё раз.",
+          error: error instanceof ApiError ? error.message : "Could not load folders. Try again.",
         });
       });
     return () => { cancelled = true; controller.abort(); };
@@ -227,7 +217,7 @@ function App() {
   }
   useEffect(() => {
     const unread = unreadFiles.size;
-    document.title = `${unread ? `(${unread}) ` : ""}Stud.GK · ${selectedCourse?.title || "Курсы"}`;
+    document.title = `${unread ? `(${unread}) ` : ""}Stud.GK · ${selectedCourse?.title || "Courses"}`;
   }, [data, selectedCourse?.title]);
   async function refresh() {
     setFileError(null);
@@ -288,9 +278,9 @@ function App() {
         </div>
         {selectedCourse && (
           <div className="course-toolbar">
-            <nav className="course-path" aria-label="Навигация по курсам">
+            <nav className="course-path" aria-label="Course navigation">
               <a className="back-to-courses" href="#">
-                <ArrowLeft size={16} /> Все курсы
+                <ArrowLeft size={16} /> All courses
               </a>
               <ChevronRight className="path-separator" size={16} />
               <h1 className="course-heading" title={selectedCourse.title}>
@@ -299,14 +289,14 @@ function App() {
                 ) : selectedCourse.title}
               </h1>
             </nav>
-            {selectedTab === "files" && <div className="file-view-switch" role="group" aria-label="Вид файлов">
+            {selectedTab === "files" && <div className="file-view-switch" role="group" aria-label="File view">
               <button type="button" aria-pressed={fileView === "all"}
-                aria-label="Все файлы" title="Все файлы"
+                aria-label="All files" title="All files"
                 onClick={() => changeFileView("all")}>
                 <LayoutGrid size={15} aria-hidden="true" />
               </button>
               <button type="button" aria-pressed={fileView === "folders"}
-                aria-label="Папки" title="Папки"
+                aria-label="Folders" title="Folders"
                 onClick={() => changeFileView("folders")}>
                 <FolderTree size={15} aria-hidden="true" />
               </button>
@@ -319,9 +309,9 @@ function App() {
           <div className="account">
             {phase === "demo" ? (
               <>
-                <span className="demo-badge">Демо</span>
+                <span className="demo-badge">Demo</span>
                 <button className="text-button" onClick={() => signedOut()}>
-                  Войти
+                  Sign in
                 </button>
               </>
             ) : (
@@ -330,8 +320,8 @@ function App() {
                   className="account-button"
                   onClick={() => void logout()}
                   disabled={busy}
-                  aria-label={`Выйти из аккаунта ${data?.user?.name || ""}`}
-                  title={`Выйти из аккаунта ${data?.user?.name || ""}`}
+                  aria-label={`Sign out of ${data?.user?.name || ""}`}
+                  title={`Sign out of ${data?.user?.name || ""}`}
                 >
                   <span className="account-name">
                     {userInitials(data?.user?.name)}
@@ -346,7 +336,7 @@ function App() {
       {phase === "loading" ? (
         <div className="loading">
           <LoaderCircle size={24} className="spin" />
-          Загружаем…
+          Loading…
         </div>
       ) : phase === "login" ? (
         <Login
@@ -357,7 +347,7 @@ function App() {
         />
       ) : (
         <main className={`feed-main${selectedCourse ? " feed-main--course" : ""}`}>
-          {!selectedCourse && <h1 className="visually-hidden">Курсы</h1>}
+          {!selectedCourse && <h1 className="visually-hidden">Courses</h1>}
           {(syncError || fileError) && (
             <div className="feed-error" role="alert">
               {syncError || fileError}
@@ -366,13 +356,13 @@ function App() {
           {selectedCourse && selectedTab === "files" && partial && !syncError && !fileError && (
             <div className="feed-warning" role="status">
               <TriangleAlert size={13} />
-              Часть файлов недоступна в Stud.IP.
+              Some files are unavailable in Stud.IP.
             </div>
           )}
           {!selectedCourse && (
             <p id="course-sort-help" className="visually-hidden">
-              Перетащи карточку за ручку, чтобы изменить порядок. На клавиатуре
-              используй стрелки на ручке.
+              Drag a card by its handle to reorder it. With a keyboard,
+              focus the handle and use the arrow keys.
             </p>
           )}
           {courseDrag && (
@@ -420,15 +410,15 @@ function App() {
             )}
           <section
             className={selectedCourse ? fileView === "folders" ? "explorer-files" : "file-grid" : "course-grid"}
-            aria-label={selectedCourse ? fileView === "folders" ? "Папки и файлы курса" : "Файлы курса" : "Курсы"}
+            aria-label={selectedCourse ? fileView === "folders" ? "Course folders and files" : "Course files" : "Courses"}
           >
             {selectedCourse && fileView === "folders" && !folderListing && (
               <div className="empty" role="status">
                 {folderError ? <TriangleAlert size={28} /> : <LoaderCircle className="spin" size={28} />}
-                <h2>{folderError ? "Не удалось загрузить папки" : "Загружаем папки…"}</h2>
+                <h2>{folderError ? "Could not load folders" : "Loading folders…"}</h2>
                 {folderError && <>
                   <p>{folderError}</p>
-                  <button className="empty-link" onClick={() => setFolderRevision((value) => value + 1)}>Повторить</button>
+                  <button className="empty-link" onClick={() => setFolderRevision((value) => value + 1)}>Retry</button>
                 </>}
               </div>
             )}
@@ -483,8 +473,8 @@ function App() {
                             <span
                               className="course-new-count"
                               role="img"
-                              aria-label={`Обновлений: ${newCount}`}
-                              title={`Обновлений: ${newCount}`}
+                              aria-label={`Updates: ${newCount}`}
+                              title={`Updates: ${newCount}`}
                             >
                               <BellDot size={14} aria-hidden="true" /> {newCount}
                             </span>
@@ -493,8 +483,8 @@ function App() {
                             <span
                               className="course-card-warning"
                               role="img"
-                              aria-label="Часть файлов недоступна"
-                              title="Часть файлов недоступна"
+                              aria-label="Some files are unavailable"
+                              title="Some files are unavailable"
                             >
                               <TriangleAlert size={14} aria-hidden="true" />
                             </span>
@@ -504,9 +494,9 @@ function App() {
                     </a>
                     <button
                       className="course-drag-handle"
-                      aria-label={`Изменить порядок: ${course.title}`}
+                      aria-label={`Reorder: ${course.title}`}
                       aria-describedby="course-sort-help"
-                      title="Перетащить курс"
+                      title="Drag course"
                       onKeyDown={(event) => {
                         const direction =
                           event.key === "ArrowUp" || event.key === "ArrowLeft"
@@ -540,7 +530,7 @@ function App() {
                 const { Icon, label, tone } = fileAppearance(file.title);
                 const date = materialDate(file);
                 const unread = unreadFiles.get(file.id);
-                const previewLabel = `Открыть ${file.title}${unread ? (unread.action === "added" ? ". Новый файл" : ". Обновлённый файл") : ""}`;
+                const previewLabel = `Open ${file.title}${unread ? (unread.action === "added" ? ". New file" : ". Updated file") : ""}`;
                 const body = (
                   <>
                     {fileView === "folders" ? (
@@ -564,7 +554,7 @@ function App() {
                       <div className="file-meta">
                         {date && (
                           <time dateTime={date}>
-                            {new Date(date).toLocaleDateString("ru-RU", {
+                            {new Date(date).toLocaleDateString("en-GB", {
                               day: "numeric",
                               month: "short",
                               year: "numeric",
@@ -610,8 +600,8 @@ function App() {
                         onClick={() =>
                           setFileError(
                             phase === "demo"
-                              ? "В демо просмотр файлов недоступен."
-                              : "У файла нет ссылки для просмотра.",
+                              ? "File preview is unavailable in demo mode."
+                              : "This file has no preview link.",
                           )
                         }
                       >
@@ -634,28 +624,28 @@ function App() {
                 </span>
                 <h2>
                   {data?.syncing
-                    ? "Собираем твои курсы"
+                    ? "Loading your courses"
                     : syncError || !data?.lastSync
-                      ? "Не удалось проверить курсы"
+                      ? "Could not check courses"
                       : selectedCourse
-                        ? fileView === "folders" ? folders.length ? "Выбери вложенную папку" : "Папка пуста" : "Файлов пока нет"
-                        : "Курсов пока нет"}
+                        ? fileView === "folders" ? folders.length ? "Select a subfolder" : "This folder is empty" : "No files yet"
+                        : "No courses yet"}
                 </h2>
                 <p>
                   {data?.syncing ? (
-                    "Это может занять немного времени."
+                    "This may take a moment."
                   ) : syncError || !data?.lastSync ? (
                     <button
                       className="empty-link"
                       onClick={() => void refresh()}
                       disabled={syncing}
                     >
-                      Повторить проверку
+                      Check again
                     </button>
                   ) : selectedCourse ? (
-                    fileView === "folders" ? folders.length ? "Вложенные папки находятся в списке слева." : "В этой папке пока нет доступных файлов." : "В доступных разделах файлов нет."
+                    fileView === "folders" ? folders.length ? "Subfolders are listed on the left." : "No files are available in this folder yet." : "No files in the available sections."
                   ) : (
-                    "Курсы появятся здесь после проверки Stud.IP."
+                    "Your courses will appear here after checking Stud.IP."
                   )}
                 </p>
               </div>

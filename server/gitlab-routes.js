@@ -16,7 +16,7 @@ export function gitlabRoutes({ state, save, requireLogin, gitlabTokens, getGitla
   function courseAccount(req) {
     const account = state.accounts[req.context.user.id];
     if (!account?.courses.some((course) => course.id === String(req.params.id)))
-      throw new StudipError("Курс не найден в твоих курсах.", 404);
+      throw new StudipError("Course not found in your courses.", 404);
     return account;
   }
   const projectRoute = "/courses/:id/gitlab/projects/:projectId";
@@ -27,7 +27,7 @@ export function gitlabRoutes({ state, save, requireLogin, gitlabTokens, getGitla
     const current = Object.hasOwn(account.gitlabProjects ?? {}, courseId) ? account.gitlabProjects[courseId] : [];
     const id = req.params.projectId ? String(req.params.projectId) : adding ? undefined : current[0]?.id;
     if (id && !current.some((project) => project.id === id))
-      throw new StudipError("Проект GitLab не найден в этом курсе.", 404);
+      throw new StudipError("GitLab project not found in this course.", 404);
     let project = null;
     if (req.body?.url !== null) {
       try {
@@ -36,8 +36,8 @@ export function gitlabRoutes({ state, save, requireLogin, gitlabTokens, getGitla
         throw new StudipError(error.message, 400);
       }
       if (current.some((item) => item.id !== id && item.url === project.url))
-        throw new StudipError("Этот проект GitLab уже добавлен к курсу.", 409);
-    } else if (adding) throw new StudipError("Укажи ссылку на проект GitLab.", 400);
+        throw new StudipError("This GitLab project is already linked to the course.", 409);
+    } else if (adding) throw new StudipError("Enter a GitLab project URL.", 400);
     const projects = id ? current.flatMap((item) => item.id === id ? project ? [project] : [] : [item])
       : project ? [...current, project] : current;
     account.gitlabProjects = { ...account.gitlabProjects, [courseId]: projects };
@@ -52,7 +52,7 @@ export function gitlabRoutes({ state, save, requireLogin, gitlabTokens, getGitla
     const courseId = String(req.params.id);
     const projects = Object.hasOwn(account.gitlabProjects ?? {}, courseId) ? account.gitlabProjects[courseId] : [];
     const project = req.params.projectId ? projects.find((item) => item.id === req.params.projectId) : projects[0];
-    if (!project) throw new StudipError("Проект GitLab не найден в этом курсе.", 404);
+    if (!project) throw new StudipError("GitLab project not found in this course.", 404);
     return new URL(normalizeGitlabProject(project.url).url);
   }
   router.get(["/courses/:id/gitlab/readme", `${projectRoute}/readme`], requireLogin, async (req, res) => {
@@ -66,7 +66,7 @@ export function gitlabRoutes({ state, save, requireLogin, gitlabTokens, getGitla
         token, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]),
       });
       if (req.context.revoked || req.context.expiresAt <= Date.now())
-        throw new StudipError("Сессия истекла. Войди в Stud.IP заново.", 401);
+        throw new StudipError("Your session has expired. Sign in to Stud.IP again.", 401);
       res.json({ ...result, hasToken: Boolean(token) });
     } finally {
       res.off("close", cancel);
@@ -80,7 +80,7 @@ export function gitlabRoutes({ state, save, requireLogin, gitlabTokens, getGitla
     const project = linkedGitlab(req);
     const token = req.body?.token === null ? null : validateGitlabToken(req.body?.token);
     if (token && project.protocol !== "https:")
-      throw new GitlabError("Для подключения токена нужна ссылка GitLab с HTTPS.", 400);
+      throw new GitlabError("An HTTPS GitLab URL is required to connect a token.", 400);
     await gitlabTokens.set(req.context.user.id, project.origin, token);
     res.json({ connected: Boolean(token) });
   });
@@ -99,17 +99,17 @@ export function gitlabRoutes({ state, save, requireLogin, gitlabTokens, getGitla
         const ref = req.query.ref;
         const page = req.query.page;
         if (typeof path !== "string" || (ref !== undefined && typeof ref !== "string") || (page !== undefined && typeof page !== "string"))
-          throw new GitlabError("Некорректный путь, ветка или страница репозитория.", 400);
+          throw new GitlabError("Invalid repository path, branch, or page.", 400);
         const result = await read(project.href, path, {
           ref: typeof ref === "string" ? ref : undefined, page: typeof page === "string" ? page : undefined, token: gitlabTokens.get(req.context.user.id, project.origin),
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]),
         });
         if (req.context.revoked || req.context.expiresAt <= Date.now()) {
           if (result instanceof Response) await result.body?.cancel();
-          throw new StudipError("Сессия истекла. Войди в Stud.IP заново.", 401);
+          throw new StudipError("Your session has expired. Sign in to Stud.IP again.", 401);
         }
         if (route !== "content") return res.json(result);
-        if (!(result instanceof Response)) throw new GitlabError("GitLab вернул некорректный файл.");
+        if (!(result instanceof Response)) throw new GitlabError("GitLab returned an invalid file.");
         const filename = path.split("/").pop();
         const download = req.query.download === "1";
         const mediaTypes = { pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif",

@@ -139,10 +139,10 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   await window.webContents.executeJavaScript(`document.querySelector('.course-card-link').click()`);
   await waitFor(window, `document.querySelector('.back-to-courses') !== null`);
   await window.webContents.executeJavaScript(`(() => {
-    const add = document.querySelector('button[aria-label="Добавить вкладку"]');
+    const add = document.querySelector('button[aria-label="Add tab"]');
     if (add) add.click(); else document.querySelector('.course-tabs a[href*="gitlab"]').click();
   })()`);
-  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Добавить GitLab"]')?.click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Add GitLab"]')?.click()`);
   await waitFor(window, `document.querySelector('#gitlab-project-url') !== null`);
   await fill(window, "#gitlab-project-url", "https://gitlab.example/team/project");
   await window.webContents.executeJavaScript(`document.querySelector('.gitlab-form').requestSubmit()`);
@@ -165,7 +165,7 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('[role="treeitem"]').length`), 3);
 
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-files, .gitlab-panel, .gitlab-readme-preview')`), null);
-  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-preview-empty').textContent`), "Выбери файл в дереве");
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-preview-empty').textContent`), "Select a file from the tree");
   await window.webContents.executeJavaScript(`document.querySelector('[data-entry-path="A04.pdf"]').click()`);
   await waitFor(window, `document.querySelector('.pdf-viewer-embedded [role="alert"]') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('iframe, dialog[open]')`), null);
@@ -173,7 +173,7 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   await window.webContents.executeJavaScript(`document.querySelector('.pdf-viewer-embedded .text-button').click()`);
   await waitFor(window, `document.querySelector('.pdf-page[data-page="1"] canvas') !== null && document.querySelector('.pdf-text-layer')?.textContent.includes('Software Engineering')`);
   assert.deepEqual(contentRequests, [{ path: "A04.pdf", ref: "main" }, { path: "A04.pdf", ref: "main" }]);
-  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Номер страницы"]').max`), "2");
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Page number"]').max`), "2");
   assert.ok(await window.webContents.executeJavaScript(`(() => {
     const pane = document.querySelector('.gitlab-preview-content').getBoundingClientRect();
     const viewer = document.querySelector('.pdf-viewer-embedded').getBoundingClientRect();
@@ -185,16 +185,16 @@ async function wheelOverDiff(window, deltaX, deltaY) {
     await new Promise(resolve => setTimeout(resolve, 150));
     await writeFile(process.env.CAMPUS_SMOKE_PDF_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
   }
-  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Следующая страница"]').click()`);
-  await waitFor(window, `document.querySelector('[aria-label="Номер страницы"]').value === '2' && document.querySelector('.pdf-page[data-page="2"] canvas') !== null`);
-  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Увеличить масштаб"]').click()`);
-  await waitFor(window, `document.querySelector('[aria-label="По ширине"]').textContent === '125%' && document.querySelector('[aria-label="Номер страницы"]').value === '2'`);
-  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Цвета Catppuccin"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Next page"]').click()`);
+  await waitFor(window, `document.querySelector('[aria-label="Page number"]').value === '2' && document.querySelector('.pdf-page[data-page="2"] canvas') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Zoom in"]').click()`);
+  await waitFor(window, `document.querySelector('[aria-label="Fit to width"]').textContent === '125%' && document.querySelector('[aria-label="Page number"]').value === '2'`);
+  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Catppuccin colors"]').click()`);
   await waitFor(window, `document.querySelector('.pdf-viewer-embedded').dataset.themed === 'false'`);
-  assert.match(await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Скачать PDF"]').href`), /path=A04.pdf&ref=main&download=1$/);
-  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="На весь экран"]').click()`, true);
+  assert.match(await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Download PDF"]').href`), /path=A04.pdf&ref=main&download=1$/);
+  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Enter fullscreen"]').click()`, true);
   await waitFor(window, `document.fullscreenElement?.classList.contains('pdf-viewer-shell')`);
-  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Выйти из полноэкранного режима"]').click()`, true);
+  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Exit fullscreen"]').click()`, true);
   await waitFor(window, `document.fullscreenElement === null`);
   window.setSize(480, 950);
   await new Promise(resolve => setTimeout(resolve, 100));
@@ -257,10 +257,10 @@ async function wheelOverDiff(window, deltaX, deltaY) {
       && Math.abs(body.left - preview.left) < 1 && Math.abs(body.right - preview.right) < 1;
   })()`), 'Branch and commit share one header, and the file preview meets its edges without outer padding');
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-repo-sidebar .gitlab-commit-bar, .gitlab-repo-views')`), null);
-  assert.equal(await window.webContents.executeJavaScript(`document.body.innerText.includes('Файлы проекта') || document.body.innerText.includes('1 изменённый файл') || document.body.innerText.includes('Kotlin · UTF-8')`), false);
+  assert.equal(await window.webContents.executeJavaScript(`document.body.innerText.includes('Project files') || document.body.innerText.includes('1 changed file') || document.body.innerText.includes('Kotlin · UTF-8')`), false);
   await window.webContents.executeJavaScript(`Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async value => { window.copiedGitlabSha = value; } } }); document.querySelector('.gitlab-copy-sha').click()`);
   await waitFor(window, `window.copiedGitlabSha === '${'a'.repeat(40)}'`);
-  await waitFor(window, `document.querySelector('.gitlab-commit-actions [role="status"]').textContent === 'SHA скопирован'`);
+  await waitFor(window, `document.querySelector('.gitlab-commit-actions [role="status"]').textContent === 'SHA copied'`);
   assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-viewer-body').scrollHeight > document.querySelector('.gitlab-viewer-body').clientHeight`));
   assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-viewer-body').scrollWidth > document.querySelector('.gitlab-viewer-body').clientWidth`));
   assert.equal(await window.webContents.executeJavaScript(`getComputedStyle(document.querySelector('.gitlab-viewer-body'), '::-webkit-scrollbar').display`), 'none');
@@ -271,9 +271,9 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   await new Promise((resolve) => setTimeout(resolve, 150));
   if (process.env.CAMPUS_SMOKE_CODE_SCREENSHOT)
     await writeFile(process.env.CAMPUS_SMOKE_CODE_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Настройки GitLab"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="GitLab settings"]').click()`);
   await waitFor(window, `document.querySelector('.gitlab-settings-menu') !== null`);
-  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-settings-menu [role="menuitem"]')).find(b => b.textContent.includes('Обновить')).click()`);
+  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-settings-menu [role="menuitem"]')).find(b => b.textContent.includes('Refresh')).click()`);
   await waitFor(window, `document.querySelector('[data-entry-path="src/components/Button.tsx"]') !== null && document.querySelector('.gitlab-source') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('[data-entry-path="src/components"]').getAttribute('aria-expanded')`), "true");
   await window.webContents.executeJavaScript(`document.querySelector('[data-entry-path="src"]').click()`);
@@ -345,8 +345,8 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   assert.deepEqual(historyRequests.slice(-2), [{ ref: "main", page: "1" }, { ref: "main", page: "2" }]);
   await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-viewer .gitlab-load-more').click()`);
   await waitFor(window, `document.querySelectorAll('.gitlab-diff-file').length === 3`);
-  assert.match(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-diffs').textContent`), /бинарный/);
-  assert.match(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-diffs').textContent`), /GitLab не вернул/);
+  assert.match(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-diffs').textContent`), /binary/);
+  assert.match(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-diffs').textContent`), /GitLab did not return/);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-commit-viewer .gitlab-load-more')`), null);
   await wheelOverDiff(window, 0, -10000);
   await waitFor(window, `(() => {
@@ -376,7 +376,7 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   await waitFor(window, `document.querySelector('.gitlab-history-commit') !== null && document.querySelector('.gitlab-diff-path')?.textContent === 'old.md → guide.md'`);
 
   await window.webContents.executeJavaScript(`document.querySelector('.gitlab-branch-trigger').click()`);
-  await waitFor(window, `document.querySelector('[role="dialog"][aria-label="Сменить ветку"]') !== null`);
+  await waitFor(window, `document.querySelector('[role="dialog"][aria-label="Switch branch"]') !== null`);
   if (process.env.CAMPUS_SMOKE_BRANCH_MENU_SCREENSHOT) {
     await new Promise(resolve => setTimeout(resolve, 150));
     await writeFile(process.env.CAMPUS_SMOKE_BRANCH_MENU_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
@@ -414,28 +414,28 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   await window.webContents.executeJavaScript(`document.querySelector('[data-entry-path="Main.kt"]').click()`);
   await waitFor(window, `document.querySelector('.gitlab-source')?.textContent.includes('Kotlin')`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-inline-viewer > .gitlab-viewer-toolbar')`), null);
-  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-inline-viewer .gitlab-viewer-toolbar, .gitlab-inline-viewer details, .gitlab-file-actions, [aria-label="Действия с файлом"]')`), null);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-inline-viewer .gitlab-viewer-toolbar, .gitlab-inline-viewer details, .gitlab-file-actions, [aria-label="File actions"]')`), null);
   if (process.env.CAMPUS_SMOKE_BRANCH_SCREENSHOT) {
     await new Promise(resolve => setTimeout(resolve, 150));
     await writeFile(process.env.CAMPUS_SMOKE_BRANCH_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
   }
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Настройки GitLab"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="GitLab settings"]').click()`);
   await waitFor(window, `document.querySelector('.gitlab-settings-menu') !== null`);
-  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-settings-menu [role="menuitem"]')).find(b => b.textContent.includes('Доступ')).click()`);
-  await waitFor(window, `document.querySelector('.gitlab-token-form [role="status"]')?.textContent.includes('подключён')`);
+  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-settings-menu [role="menuitem"]')).find(b => b.textContent.includes('GitLab access')).click()`);
+  await waitFor(window, `document.querySelector('.gitlab-token-form [role="status"]')?.textContent.includes('connected')`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('#gitlab-access-token, .gitlab-create-token')`), null);
-  assert.match(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-token-form').textContent`), /всех твоих проектов/);
-  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-token-form button')).find(b => b.textContent.includes('Заменить')).click()`);
+  assert.match(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-token-form').textContent`), /all your projects/);
+  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-token-form button')).find(b => b.textContent.includes('Replace')).click()`);
   await waitFor(window, `document.querySelector('#gitlab-access-token') !== null`);
-  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-token-form button')).find(b => b.textContent.includes('Отмена')).click()`);
+  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-token-form button')).find(b => b.textContent.includes('Cancel')).click()`);
 
   // Link a different private project in a second course without entering another token.
   await window.webContents.executeJavaScript(`document.querySelector('.back-to-courses').click()`);
   await waitFor(window, `document.querySelectorAll('.course-card-link').length === 2`);
   await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.course-card-link')).find(a => a.textContent.includes('Second course')).click()`);
-  await waitFor(window, `document.querySelector('button[aria-label="Добавить вкладку"]') !== null`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
-  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Добавить GitLab"]').click()`);
+  await waitFor(window, `document.querySelector('button[aria-label="Add tab"]') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add tab"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Add GitLab"]').click()`);
   await waitFor(window, `document.querySelector('#gitlab-project-url') !== null`);
   await fill(window, "#gitlab-project-url", "https://gitlab.example/another-group/another-project");
   await window.webContents.executeJavaScript(`document.querySelector('.gitlab-project-form').requestSubmit()`);
@@ -462,9 +462,9 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-inline-viewer')`), null, "Switching projects clears the previous file");
   await selectProject(window, 1);
   await waitFor(window, `document.querySelector('[data-entry-path="exercises.md"]') !== null`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Настройки GitLab"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="GitLab settings"]').click()`);
   await waitFor(window, `document.querySelector('.gitlab-settings-menu') !== null`);
-  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-settings-menu [role="menuitem"]')).find(b => b.textContent.includes('Изменить')).click()`);
+  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-settings-menu [role="menuitem"]')).find(b => b.textContent.includes('Edit')).click()`);
   await waitFor(window, `document.querySelector('#gitlab-project-url') !== null`);
   await fill(window, "#gitlab-project-url", "https://university.example/labs/exercises");
   await window.webContents.executeJavaScript(`document.querySelector('.gitlab-project-form').requestSubmit()`);
@@ -521,7 +521,7 @@ async function wheelOverDiff(window, deltaX, deltaY) {
     await new Promise(resolve => setTimeout(resolve, 150));
     await writeFile(process.env.CAMPUS_SMOKE_ADD_PROJECT_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
   }
-  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-project-form button')).find(b => b.textContent.includes('Отмена')).click()`);
+  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-project-form button')).find(b => b.textContent.includes('Cancel')).click()`);
   await waitFor(window, `document.querySelector('[data-entry-path="exercises.md"]') !== null`);
   window.reload();
   await waitFor(window, `Number(document.querySelector('.gitlab-project-picker')?.dataset.projectCount) === 2 && document.querySelector('[data-entry-path="README.md"]') !== null`);
@@ -537,19 +537,19 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   })()`));
   await window.webContents.executeJavaScript(`document.querySelector('.gitlab-project-trigger').click()`);
   window.setSize(1280, 1000);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Настройки GitLab"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="GitLab settings"]').click()`);
   await waitFor(window, `document.querySelector('.gitlab-settings-menu') !== null`);
   if (process.env.CAMPUS_SMOKE_PROJECT_SETTINGS_SCREENSHOT) {
     await new Promise(resolve => setTimeout(resolve, 150));
     await writeFile(process.env.CAMPUS_SMOKE_PROJECT_SETTINGS_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
   }
-  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-settings-menu [role="menuitem"]')).find(b => b.textContent.includes('Отвязать')).click()`);
+  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-settings-menu [role="menuitem"]')).find(b => b.textContent.includes('Unlink')).click()`);
   await waitFor(window, `Number(document.querySelector('.gitlab-project-picker')?.dataset.projectCount) === 1 && document.querySelector('[data-entry-path="README.md"]') !== null`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Настройки GitLab"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="GitLab settings"]').click()`);
   await waitFor(window, `document.querySelector('.gitlab-settings-menu') !== null`);
-  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-settings-menu [role="menuitem"]')).find(b => b.textContent.includes('Доступ')).click()`);
-  await waitFor(window, `document.querySelector('.gitlab-token-form [role="status"]')?.textContent.includes('подключён')`);
-  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-token-form button')).find(b => b.textContent.includes('Удалить')).click()`);
+  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-settings-menu [role="menuitem"]')).find(b => b.textContent.includes('GitLab access')).click()`);
+  await waitFor(window, `document.querySelector('.gitlab-token-form [role="status"]')?.textContent.includes('connected')`);
+  await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.gitlab-token-form button')).find(b => b.textContent.includes('Remove')).click()`);
   await waitFor(window, `document.querySelector('#gitlab-access-token') !== null && document.querySelector('.gitlab-markdown') === null`);
   // Demo mode upgrades the old local URL and saves several projects locally.
   await window.webContents.executeJavaScript(`fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })`);

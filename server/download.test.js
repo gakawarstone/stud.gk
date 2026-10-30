@@ -304,7 +304,9 @@ test("local downloads enforce account ownership, stream bytes and mark only comp
     assert.equal(zipPreview.status, 415);
     assert.equal(zipPreview.headers.get("content-disposition"), null);
     const zipPage = await zipPreview.text();
-    assert.match(zipPage, /Браузер не поддерживает просмотр/);
+    assert.match(zipPage, /The browser cannot preview/);
+    assert.match(zipPage, /<html lang="en">/);
+    assert.match(zipPage, />Download file<\/a>/);
     assert.match(zipPage, /href="\/api\/files\/alice-zip\/download"/);
     // A changed file must be fetched again, including upstream access failures.
     await request("/api/sync", alice, {});

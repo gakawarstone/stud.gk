@@ -46,7 +46,7 @@ test("reports a changed room, shifted time and cancellation only once each", () 
   assert.deepEqual(result.exceptions.map(({ entry }) => entry.item.id), ["2-1", "3-2", "4-0"]);
   assert.equal(result.exceptions[0].slot.location, "A113");
   assert.equal(result.exceptions[1].slot.time, "14:00 – 15:30");
-  assert.equal(result.exceptions[2].entry.status, "Отменено");
+  assert.equal(result.exceptions[2].entry.status, "Cancelled");
   assert.equal(result.slots[0].time, "10:00 – 11:30");
 });
 
@@ -96,7 +96,7 @@ test("elapsed lessons still define the pattern and do not become missing session
 test("keeps the ongoing lesson and ignores changes whose lessons have ended", () => {
   const items = change(semester(), "0-0", { location: "Changed in the past" });
   const result = model(items, new Date(2026, 10, 3, 10, 45));
-  assert.equal(result.next.status, "Идёт сейчас");
+  assert.equal(result.next.status, "In progress");
   assert.deepEqual(result.exceptions, []);
 });
 

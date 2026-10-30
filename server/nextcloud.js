@@ -29,22 +29,22 @@ export function isPublicAddress(address) {
 }
 
 export function shareInfo(value) {
-  if (typeof value !== "string") throw new NextcloudError("Укажи публичную ссылку Nextcloud.", 400);
+  if (typeof value !== "string") throw new NextcloudError("Enter a public Nextcloud URL.", 400);
   let url;
   try { url = new URL(value); } catch { /* Report the same validation error below. */ }
   const match = url?.pathname.match(/^(.*?)(?:\/index\.php)?\/s\/([a-zA-Z0-9_-]+)\/?$/);
   if (!url || !["https:", "http:"].includes(url.protocol) || url.username || url.password || !match || value.length > 4096) {
-    throw new NextcloudError("Введи публичную ссылку Nextcloud вида https://cloud.example.org/s/…", 400);
+    throw new NextcloudError("Enter a public Nextcloud URL such as https://cloud.example.org/s/…", 400);
   }
   return { url, prefix: match[1], token: match[2] };
 }
 
 export function filePath(value = "") {
   if (typeof value !== "string" || value.length > 4096 || /[\x00-\x1f\x7f\\]/.test(value)) {
-    throw new NextcloudError("Некорректный путь Nextcloud.", 400);
+    throw new NextcloudError("Invalid Nextcloud path.", 400);
   }
   const parts = value.split("/").filter(Boolean);
-  if (parts.some((part) => part === "." || part === "..")) throw new NextcloudError("Некорректный путь Nextcloud.", 400);
+  if (parts.some((part) => part === "." || part === "..")) throw new NextcloudError("Invalid Nextcloud path.", 400);
   return parts.join("/");
 }
 
@@ -62,7 +62,7 @@ export async function publicRequest(url, { method = "GET", headers = {}, body, s
   const addresses = isIP(hostname) ? [{ address: hostname, family: isIP(hostname) }]
     : await lookup(hostname, { all: true, verbatim: true });
   if (!addresses.length || addresses.some(({ address }) => !isPublicAddress(address))) {
-    throw new NextcloudError("Nextcloud должен быть доступен по публичному адресу сервера.", 400);
+    throw new NextcloudError("Nextcloud must be hosted at a public server address.", 400);
   }
   const address = addresses.find((entry) => entry.family === 4) || addresses[0];
   return new Promise((resolve, reject) => {
@@ -88,7 +88,7 @@ export function parseListing(xml, root, currentPath = "") {
   const $ = load(xml, { xml: true });
   const nodes = (parent, name) => $(parent).children().filter((_, node) => ("name" in node ? node.name : "").split(":").pop() === name);
   const responses = $("*").filter((_, node) => ("name" in node ? node.name : "").split(":").pop() === "response");
-  if (!responses.length) throw new NextcloudError("Nextcloud вернул некорректный список файлов.");
+  if (!responses.length) throw new NextcloudError("Nextcloud returned an invalid file list.");
   const entries = [];
   let title = "Nextcloud";
   for (const response of responses.toArray()) {
@@ -119,10 +119,10 @@ export function parseListing(xml, root, currentPath = "") {
 async function checked(response) {
   if ([200, 206, 207].includes(response.status)) return response;
   await response.body?.cancel();
-  if ([401, 403].includes(response.status)) throw new NextcloudError("Нет доступа к Nextcloud. Проверь ссылку: она должна быть публичной и без пароля.", 403);
-  if (response.status === 404) throw new NextcloudError("Файл или ссылка Nextcloud больше не доступны.", 404);
-  if (response.status >= 300 && response.status < 400) throw new NextcloudError("Nextcloud перенаправляет запрос. Вставь конечную ссылку на общую папку.");
-  throw new NextcloudError("Не удалось получить файлы Nextcloud. Попробуй обновить список.");
+  if ([401, 403].includes(response.status)) throw new NextcloudError("Access to Nextcloud denied. Check that the link is public and has no password.", 403);
+  if (response.status === 404) throw new NextcloudError("The Nextcloud file or link is no longer available.", 404);
+  if (response.status >= 300 && response.status < 400) throw new NextcloudError("Nextcloud redirected the request. Paste the final shared folder URL.");
+  throw new NextcloudError("Could not retrieve Nextcloud files. Try refreshing the list.");
 }
 
 export function createNextcloudClient(request = publicRequest) {
@@ -154,7 +154,7 @@ export function createNextcloudClient(request = publicRequest) {
         const { done, value } = await reader.read();
         if (done) break;
         length += value.length;
-        if (length > 4 * 1024 * 1024) { await reader.cancel(); throw new NextcloudError("В этой папке слишком много файлов. Открой отдельную подпапку по её ссылке."); }
+        if (length > 4 * 1024 * 1024) { await reader.cancel(); throw new NextcloudError("This folder has too many files. Open a subfolder using its own link."); }
         chunks.push(value);
       }
       return { ...parseListing(Buffer.concat(chunks).toString("utf8"), davUrl(share, "", backend), path), backend };

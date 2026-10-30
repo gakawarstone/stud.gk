@@ -37,7 +37,7 @@ export function FolderExplorer({ data, currentId, courseId }: {
         return <li key={folder.id}>
           <div className="explorer-folder-row">
             {hasChildren ? <button type="button" className="explorer-branch-toggle"
-              aria-label={`${isExpanded ? "Свернуть" : "Развернуть"} папку ${folder.title}`}
+              aria-label={`${isExpanded ? "Collapse" : "Expand"} folder ${folder.title}`}
               aria-expanded={isExpanded}
               onClick={() => setExpanded((previous) => {
                 const next = new Set(previous);
@@ -49,7 +49,7 @@ export function FolderExplorer({ data, currentId, courseId }: {
             </button> : hasBranchGutter ? <span className="explorer-branch-spacer" /> : null}
             <button type="button" className="explorer-folder-link"
               disabled={!folder.readable}
-              aria-label={folder.readable ? `Открыть папку ${folder.title}` : `${folder.title}. Нет доступа`}
+              aria-label={folder.readable ? `Open folder ${folder.title}` : `${folder.title}. Access denied`}
               aria-current={selected ? "page" : undefined}
               title={folder.title}
               onClick={() => {
@@ -66,7 +66,7 @@ export function FolderExplorer({ data, currentId, courseId }: {
     </ul>;
   }
 
-  return <nav className="folder-explorer-sidebar" aria-label="Папки курса">
-    {renderLevel(data.rootId) || <p className="explorer-no-folders">Вложенных папок нет</p>}
+  return <nav className="folder-explorer-sidebar" aria-label="Course folders">
+    {renderLevel(data.rootId) || <p className="explorer-no-folders">No subfolders</p>}
   </nav>;
 }

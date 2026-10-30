@@ -46,28 +46,28 @@ function FileDialog({ entry, endpoint, query, contentUrl, downloadUrl, projectUr
           : 'export function greet(name: string): string {\n  return `Hello, ${name}!`;\n}\n' });
     } else void gitlabApi<GitlabFile>(`${endpoint}/file?${query}`, controller.signal)
       .then((value) => { if (!controller.signal.aborted) setFile(value); })
-      .catch((error) => { if (!controller.signal.aborted) setError(error.message || "Не удалось открыть файл."); });
+      .catch((error) => { if (!controller.signal.aborted) setError(error.message || "Could not open the file."); });
     return () => controller.abort();
   }, [endpoint, query, demo, entry.path, entry.name, entry.submodule, media, markdown, webUrl]);
   const content = file?.content;
   const lines = content?.split("\n").length || 0;
   const header = <header className="gitlab-viewer-toolbar">
       <h2 id="gitlab-viewer-title" title={entry.path}>{entry.path}</h2>
-      {markdown && <div className="file-view-switch" role="group" aria-label="Вид Markdown">
-        <button type="button" aria-label="Просмотр Markdown" title="Просмотр Markdown" aria-pressed={!source} onClick={() => setSource(false)}><FileText size={17} /></button>
-        <button type="button" aria-label="Исходный код" title="Исходный код" aria-pressed={source} onClick={() => setSource(true)}><Code size={17} /></button>
+      {markdown && <div className="file-view-switch" role="group" aria-label="Markdown view">
+        <button type="button" aria-label="Preview Markdown" title="Preview Markdown" aria-pressed={!source} onClick={() => setSource(false)}><FileText size={17} /></button>
+        <button type="button" aria-label="Source code" title="Source code" aria-pressed={source} onClick={() => setSource(true)}><Code size={17} /></button>
       </div>}
-      {!demo && !entry.submodule && <a href={downloadUrl} aria-label={`Скачать ${entry.name}`} title="Скачать"><Download size={18} /></a>}
-      <a href={webUrl} target="_blank" rel="noopener noreferrer" aria-label="Открыть файл в GitLab" title="Открыть в GitLab"><ExternalLink size={17} /></a>
-      <button type="button" aria-label="Закрыть просмотр" title="Закрыть" onClick={onClose}><X size={21} /></button>
+      {!demo && !entry.submodule && <a href={downloadUrl} aria-label={`Download ${entry.name}`} title="Download"><Download size={18} /></a>}
+      <a href={webUrl} target="_blank" rel="noopener noreferrer" aria-label="Open file in GitLab" title="Open in GitLab"><ExternalLink size={17} /></a>
+      <button type="button" aria-label="Close preview" title="Close" onClick={onClose}><X size={21} /></button>
     </header>;
-  const body = <div className="gitlab-viewer-body" tabIndex={embedded ? 0 : undefined} role="region" aria-label="Содержимое файла">
-      {error ? <p className="gitlab-viewer-status" role="alert">{error}</p> : entry.submodule ? <p className="gitlab-viewer-status">Это подмодуль. Его можно открыть в GitLab.</p> : media ? (
-        media === "image" ? <img src={contentUrl} alt={entry.name} onError={() => setError("Не удалось загрузить изображение.")} />
-          : media === "video" ? <video controls src={contentUrl} aria-label={entry.name} onError={() => setError("Не удалось воспроизвести видео. Файл можно скачать.")} />
-            : <audio controls src={contentUrl} aria-label={entry.name} onError={() => setError("Не удалось воспроизвести аудио. Файл можно скачать.")} />
-      ) : !file ? <p className="gitlab-viewer-status" role="status"><LoaderCircle size={18} className="spin" />Загружаем файл…</p>
-        : file.binary ? <p className="gitlab-viewer-status">Бинарный файл. Скачай его для просмотра на компьютере.</p>
+  const body = <div className="gitlab-viewer-body" tabIndex={embedded ? 0 : undefined} role="region" aria-label="File content">
+      {error ? <p className="gitlab-viewer-status" role="alert">{error}</p> : entry.submodule ? <p className="gitlab-viewer-status">This is a submodule. You can open it in GitLab.</p> : media ? (
+        media === "image" ? <img src={contentUrl} alt={entry.name} onError={() => setError("Could not load the image.")} />
+          : media === "video" ? <video controls src={contentUrl} aria-label={entry.name} onError={() => setError("Could not play the video. You can download the file.")} />
+            : <audio controls src={contentUrl} aria-label={entry.name} onError={() => setError("Could not play the audio. You can download the file.")} />
+      ) : !file ? <p className="gitlab-viewer-status" role="status"><LoaderCircle size={18} className="spin" />Loading file…</p>
+        : file.binary ? <p className="gitlab-viewer-status">Binary file. Download it to view it on your computer.</p>
           : markdown && !source ? <GitlabMarkdown content={content || ""} webUrl={file.webUrl} />
             : <div className="gitlab-code-view">
               {lines <= 20000 && <pre className="gitlab-line-numbers" aria-hidden="true">{Array.from({ length: lines }, (_, i) => i + 1).join("\n")}</pre>}

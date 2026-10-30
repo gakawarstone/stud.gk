@@ -1,45 +1,45 @@
 # Stud.GK
 
-Минимальный интерфейс для Hochschule Flensburg Stud.IP в Catppuccin Mocha: форма входа, карточки курсов и просмотр файлов.
+A minimal interface for Hochschule Flensburg Stud.IP with a Catppuccin Mocha theme, a sign-in form, course cards, and file previews.
 
-## Запуск
+## Getting started
 
-Нужен Node.js 22.12 или новее.
+Requires Node.js 22.12 or later.
 
 ```sh
 npm install
 make dev
 ```
 
-Открой http://localhost:5173 и войди с обычными логином и паролем Stud.IP. Кнопка «Посмотреть демо» открывает пример ленты без входа.
+Open http://localhost:5173 and sign in with your usual Stud.IP username and password. Select "Try demo" to see an example feed without signing in.
 
-В режиме разработки сервер доступен и с других устройств в локальной сети: открой `http://<IP компьютера>:5173`, например http://192.168.178.22:5173. Чтобы ограничить доступ текущим компьютером, запусти `HOST=127.0.0.1 npm run dev`. Адрес и порт можно задать через `HOST` и `PORT` в `.env`.
+In development mode, the server is also accessible from other devices on your local network. Open `http://<computer IP>:5173`, for example http://192.168.178.22:5173. To restrict access to the current computer, run `HOST=127.0.0.1 npm run dev`. You can set the address and port with `HOST` and `PORT` in `.env`.
 
-Для готовой сборки:
+To run a production build:
 
 ```sh
 npm run build
 npm start
 ```
 
-## Приложение для Linux
+## Linux application
 
-Готовые сборки Stud.GK для Linux x86_64 доступны в [GitHub Releases](https://github.com/gakawarstone/studip/releases). Node.js устанавливать не нужно: Electron и локальный сервер входят в приложение.
+Stud.GK builds for Linux x86_64 are available in [GitHub Releases](https://github.com/gakawarstone/studip/releases). Electron and the local server are included, so you do not need to install Node.js.
 
-Для AppImage:
+To run the AppImage:
 
 ```sh
 chmod +x Stud.GK-1.0.0-linux-x86_64.AppImage
 ./Stud.GK-1.0.0-linux-x86_64.AppImage
 ```
 
-Если в системе нет FUSE, запусти `./Stud.GK-1.0.0-linux-x86_64.AppImage --appimage-extract-and-run`.
+If your system does not have FUSE, run `./Stud.GK-1.0.0-linux-x86_64.AppImage --appimage-extract-and-run`.
 
-Приложение запускает сервер только на `127.0.0.1`, выбирает свободный порт и сохраняет его для следующих запусков. Если порт занят, выбирается новый; порядок карточек привязан к адресу и в этом случае сбросится. Обычные обновления сохраняют порядок. Данные курсов и зашифрованные сессии хранятся в `${XDG_CONFIG_HOME:-~/.config}/Campus/data`, профиль окна — в каталоге `Campus`. Прежнее имя каталога сохранено, чтобы обновление до Stud.GK не сбрасывало сессии и настройки. Данные браузерной версии из `.data` автоматически не переносятся. Чтобы войти в настольное приложение, используй форму входа в его окне.
+The application starts its server on `127.0.0.1` only, selects an available port, and saves it for future launches. If that port is in use, it selects a new one. The course card order is tied to the address and resets if the port changes. Normal updates preserve the order. Course data and encrypted sessions are stored in `${XDG_CONFIG_HOME:-~/.config}/Campus/data`, and the window profile is stored in the `Campus` directory. The legacy directory name is retained so that upgrading to Stud.GK preserves sessions and settings. Data from the browser version's `.data` directory is not migrated automatically. Use the sign-in form in the desktop window to sign in.
 
-PDF открывается в существующем просмотрщике, другие форматы — в отдельном окне Stud.GK с той же сессией. Скачивание открывает системный диалог сохранения. Закрытие всех окон завершает приложение и локальный сервер; фоновая проверка работает только пока Stud.GK открыт.
+PDFs open in the existing viewer. Other formats open in a separate Stud.GK window with the same session. Downloads open the system save dialog. Closing all windows stops the application and its local server. Background checks run only while Stud.GK is open.
 
-Для запуска из исходников и создания AppImage:
+To run from source and create an AppImage:
 
 ```sh
 npm ci
@@ -47,70 +47,86 @@ npm run desktop
 npm run dist:linux
 ```
 
-AppImage появляется в `release/`. Проверка настольного приложения требует графической сессии или Xvfb:
+The AppImage is written to `release/`. Desktop checks require a graphical session or Xvfb:
 
 ```sh
 npm run build
 npm run test:desktop
-# На сервере без экрана:
+# On a server without a display:
 xvfb-run -a npm run test:desktop
 ```
 
-Каждый пуш в главную ветку `master` запускает GitHub Actions: тесты, сборку AppImage, проверку готового приложения и публикацию релиза только с AppImage. Версия и тег имеют вид `1.0.0-build.2` и `v1.0.0-build.2`: базовая версия берётся из `package.json`, номер сборки — из GitHub Actions. Релиз привязан к коммиту пуша; повторный запуск той же сборки обновляет её AppImage. Ручной запуск workflow в `master` также публикует релиз; в других ветках задача не запускается.
+Every push to the main branch, `master`, runs GitHub Actions to test the code, build the AppImage, check the packaged application, and publish a release containing only the AppImage. Versions and tags follow the forms `1.0.0-build.2` and `v1.0.0-build.2`. The base version comes from `package.json`, and the build number comes from GitHub Actions. Each release is tied to the pushed commit. Rerunning the same build updates its AppImage. Manually running the workflow on `master` also publishes a release. The release job does not run on other branches.
 
-## Авторизация
+## Authentication
 
-Stud.GK получает штатную форму входа Stud.IP, сохраняет её CSRF-токен и login ticket, затем отправляет логин и пароль по HTTPS на ту же форму. Успешный вход подтверждается запросом `/jsonapi.php/v1/users/me`. Пароль используется только в ходе входа и не записывается на диск, в сессию или localStorage.
+Stud.GK fetches the standard Stud.IP sign-in form, retains its CSRF token and login ticket, and submits the username and password over HTTPS to the same form. A request to `/jsonapi.php/v1/users/me` confirms successful sign-in. The password is used only during sign-in and is never written to disk, the session, or localStorage.
 
-Браузер получает собственную подписанную cookie Stud.GK с `HttpOnly` и `SameSite=Strict`; при HTTPS добавляется `Secure`. Сессии разных браузеров независимы. При каждом успешном входе идентификатор сессии меняется. Сессия Stud.GK действует максимум семь дней; если Stud.IP завершит свою сессию раньше, приложение предложит войти заново. Автоматический опрос не продлевает этот срок.
+The browser receives its own signed Stud.GK cookie with `HttpOnly` and `SameSite=Strict`. HTTPS adds `Secure`. Sessions in different browsers are independent. Each successful sign-in rotates the session ID. A Stud.GK session lasts at most seven days. If Stud.IP ends its session sooner, the application prompts you to sign in again. Automatic polling does not extend this lifetime.
 
-Сессии Stud.IP хранятся на сервере в `.data/sessions.enc`, зашифрованном AES-256-GCM. Ключ `.data/session.key` создаётся автоматически. Каталог имеет права `0700`, файлы сессий и ключа — `0600`. Эти файлы исключены из Git. Сессия сохраняется после перезапуска сервера. При выходе она удаляется, и прежняя cookie больше не даёт доступа к приватным API.
+Stud.IP sessions are stored on the server in `.data/sessions.enc`, encrypted with AES-256-GCM. The key in `.data/session.key` is generated automatically. The directory has permissions `0700`, and the session and key files have permissions `0600`. These files are excluded from Git. Sessions survive server restarts. Signing out deletes the session, and its previous cookie no longer grants access to private APIs.
 
-Запросы на изменение состояния принимают JSON и проверяют источник. Вход ограничен десятью неудачными попытками за пятнадцать минут с одного IP. Ошибка загрузки материалов после входа не отменяет успешную авторизацию.
+Requests that change state accept JSON and check the request origin. Sign-in is limited to ten failed attempts per fifteen minutes from one IP address. A failure to load materials after sign-in does not undo successful authentication.
 
-В режиме разработки сервер слушает `0.0.0.0`, а при `npm start` — `127.0.0.1`. Переменная `HOST` переопределяет адрес в обоих режимах. Это приложение для одного процесса Node.js. Публичное развёртывание и конфигурация HTTPS-прокси не входят в текущую настройку.
+The development server listens on `0.0.0.0`, while `npm start` listens on `127.0.0.1`. The `HOST` variable overrides the address in either mode. The application runs in a single Node.js process. Public deployment and HTTPS proxy configuration are outside the current setup.
 
-## Курсы и файлы
+## Courses and files
 
-Слева внутри курса находится узкая панель иконок. По умолчанию открыты файлы. Через плюс можно добавить Ankündigungen, Termine и Kursinfo; добавленные разделы исчезают из меню. Чтобы удалить дополнительную вкладку из панели, нажми правой кнопкой на её иконку и выбери «Удалить из панели». С клавиатуры это меню открывается через Shift+F10. При удалении активной вкладки открываются файлы. Названия иконок показаны при наведении и фокусе с клавиатуры. Набор вкладок сохраняется отдельно для каждого курса и аккаунта. Через плюс также можно добавить Nextcloud. В его вкладке введи публичную ссылку без пароля и нажми «Сохранить ссылку». Папки и файлы появятся прямо в приложении. На карточках видео показаны кадры из первых секунд записи. Превью загружаются по мере появления карточек на экране и хранятся в памяти. Видео и аудио открываются во встроенном плеере с перемоткой, PDF — в просмотрщике Stud.GK, изображения и текст — в окне просмотра. Другие форматы можно скачать. Шестерёнка в верхней строке курса открывает меню обновления файлов, изменения ссылки и перехода в браузер. Поддерживаются публичные ссылки новых и старых установок Nextcloud через WebDAV; вход в аккаунт Nextcloud и ссылки с паролем пока не поддерживаются. Ссылка хранится локально отдельно для каждого курса и аккаунта и сохраняется после перезапуска. Удаление вкладки из панели не стирает ссылку. Остальные вкладки используют уже загруженные данные Stud.IP. Объявления показаны компактными карточками с названием, датой и текстом. У длинных постов есть кнопка «Weiterlesen», ссылки в тексте открываются в браузере. Связанные изменения помечаются прочитанными, когда карточка появляется на экране. Выбранный раздел входит в адрес страницы, поэтому работают возврат и переход вперёд.
+A narrow icon sidebar appears on the left inside each course. Files open by default. Use the plus button to add Announcements, Schedule, and Course info. Sections disappear from the menu once added. To remove an extra tab, right-click its icon and select "Remove from sidebar". Use Shift+F10 to open the same menu from the keyboard. Removing the active tab returns you to files. Icon labels appear on hover and keyboard focus. Tabs are saved separately for each course and account.
 
-Через плюс на боковой панели курса можно добавить GitLab и привязать несколько проектов с GitLab.com или собственных серверов, включая вложенные группы. В строке курса рядом с шестерёнкой показано имя выбранного проекта. Нажми на него, чтобы выбрать другой проект или «Добавить проект». В выпадающем меню видны группа, имя и сервер каждого проекта. Переключатель не занимает отдельную строку над файлами. Изменение ссылки и отвязка применяются к выбранному проекту. Существующие одиночные привязки переносятся в список автоматически. Ветка выбирается над деревом файлов. Папки загружаются по мере раскрытия, со всеми страницами списка, и сохраняют раскрытие при обновлении. Над просмотром файла показана компактная полоса последнего коммита выбранной ветки: сообщение, автор, время, ссылка с коротким SHA и кнопка копирования полного SHA. Шестерёнка в строке курса открывает обновление файлов, доступ GitLab, смену ссылки и отвязку проекта.
+You can also add Nextcloud through the plus button. In its tab, enter a public link without a password and select "Save link". Folders and files appear inside the application. Video cards show frames from the first few seconds. Previews load as cards enter the screen and are kept in memory. Video and audio open in the built-in player with seeking, PDFs open in the Stud.GK viewer, and images and text open in a preview window. Other formats can be downloaded. The gear button in the course header opens a menu to refresh files, edit the link, or open it in a browser.
 
-Кнопка «История» в полосе коммита заменяет дерево файлов слева компактным списком коммитов этой ветки, сгруппированных по дням. В строке коммита показаны заголовок, автор и время; SHA выбранного коммита находится в верхней полосе. Повторное нажатие «История» возвращает дерево и открытый ранее файл. Выбери коммит, чтобы увидеть его полное сообщение и дифф по файлам с номерами строк, добавлениями и удалениями. Дифф использует ту же подсветку синтаксиса, что и просмотр файла. Каждая сторона изменения подсвечивается отдельно, с сохранением многострочных комментариев и строк внутри блока изменений. Для неизвестных языков и диффов длиннее 200 тысяч символов остаётся обычный текст. Нажатие на сообщение коммита в полосе сразу открывает его дифф. При выборе коммита в истории полоса показывает его данные. История загружается по 30 коммитов, файлы диффа по 20, остальные можно догрузить кнопкой. Переименования, удаления и изменения прав отмечаются отдельно. Для бинарных файлов и диффов, содержимое которых GitLab не вернул, показано пояснение. [Лимиты диффов GitLab](https://docs.gitlab.com/api/commits/#retrieve-commit-diff) могут ограничить число возвращаемых файлов; полный коммит доступен по ссылке с SHA. Видимые полосы прокрутки скрыты; прокрутка колесом, тачпадом и клавиатурой сохраняется.
+Public links from newer and older Nextcloud installations are supported through WebDAV. Nextcloud account sign-in and password-protected links are not supported yet. Links are stored locally for each course and account and survive restarts. Removing the tab does not delete its link.
 
-Выбранный файл открывается справа от дерева. У кода есть номера строк и подсветка Kotlin, Java, TypeScript, JavaScript, Python и других подключённых языков; для текстов длиннее 200 тысяч символов подсветка отключается. Файлы и конфигурации имеют иконки языков и инструментов. Дерево поддерживает стрелки, Enter и пробел. Escape закрывает просмотр и возвращает фокус в дерево. Markdown отображается с таблицами и подсветкой блоков кода. Изображения, PDF, аудио и видео открываются внутри просмотра файла. HTML и JavaScript из репозитория не исполняются. Текстовый просмотр ограничен 2 МиБ; бинарные файлы и слишком большие тексты нужно открывать на сайте GitLab.
+The other tabs use Stud.IP data that has already been loaded. Announcements appear as compact cards with a title, date, and text. Long posts have a "Read more" button. Links in the text open in a browser. Related changes are marked as read when the card enters the screen. The selected section is included in the page URL, so back and forward navigation work.
 
-Для публичных проектов токен не нужен. Один личный токен с правом `read_api` используется для всех твоих проектов на одном сервере GitLab, в том числе в разных курсах. Введи его один раз через шестерёнку → «Доступ GitLab». Если токена ещё нет, ссылка «Создать токен в GitLab» откроет сервер привязанного проекта с заполненными названием `Stud.GK` и правом `read_api`. Подключённый токен автоматически применяется к новым проектам на этом сервере для твоего аккаунта Stud.IP, включая другие окна и сессии приложения. В «Доступ GitLab» можно проверить подключение, заменить или удалить токен сразу для всех проектов сервера. Доступ к конкретному проекту зависит от прав твоего аккаунта GitLab. Токен привязан к аккаунту Stud.IP и серверу GitLab. Он сохраняется после выхода, истечения сессии, повторного входа и обновления приложения, если каталог данных сохранён. Для удаления используй «Доступ GitLab» → «Удалить токен для всех проектов». Он не возвращается браузеру и не попадает в `.data/state.json`. Запросы с токеном требуют HTTPS, проверяют публичный IP сервера и не следуют перенаправлениям. Ошибки доступа GitLab не завершают сессию Stud.IP.
+Use the plus button in the course sidebar to add GitLab and link several projects from GitLab.com or self-hosted servers, including projects in nested groups. The selected project name appears beside the gear button in the course header. Select it to switch projects or choose "Add project". The dropdown shows each project's group, name, and server. The selector does not add a separate row above the files. Editing a link or unlinking a project applies to the selected project. Existing single-project links are migrated to lists automatically. Select a branch above the file tree. Folders load when expanded, including every page of results, and retain their expanded state when refreshed. A compact bar above the file preview shows the selected branch's latest commit, its message, author, time, a link with the short SHA, and a button to copy the full SHA. The gear button in the course header lets you refresh files, manage GitLab access, change the link, and unlink the project.
 
-Токены хранятся отдельно от сессий в `.data/gitlab-tokens.enc`, зашифрованном AES-256-GCM. Для настольного приложения файл находится в `${XDG_CONFIG_HOME:-~/.config}/Campus/data`. Ключ выводится из `session.key` отдельно от ключа сессий; права файла — `0600`. При переносе данных сохраняй и `session.key`. При первом запуске после обновления приложение переносит токены из старых сессий, включая истёкшие записи, и удаляет прежние копии после сохранения. Уже удалённые сессии восстановить нельзя.
+The "History" button in the commit bar replaces the file tree on the left with a compact list of commits from that branch, grouped by day. Each row shows the commit title, author, and time. The selected commit's SHA appears in the top bar. Select "History" again to return to the tree and the previously opened file. Select a commit to see its full message and file diffs with line numbers, additions, and deletions. Diffs use the same syntax highlighting as file previews. Each side is highlighted separately, preserving multiline comments and strings within a change block. Unknown languages and diffs longer than 200,000 characters use plain text.
 
-Привязки проектов сохраняются отдельно для каждого аккаунта после обновления курсов и перезапуска. В демо ссылки сохраняются в браузере и открывают пример репозитория.
+Selecting the commit message in the bar opens its diff directly. Selecting a commit in history updates the bar to show that commit's details. History loads 30 commits at a time, and diffs load 20 files at a time. Buttons load additional results. Renames, deletions, and permission changes are marked separately. Binary files and diffs whose content GitLab did not return have explanatory messages. [GitLab diff limits](https://docs.gitlab.com/api/commits/#retrieve-commit-diff) may restrict the number of returned files. The full commit is available through the SHA link. Scrollbars are hidden, but scrolling with a wheel, touchpad, or keyboard still works.
 
-Внутри курса две кнопки с иконками переключают «Все файлы / Папки». Режим «Все файлы» показывает плитку с миниатюрами, а «Папки» — проводник с исходной структурой Stud.IP слева и списком файлов справа. Выбранный режим сохраняется между запусками. Папки загружаются по запросу; доступны раскрытие вложенных папок и кнопки «Назад» и «Вперёд». Открытая папка выделена в списке слева. Возврат к «Всем файлам» снова показывает материалы всего курса. Просмотр папок не помечает файлы прочитанными и не меняет историю уведомлений.
+The selected file opens to the right of the tree. Code has line numbers and syntax highlighting for Kotlin, Java, TypeScript, JavaScript, Python, and other included languages. Highlighting is disabled for text longer than 200,000 characters. Files and configuration files have language and tool icons. The tree supports arrow keys, Enter, and Space. Escape closes the preview and returns focus to the tree. Markdown renders tables and highlighted code blocks. Images, PDFs, audio, and video open within the file preview. HTML and JavaScript from the repository are not executed. Text previews are limited to 2 MiB. Open binary files and larger text files on the GitLab website.
 
-Главная страница показывает карточки всех курсов с количеством доступных файлов и непрочитанных изменений файлов. Карточки можно перетаскивать мышью, а на сенсорном экране — за ручку в правом нижнем углу. На ручке также работают стрелки клавиатуры. Порядок сохраняется в браузере; новые курсы добавляются в конец.
+Public projects do not need a token. One personal access token with the `read_api` scope is used for all your projects on the same GitLab server, including projects in different courses. Enter it once through the gear menu's "GitLab access" option. If you do not have a token, "Create token in GitLab" opens the linked project's server with the name `Stud.GK` and the `read_api` scope prefilled. A connected token is applied automatically to new projects on that server for your Stud.IP account, including other application windows and sessions.
 
-Нажатие на курс открывает его файлы в сетке плиток с миниатюрами первой страницы PDF и изображений, именами и датами. Миниатюры PDF используют ту же адаптацию цветов Catppuccin Mocha, что и просмотрщик. Название курса находится рядом со ссылкой «Все курсы». Новые и изменённые файлы отмечены зелёной обводкой без текстовых лейблов. PDF открывается внутри приложения в собственном полноэкранном просмотрщике с палитрой Catppuccin Mocha. Светлые и тёмные страницы адаптируются к фону, тексту и акцентам Mocha. Фон блоков кода остаётся отличимым от бумаги. Цветной синтаксис сохраняет различия оттенков, а комментарии становятся читаемыми на новом фоне. Сглаживание текста учитывает исходный цвет бумаги. Кнопка с палитрой возвращает исходные цвета документа. Скачивается оригинальный PDF. Страницы идут непрерывной лентой; номер текущей страницы обновляется при прокрутке. Можно выделять текст, менять масштаб, переходить по номеру страницы и скачивать файл. Процент масштаба подгоняет документ по ширине, а кнопка раскрытия включает полноэкранный режим. Страницы рядом с видимой областью отрисовываются по мере прокрутки. Кнопка закрытия или Escape возвращает к карточкам. Другие форматы открываются в отдельной вкладке. Фильтров и отдельной вкладки обновлений нет. Файлы идут от самых новых к самым старым по дате изменения, а при её отсутствии — по дате создания. Файлы без даты находятся в конце. Ссылка «Все курсы» возвращает на главную; кнопки «Назад» и «Вперёд» браузера тоже работают. Ссылку на выбранный курс можно скопировать из адресной строки.
+In "GitLab access", you can check the connection, replace the token, or remove it for all projects on the server. Access to individual projects depends on your GitLab account permissions. The token is tied to your Stud.IP account and the GitLab server. It survives sign-out, session expiry, signing back in, and application updates as long as the data directory is retained. To remove it, use "GitLab access" and select "Remove token for all projects". It is never returned to the browser or written to `.data/state.json`. Requests with a token require HTTPS, check that the server IP is public, and do not follow redirects. GitLab access errors do not end the Stud.IP session.
 
-После первого входа сервер сохраняет исходное состояние курсов текущего семестра. Уже существующие материалы не выдаются за новые. Затем он проверяет файлы, объявления, расписание и основные сведения курсов раз в пять минут. Браузер получает данные раз в тридцать секунд. Если проверка не удалась и список пуст, доступна кнопка повторной проверки.
+Tokens are stored separately from sessions in `.data/gitlab-tokens.enc`, encrypted with AES-256-GCM. For the desktop application, the file is in `${XDG_CONFIG_HOME:-~/.config}/Campus/data`. Its key is derived from `session.key` separately from the session encryption key. The file has permissions `0600`. Keep `session.key` when migrating data. On the first launch after an update, the application migrates tokens from older sessions, including expired records, and removes the previous copies after saving them. Sessions that have already been deleted cannot be recovered.
 
-Нажатие на файл открывает просмотр в новой вкладке браузера через сохранённую серверную сессию Stud.IP. PDF, изображения, аудио, видео и текстовые файлы передаются для просмотра; HTML и SVG показываются как текст. Если браузер не поддерживает формат, открывается страница с кнопкой скачивания без автоматической загрузки файла. Завершённая полная передача помечает связанные уведомления прочитанными; история остаётся доступной через API. Снимки и история хранятся в `.data/state.json` отдельно для каждого аккаунта; сохраняются последние 2000 изменений.
+Project links are saved separately for each account and survive course refreshes and restarts. In demo mode, links are stored in the browser and open an example repository.
 
-При первой полной загрузке Stud.GK передаёт файл потоком и сохраняет его в дисковый кеш. Миниатюры, просмотр и скачивание используют общую копию, которая сохраняется после перезапуска. Кеш находится в `.data/files` браузерной версии или в каталоге `data/files` настольного приложения. Общий лимит содержимого кеша — 512 МиБ; при заполнении удаляются файлы, к которым дольше всего не обращались. Более крупные файлы передаются без кеширования. Прерванные передачи и ответы с частью файла не сохраняются. Если целый файл уже есть в кеше, запросы диапазонов байтов обслуживаются из него.
+Two icon buttons inside a course switch between "All files" and "Folders". "All files" shows a thumbnail grid. "Folders" shows the original Stud.IP folder structure on the left and files on the right. The selected view survives restarts. Folders load on demand. You can expand subfolders and use back and forward navigation. The open folder is highlighted in the list on the left. Returning to "All files" shows materials from the entire course again. Browsing folders does not mark files as read or change notification history.
 
-Копии разделены по аккаунтам и доступны только через действующую сессию Stud.GK. После обновления курсов сервер удаляет кеш изменённых, исчезнувших и недоступных файлов. Содержимое файлов хранится без шифрования; права каталога кеша — `0700`, файлов — `0600`. Для полной очистки кеша закрой приложение и удали каталог `files` из его каталога данных.
+The home page shows cards for all courses with counts of available files and unread file changes. Drag cards with a mouse or use the handle in the bottom-right corner on a touchscreen. The handle also supports keyboard arrow keys. The order is saved in the browser, and new courses are appended at the end.
 
-Сведения о недоступных файлах показаны в карточке курса и внутри него.
+Opening a course shows its files in a grid with first-page PDF thumbnails, image thumbnails, filenames, and dates. PDF thumbnails use the same Catppuccin Mocha color adaptation as the viewer. The course title appears beside the "All courses" link. New and modified files have a green outline without text labels.
 
-Если Stud.IP запрещает чтение отдельного раздела курса с ответом 403, остальные разделы продолжают отслеживаться. Интерфейс сообщает об ограниченном доступе. Последние данные недоступного раздела сохраняются и не считаются удалёнными. После восстановления доступа раздел получает новую исходную точку сравнения, чтобы изменения за период без доступа не выдавались за новые. Ошибки связи, истечение сессии и другие ошибки отменяют обновление снимка целиком.
+PDFs open in the application's fullscreen viewer with a Catppuccin Mocha palette. Light and dark pages adapt to Mocha backgrounds, text, and accents. Code block backgrounds remain distinct from the page. Syntax colors retain distinct hues, and comments remain readable against the new background. Text antialiasing accounts for the original paper color. The palette button restores the document's original colors. Downloads always contain the original PDF.
 
-Изменения между двумя опросами, которые успели исчезнуть до следующего, обнаружить нельзя. Исчезновение объекта из доступного списка может означать удаление или изменение прав доступа. Форум, wiki и Courseware пока не подключены.
+Pages form a continuous scroll, and the current page number updates as you scroll. You can select text, zoom, jump to a page number, and download the file. Selecting the zoom percentage fits the document to the available width. The expand button enables fullscreen mode. Pages near the visible area render as you scroll. The close button or Escape returns you to the cards. Other formats open in a separate tab. There are no filters or separate updates tab. Files are sorted from newest to oldest by modification date, falling back to creation date. Files without dates appear last. "All courses" returns to the home page. Browser back and forward buttons work too. You can copy the selected course's URL from the address bar.
 
-## Чтение данных
+After the first sign-in, the server saves a baseline for courses in the current semester. Existing materials are not reported as new. It then checks files, announcements, schedules, and basic course information every five minutes. The browser retrieves data every thirty seconds. If a check fails and the list is empty, you can retry it.
 
-Единственный POST к Stud.IP — отправка его формы входа. Данные Stud.IP загружаются через GET. Для публичных ссылок Nextcloud используются PROPFIND с глубиной 1 для списка папок и GET для содержимого файлов. Запросов записи в Nextcloud нет; университетские cookies туда не передаются. Перенаправления не выполняются, соединения с локальными и служебными IP-адресами запрещены. Stud.GK не редактирует материалы или настройки Stud.IP. Для видимых плиток PDF и изображений браузер загружает данные миниатюр. Для PDF отображается первая страница; миниатюры хранятся только в памяти браузера и очищаются при смене аккаунта. Их загрузка не помечает файлы прочитанными. Полный просмотр открывается по нажатию. Для этого используется [штатный адрес sendfile.php](https://hilfe.studip.de/admin/Admins/Installationsanleitung). Ссылки пагинации и перенаправления при входе проверяются: учётные данные и cookie не отправляются на другие сайты.
+File preview links open a new browser tab using the Stud.IP session stored on the server. PDFs, images, audio, video, and text files are streamed for preview. HTML and SVG are shown as text. If the browser does not support a format, a page with a download button opens without downloading automatically. A completed full transfer marks related notifications as read. History remains available through the API. Snapshots and history are stored separately for each account in `.data/state.json`, retaining the latest 2,000 changes.
 
-Маршруты данных:
+On the first complete load, Stud.GK streams the file and saves it to a disk cache. Thumbnails, previews, and downloads share the same copy, which survives restarts. The cache is in `.data/files` for the browser version or `data/files` in the desktop application's data directory. Cached content is limited to 512 MiB. When full, the cache evicts the least recently accessed files. Larger files are streamed without caching. Interrupted transfers and partial-file responses are not stored. If a complete file is already cached, byte-range requests are served from it.
+
+Cached copies are separated by account and require a valid Stud.GK session. After refreshing courses, the server removes cached files that changed, disappeared, or became inaccessible. File contents are stored without encryption. Cache directories have permissions `0700`, and files have permissions `0600`. To clear the cache completely, close the application and delete the `files` directory from its data directory.
+
+Information about inaccessible files appears on the course card and inside the course.
+
+If Stud.IP returns 403 for a particular course section, the other sections continue to be tracked. The interface reports the restricted access. The section's last known data is retained and is not treated as deleted. When access returns, the section gets a new baseline so that changes made while access was unavailable are not reported as new. Connection errors, expired sessions, and other errors cancel the entire snapshot update.
+
+Changes that appear and disappear between polls cannot be detected. An object disappearing from an accessible list may mean deletion or a change in access permissions. Forums, wiki, and Courseware are not connected yet.
+
+## Reading data
+
+The only POST request to Stud.IP submits its sign-in form. Stud.IP data is loaded through GET requests. Public Nextcloud shares use PROPFIND with depth 1 for folder listings and GET for file contents. Stud.GK sends no write requests to Nextcloud and never forwards university cookies there. It does not follow redirects, and connections to local and special-purpose IP addresses are blocked. Stud.GK does not edit Stud.IP materials or settings.
+
+The browser loads thumbnail data for visible PDF and image tiles. PDF thumbnails show the first page. Thumbnails are kept only in browser memory and cleared when switching accounts. Loading them does not mark files as read. Selecting a file opens its full preview through the [standard sendfile.php endpoint](https://hilfe.studip.de/admin/Admins/Installationsanleitung). Pagination links and sign-in redirects are checked so that credentials and cookies are not sent to other sites.
+
+Data routes:
 
 ```text
 GET /jsonapi.php/v1/users/me
@@ -121,7 +137,7 @@ GET /jsonapi.php/v1/courses/{id}/news
 GET /jsonapi.php/v1/courses/{id}/events
 ```
 
-Локальный API:
+Local API:
 
 ```text
 POST /api/auth/login          { "username": "...", "password": "..." }
@@ -151,30 +167,26 @@ GET  /api/nextcloud/file/preview?share=…&path=…&backend=dav
 GET  /api/nextcloud/file/download?share=…&path=…&backend=dav
 ```
 
-Чтобы изменить ссылку или отвязать выбранный GitLab-проект, отправь на `/api/courses/{id}/gitlab/projects/{projectId}` новую ссылку `{ "url": "https://gitlab.com/group/project" }` или объект `{ "url": null }`. Чтобы удалить сохранённый токен сервера для своего аккаунта Stud.IP во всех сессиях, отправь на `/api/courses/{id}/gitlab/projects/{projectId}/token` объект `{ "token": null }`.
+To edit or unlink the selected GitLab project, send a new URL as `{ "url": "https://gitlab.com/group/project" }` or `{ "url": null }` to `/api/courses/{id}/gitlab/projects/{projectId}`. To remove the server's saved token for your Stud.IP account across all sessions, send `{ "token": null }` to `/api/courses/{id}/gitlab/projects/{projectId}/token`.
 
-`gitlabProjects` в `/api/state` содержит список `{ id, url }` для каждого курса. Добавление и изменение проекта возвращают `{ project, projects }`. Повторная ссылка в одном курсе отклоняется с HTTP 409. Старые маршруты `/api/courses/{id}/gitlab` и `/api/courses/{id}/gitlab/...` продолжают работать с первым проектом курса.
+The `gitlabProjects` field in `/api/state` contains a list of `{ id, url }` objects for each course. Adding or editing a project returns `{ project, projects }`. Duplicate links in the same course are rejected with HTTP 409. The legacy `/api/courses/{id}/gitlab` and `/api/courses/{id}/gitlab/...` routes still operate on the course's first project.
 
-Приватные маршруты требуют действующую cookie Stud.GK. Скачать можно только файл из снимка текущего аккаунта. Stud.IP проверяет права при загрузке содержимого с сервера университета; доступ к кешу соответствует последнему успешному обновлению курсов. Cookies университета остаются на сервере. Перенаправления скачивания на внешние адреса не поддерживаются. `/api/state` без входа сообщает только статус авторизации; `/api/demo` содержит только демонстрационные данные. Ручная вставка университетской cookie и `STUDIP_COOKIE` больше не используются.
+Private routes require a valid Stud.GK cookie. Only files in the current account's snapshot can be downloaded. Stud.IP checks permissions when content is loaded from the university server. Cache access reflects the last successful course refresh. University cookies stay on the server. Download redirects to external addresses are not supported. Without sign-in, `/api/state` reports only authentication status. `/api/demo` contains only demonstration data. Manually entering a university cookie and using `STUDIP_COOKIE` are no longer supported.
 
-Форма входа сверена с текущей установкой Hochschule Flensburg. Схемы и маршруты сверены с [исходным кодом Stud.IP](https://gitlab.studip.de/studip/studip/-/blob/main/lib/classes/JsonApi/RouteMap.php). Автоматические проверки используют тестовый сервер университета; успешный вход в реальный аккаунт требует твоих данных в интерфейсе.
+The sign-in form has been checked against the current Hochschule Flensburg installation. Schemas and routes have been checked against the [Stud.IP source code](https://gitlab.studip.de/studip/studip/-/blob/main/lib/classes/JsonApi/RouteMap.php). Automated checks use a mock university server. Signing in to a real account requires entering your credentials in the interface.
 
-## Проверки
+## Checks
 
-Проверка интерфейса GitLab использует отдельный временный профиль и тестовый API, без обращения к приватным проектам. После `npm run build` запусти `xvfb-run -a npm run test:gitlab -- --no-sandbox --ozone-platform=x11`. Она проверяет добавление нескольких проектов в один курс, повторные ссылки, переключение, изменение и отвязку выбранного проекта, сохранение после перезагрузки, изоляцию токенов разных серверов, дерево папок, смену ветки, историю и диффы с догрузкой, повтор после ошибки, номера строк, переименования, бинарные и большие файлы, подсветку, Markdown, прокрутку и узкое окно.
+The GitLab interface check uses a separate temporary profile and a mock API without accessing private projects. After `npm run build`, run `xvfb-run -a npm run test:gitlab -- --no-sandbox --ozone-platform=x11`. It checks adding several projects to one course, duplicate links, switching projects, editing and unlinking the selected project, persistence after reload, token isolation between servers, the folder tree, branch switching, paginated history and diffs, retries after errors, line numbers, renames, binary and large files, highlighting, Markdown, scrolling, and a narrow window. GitLab PDFs use the shared reader, with checks for retries, text selection, page navigation, zoom, colors, download links, fullscreen mode, narrow layouts, and returning focus to the tree.
 
 ```sh
 npm test
 npm run build
 ```
 
-Сборка включает `npm run typecheck`: строгую проверку TypeScript интерфейса и
-проверку серверного JavaScript через `checkJs`. Общие типы состояния API, курсов,
-материалов и папок находятся в `shared/studip.ts`. Для сервера пока используется
-нестрогий режим, чтобы добавлять аннотации постепенно.
+The build includes `npm run typecheck`, which runs strict TypeScript checks for the interface and checks server JavaScript through `checkJs`. Shared types for API state, courses, materials, and folders are in `shared/studip.ts`. The server currently uses non-strict mode so annotations can be added gradually.
 
-Каждый PR в `master` проходит тесты, проверку типов, сборку и три проверки
-интерфейса под Xvfb. Локально после сборки их можно запустить так:
+Every PR targeting `master` runs tests, type checks, a build, and three interface checks under Xvfb. After building locally, you can run them with:
 
 ```sh
 xvfb-run -a npm run test:desktop -- --no-sandbox --ozone-platform=x11
@@ -182,10 +194,8 @@ xvfb-run -a npm run test:gitlab -- --no-sandbox --ozone-platform=x11
 xvfb-run -a npm run test:session -- --no-sandbox --ozone-platform=x11
 ```
 
-Последняя проверка использует подставные ответы API и управляемые таймеры. Она
-проверяет медленный опрос, запоздавший ответ после выхода, истечение сессии и
-переход в демо. Реальные учётные данные для этих проверок не нужны.
+The last check uses mock API responses and controlled timers. It checks slow polling, a late response after sign-out, session expiry, and switching to demo mode. These checks do not need real credentials.
 
-Тесты проверяют вход через форму с CSRF, перенаправления и cookies, ошибки пароля, изоляцию аккаунтов, ротацию идентификатора сессии, восстановление после перезапуска, выход, истечение срока, шифрование, ограничение попыток входа и обнаружение изменений. Для скачивания проверяются права аккаунтов, передача бинарных данных, диапазоны, отмена передачи и отметки прочитанного. Проверки кеша охватывают повторное использование файлов, восстановление после перезапуска, разделение аккаунтов, смену версии и прав доступа, вытеснение старых файлов и очистку незавершённых передач. Проверки цветов PDF охватывают светлые и тёмные страницы, смешанные фоны, цветной синтаксис, сглаживание текста и высокую плотность пикселей.
+Tests cover form sign-in with CSRF, redirects and cookies, incorrect passwords, account isolation, session ID rotation, recovery after a restart, sign-out, expiry, encryption, sign-in rate limits, and change detection. Download checks cover account permissions, binary streaming, byte ranges, cancellation, and read marks. Cache checks cover file reuse, recovery after a restart, account separation, version and permission changes, eviction of old files, and cleanup of incomplete transfers. PDF color checks cover light and dark pages, mixed backgrounds, syntax colors, text antialiasing, and high pixel density.
 
-Палитра: [Catppuccin](https://catppuccin.com/palette/). Иконки: Lucide. Шрифт: Manrope с системным запасным шрифтом.
+Palette: [Catppuccin](https://catppuccin.com/palette/). Icons: Lucide. Font: Manrope with a system fallback.

@@ -8,8 +8,8 @@ function notifyNewFiles(feed: Feed, previousSync: string | null) {
   try {
     if (!("Notification" in window) || Notification.permission !== "granted" || localStorage.getItem("campus-notifications") !== "true") return;
     const fresh = feed.changes.filter((change) => !change.read && change.kind === "file" && change.action !== "removed" && Date.parse(change.occurredAt) > Date.parse(previousSync));
-    if (fresh.length) new Notification("Stud.GK · Новые изменения", {
-      body: `${fresh.length} обновлений в твоих курсах.`, icon: "/favicon.svg",
+    if (fresh.length) new Notification("Stud.GK · New changes", {
+      body: `${fresh.length} ${fresh.length === 1 ? "update" : "updates"} in your courses.`, icon: "/favicon.svg",
     });
   } catch { /* Notifications and browser storage are optional. */ }
 }

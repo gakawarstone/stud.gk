@@ -1,6 +1,6 @@
 // Shared with the project form; keep this module free of Node-only imports.
 export function normalizeGitlabProject(value) {
-  const message = "Вставь ссылку на проект GitLab, например https://gitlab.com/group/project.";
+  const message = "Paste a GitLab project URL, for example https://gitlab.com/group/project.";
   if (typeof value !== "string" || value.length > 2048) throw new Error(message);
   let url;
   try {

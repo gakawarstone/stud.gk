@@ -65,7 +65,7 @@ export function FileThumbnail({
       {failed ? (
         <span className="thumbnail-fallback">
           {kind === "pdf" ? <PdfFileIcon size={28} /> : kind === "video" ? <Film size={28} strokeWidth={1.4} /> : <FileText size={28} strokeWidth={1.4} />}
-          <span>Превью недоступно</span>
+          <span>Preview unavailable</span>
         </span>
       ) : visible && (kind === "image" || src) ? (
         <img
@@ -81,7 +81,7 @@ export function FileThumbnail({
         <LoaderCircle
           className="thumbnail-loading spin"
           size={20}
-          aria-label="Загружаем превью"
+          aria-label="Loading preview"
         />
       )}
     </div>

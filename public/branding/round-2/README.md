@@ -1,21 +1,21 @@
-# Раунд 2: курс как маршрут
+# Round 2: a course as a route
 
-Варианты 11–20 продолжают выбранные №2, №7 и №10. Основное направление — маршрут №7.
+Concepts 11 through 20 develop the selected concepts #2, #7, and #10. The main direction follows route #7.
 
-Открой `/branding/round-2/index.html`. Можно сравнить новые варианты с тремя старыми фаворитами, включить монохром и светлый фон. Примерка показывает знак в шапке и на двух образцах карточек курсов. Доработанный №12 установлен в шапке приложения вместо первой буквы S в Stud.GK.
+Open `/branding/round-2/index.html`. You can compare the new concepts with the three earlier favourites, enable monochrome mode, and switch to a light background. The preview shows the mark in the header and on two sample course cards. The refined #12 replaces the initial S in Stud.GK in the application header.
 
-## Направления
+## Directions
 
-- 11–13: развитие маршрута S.
-- 14 и 16: складка и цветные секции.
-- 15: ветвящийся курс K.
-- 17, 18 и 20: рукописный маршрут.
-- 19: морская отсылка через фарватер S.
+- 11 through 13 develop the S route.
+- 14 and 16 use folds and colored sections.
+- 15 explores a branching course K.
+- 17, 18, and 20 use a handwritten route.
+- 19 references the sea with an S-shaped fairway.
 
-Все SVG используют `viewBox="0 0 64 64"`, прозрачный фон и `currentColor`. В цветных вариантах дополнительные цвета можно задать переменными `--course-b` и `--course-c` при вставке SVG в HTML. Исходники не зависят от шрифтов и растровых изображений.
+All SVGs use `viewBox="0 0 64 64"`, a transparent background, and `currentColor`. When embedding colored variants in HTML, you can set their additional colors with the `--course-b` and `--course-c` variables. The source files do not depend on fonts or raster images.
 
-Вдохновение для модульной структуры: [айдентика HS Flensburg](https://www.frauloh.de/corporate-identity-und-design-fuer-die-hochschule-flensburg/), Franziska Loh, Nele Kattelmann и Tobias Hiep. Это самостоятельные эскизы Stud.GK, а не официальный знак вуза.
+The modular structure takes inspiration from the [HS Flensburg identity](https://www.frauloh.de/corporate-identity-und-design-fuer-die-hochschule-flensburg/) by Franziska Loh, Nele Kattelmann, and Tobias Hiep. These are independent Stud.GK sketches, not the university's official mark.
 
-## Выбранный вариант
+## Selected concept
 
-Выбран **№12 · Модульный маршрут**. Геометрия доработана: симметрия поворотом на 180°, единая толщина линии, равные просветы и более плавные повороты. [Сравнение до и после](12-refined.html). Основной SVG: [12-module-route.svg](12-module-route.svg).
+The selected concept is **#12 · Modular route**. Its geometry has been refined with 180° rotational symmetry, a consistent stroke width, equal gaps, and smoother turns. See the [before and after comparison](12-refined.html). Main SVG: [12-module-route.svg](12-module-route.svg).
