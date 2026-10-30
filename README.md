@@ -29,11 +29,11 @@ Stud.GK builds for Linux x86_64 are available in [GitHub Releases](https://githu
 To run the AppImage:
 
 ```sh
-chmod +x Stud.GK-1.0.0-linux-x86_64.AppImage
-./Stud.GK-1.0.0-linux-x86_64.AppImage
+chmod +x Stud.GK-0.0.1-linux-x86_64.AppImage
+./Stud.GK-0.0.1-linux-x86_64.AppImage
 ```
 
-If your system does not have FUSE, run `./Stud.GK-1.0.0-linux-x86_64.AppImage --appimage-extract-and-run`.
+Substitute the version of the file you downloaded. If your system does not have FUSE, run `./Stud.GK-0.0.1-linux-x86_64.AppImage --appimage-extract-and-run`.
 
 The application starts its server on `127.0.0.1` only, selects an available port, and saves it for future launches. If that port is in use, it selects a new one. The course card order is tied to the address and resets if the port changes. Normal updates preserve the order. Course data and encrypted sessions are stored in `${XDG_CONFIG_HOME:-~/.config}/Campus/data`, and the window profile is stored in the `Campus` directory. The legacy directory name is retained so that upgrading to Stud.GK preserves sessions and settings. Data from the browser version's `.data` directory is not migrated automatically. Use the sign-in form in the desktop window to sign in.
 
@@ -56,7 +56,19 @@ npm run test:desktop
 xvfb-run -a npm run test:desktop
 ```
 
-Every push to the main branch, `master`, runs GitHub Actions to test the code, build the AppImage, check the packaged application, and publish a release containing only the AppImage. Versions and tags follow the forms `1.0.0-build.2` and `v1.0.0-build.2`. The base version comes from `package.json`, and the build number comes from GitHub Actions. Each release is tied to the pushed commit. Rerunning the same build updates its AppImage. Manually running the workflow on `master` also publishes a release. The release job does not run on other branches.
+## Releases
+
+The project is in alpha. Versions use plain numbers such as `0.0.1` and `0.0.2`, without `alpha` suffixes or build numbers. A release tag looks like `v0.0.1`, and its application file is `Stud.GK-0.0.1-linux-x86_64.AppImage`. A larger release can use `0.1.0`.
+
+Pushes to `master` and pull requests run checks without publishing releases. To publish a release, manually run **Linux desktop release** on `master` and enter a new version in the `version` field. With GitHub CLI:
+
+```sh
+gh workflow run linux-release.yml --ref master -f version=0.0.1
+```
+
+The workflow updates `package.json` and `package-lock.json` to the requested version in its build directory only, without committing to the repository. It runs tests, type checks, the AppImage build, and a check of the packaged application. After these checks pass, it tags the workflow's commit and publishes a GitHub Release with the AppImage and generated release notes. The new release is explicitly marked Latest, including when switching from the old `1.0.0` numbering to `0.0.1`.
+
+Existing tags cannot be released again. Use a new version to fix a published application. The old `v1.0.0` and `v1.0.0-build.*` tags remain as a record of the previous numbering scheme.
 
 ## Authentication
 
