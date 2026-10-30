@@ -1,29 +1,6 @@
-import {
-  CalendarDays,
-  Cloud,
-  FolderClosed,
-  GitFork,
-  Info,
-  Megaphone,
-  Plus,
-  Trash2,
-  X,
-} from "lucide-solid";
-import {
-  batch,
-  createEffect,
-  createMemo,
-  createSignal,
-  For,
-  on,
-  onCleanup,
-} from "solid-js";
-import {
-  extraCourseTabs,
-  isExtraCourseTab,
-  type CourseTab,
-  type ExtraCourseTab,
-} from "./course-tabs";
+import { CalendarDays, Cloud, FolderClosed, GitFork, Info, Megaphone, Plus, Trash2, X } from "lucide-solid";
+import { batch, createEffect, createMemo, createSignal, For, on, onCleanup } from "solid-js";
+import { extraCourseTabs, isExtraCourseTab, type CourseTab, type ExtraCourseTab } from "./course-tabs";
 export const courseTabs = {
   files: { label: "Dateien", Icon: FolderClosed },
   news: { label: "Ankündigungen", Icon: Megaphone },
@@ -41,33 +18,24 @@ export function CourseSidebar(props: {
   const [tabs, setTabs] = createSignal<ExtraCourseTab[]>(
     (() => {
       try {
-        const saved: unknown = JSON.parse(
-          localStorage.getItem(props.storageKey) || "[]",
-        );
-        return Array.isArray(saved)
-          ? [...new Set(saved.filter(isExtraCourseTab))]
-          : [];
+        const saved: unknown = JSON.parse(localStorage.getItem(props.storageKey) || "[]");
+        return Array.isArray(saved) ? [...new Set(saved.filter(isExtraCourseTab))] : [];
       } catch {
         return [];
       }
     })(),
   );
-  const [openMenu, setOpenMenu] = createSignal<"add" | ExtraCourseTab | null>(
-    null,
-  );
+  const [openMenu, setOpenMenu] = createSignal<"add" | ExtraCourseTab | null>(null);
   let sidebar: HTMLElement | null = null;
   let addButton: HTMLButtonElement | null = null;
   let menu: HTMLDivElement | null = null;
   let pendingFocus: (CourseTab | null) | null = null;
   const visibleTabs = createMemo<CourseTab[]>(() => {
     const visible: CourseTab[] = ["files", ...tabs()];
-    if (props.activeTab !== "files" && !visible.includes(props.activeTab))
-      visible.push(props.activeTab);
+    if (props.activeTab !== "files" && !visible.includes(props.activeTab)) visible.push(props.activeTab);
     return visible;
   });
-  const availableTabs = createMemo(() =>
-    extraCourseTabs.filter((tab) => !visibleTabs().includes(tab)),
-  );
+  const availableTabs = createMemo(() => extraCourseTabs.filter((tab) => !visibleTabs().includes(tab)));
   createEffect(
     on(
       () => [props.storageKey, tabs()],
@@ -86,10 +54,7 @@ export function CourseSidebar(props: {
       () => {
         const tab = pendingFocus;
         pendingFocus = null;
-        if (tab)
-          sidebar
-            ?.querySelector<HTMLButtonElement>(`[data-course-tab="${tab}"]`)
-            ?.focus();
+        if (tab) sidebar?.querySelector<HTMLButtonElement>(`[data-course-tab="${tab}"]`)?.focus();
       },
     ),
   );
@@ -116,12 +81,7 @@ export function CourseSidebar(props: {
           const previous = openMenu();
           setOpenMenu(null);
           if (previous === "add") addButton?.focus();
-          else
-            sidebar
-              ?.querySelector<HTMLButtonElement>(
-                `[data-course-tab="${previous}"]`,
-              )
-              ?.focus();
+          else sidebar?.querySelector<HTMLButtonElement>(`[data-course-tab="${previous}"]`)?.focus();
         }
         document.addEventListener("pointerdown", outside);
         document.addEventListener("keydown", escape);
@@ -139,9 +99,7 @@ export function CourseSidebar(props: {
   }
   function add(tab: ExtraCourseTab) {
     batch(() => {
-      setTabs((current) =>
-        current.includes(tab) ? current : [...current, tab],
-      );
+      setTabs((current) => (current.includes(tab) ? current : [...current, tab]));
       select(tab);
     });
   }
@@ -158,16 +116,10 @@ export function CourseSidebar(props: {
         ref={(element) => (menu = element)}
         class="course-add-menu"
         role="menu"
-        aria-label={
-          kind === "add" ? "Добавить вкладку" : courseTabs[kind].label
-        }
+        aria-label={kind === "add" ? "Добавить вкладку" : courseTabs[kind].label}
         onKeyDown={(event) => {
-          const items = [
-            ...menu!.querySelectorAll<HTMLButtonElement>("button"),
-          ];
-          const current = items.indexOf(
-            document.activeElement as HTMLButtonElement,
-          );
+          const items = [...menu!.querySelectorAll<HTMLButtonElement>("button")];
+          const current = items.indexOf(document.activeElement as HTMLButtonElement);
           const next =
             event.key === "ArrowDown"
               ? (current + 1) % items.length
@@ -189,12 +141,7 @@ export function CourseSidebar(props: {
             {(tab) => {
               const { label, Icon } = courseTabs[tab];
               return (
-                <button
-                  type="button"
-                  role="menuitem"
-                  aria-label={`Добавить ${label}`}
-                  onClick={() => add(tab)}
-                >
+                <button type="button" role="menuitem" aria-label={`Добавить ${label}`} onClick={() => add(tab)}>
                   <Icon size={17} stroke-width={1.6} aria-hidden="true" />
                   <span>{label}</span>
                   <Plus size={15} class="course-add-mark" aria-hidden="true" />
@@ -217,86 +164,67 @@ export function CourseSidebar(props: {
     );
   }
   return (
-    <nav
-      ref={(element) => (sidebar = element)}
-      class="course-sidebar"
-      aria-label="Вкладки курса"
-    >
-      {
-        <For each={visibleTabs()}>
-          {(tab) => {
-            const { label, Icon } = courseTabs[tab];
-            return (
-              <div class="course-add-wrap">
-                <button
-                  type="button"
-                  class="course-rail-button"
-                  data-course-tab={tab}
-                  aria-label={label}
-                  aria-current={props.activeTab === tab ? "page" : undefined}
-                  onClick={() => {
-                    setOpenMenu(null);
-                    props.onSelect(tab);
-                  }}
-                  onContextMenu={
-                    tab === "files"
-                      ? undefined
-                      : (event) => {
+    <nav ref={(element) => (sidebar = element)} class="course-sidebar" aria-label="Вкладки курса">
+      <For each={visibleTabs()}>
+        {(tab) => {
+          const { label, Icon } = courseTabs[tab];
+          return (
+            <div class="course-add-wrap">
+              <button
+                type="button"
+                class="course-rail-button"
+                data-course-tab={tab}
+                aria-label={label}
+                aria-current={props.activeTab === tab ? "page" : undefined}
+                onClick={() => {
+                  setOpenMenu(null);
+                  props.onSelect(tab);
+                }}
+                onContextMenu={
+                  tab === "files"
+                    ? undefined
+                    : (event) => {
+                        event.preventDefault();
+                        setOpenMenu(tab);
+                      }
+                }
+                onKeyDown={
+                  tab === "files"
+                    ? undefined
+                    : (event) => {
+                        if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
                           event.preventDefault();
                           setOpenMenu(tab);
                         }
-                  }
-                  onKeyDown={
-                    tab === "files"
-                      ? undefined
-                      : (event) => {
-                          if (
-                            event.key === "ContextMenu" ||
-                            (event.shiftKey && event.key === "F10")
-                          ) {
-                            event.preventDefault();
-                            setOpenMenu(tab);
-                          }
-                        }
-                  }
-                >
-                  <Icon size={19} stroke-width={1.6} aria-hidden="true" />
-                  {tab === "news" && props.unreadNews && (
-                    <span class="course-rail-dot" />
-                  )}
-                  <span class="course-rail-tooltip" aria-hidden="true">
-                    {label}
-                  </span>
-                </button>
-                {tab !== "files" && openMenu() === tab && renderMenu(tab)}
-              </div>
-            );
-          }}
-        </For>
-      }
+                      }
+                }
+              >
+                <Icon size={19} stroke-width={1.6} aria-hidden="true" />
+                {tab === "news" && props.unreadNews && <span class="course-rail-dot" />}
+                <span class="course-rail-tooltip" aria-hidden="true">
+                  {label}
+                </span>
+              </button>
+              {tab !== "files" && openMenu() === tab && renderMenu(tab)}
+            </div>
+          );
+        }}
+      </For>
       <div class="course-add-wrap">
         <button
           ref={(element) => (addButton = element)}
           type="button"
           class="course-rail-button"
-          aria-label={
-            openMenu() === "add" ? "Закрыть меню вкладок" : "Добавить вкладку"
-          }
+          aria-label={openMenu() === "add" ? "Закрыть меню вкладок" : "Добавить вкладку"}
           disabled={!availableTabs().length}
           aria-expanded={openMenu() === "add"}
           aria-haspopup="menu"
           onClick={() => setOpenMenu(openMenu() === "add" ? null : "add")}
         >
-          {openMenu() === "add" ? (
-            <X size={20} aria-hidden="true" />
-          ) : (
-            <Plus size={20} aria-hidden="true" />
-          )}
+          {openMenu() === "add" ? <X size={20} aria-hidden="true" /> : <Plus size={20} aria-hidden="true" />}
           {openMenu() !== "add" && (
             <span class="course-rail-tooltip" aria-hidden="true">
-              {availableTabs().length
-                ? "Добавить вкладку"
-                : "Все вкладки добавлены"}
+              {availableTabs().length ? "Добавить вкладку" : "Все вкладки добавлены"}
             </span>
           )}
         </button>

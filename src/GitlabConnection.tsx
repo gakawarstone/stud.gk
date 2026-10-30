@@ -1,11 +1,5 @@
 import { ArrowUpRight, LoaderCircle } from "lucide-solid";
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  on,
-  onCleanup,
-} from "solid-js";
+import { createEffect, createMemo, createSignal, on, onCleanup } from "solid-js";
 import { gitlabApi } from "./gitlab-api";
 export function GitlabConnection(props: {
   endpoint: string;
@@ -35,11 +29,7 @@ export function GitlabConnection(props: {
           })
           .catch((error) => {
             if (!controller.signal.aborted)
-              setError(
-                error instanceof Error
-                  ? error.message
-                  : "Не удалось проверить доступ GitLab.",
-              );
+              setError(error instanceof Error ? error.message : "Не удалось проверить доступ GitLab.");
           });
         onCleanup(() => controller.abort());
       },
@@ -47,10 +37,7 @@ export function GitlabConnection(props: {
   );
   const address = createMemo(() => new URL(props.projectUrl));
   const createUrl = createMemo(() => {
-    const url = new URL(
-      "/-/user_settings/personal_access_tokens",
-      address().origin,
-    );
+    const url = new URL("/-/user_settings/personal_access_tokens", address().origin);
     url.search = new URLSearchParams({
       name: "Stud.GK",
       scopes: "read_api",
@@ -65,11 +52,7 @@ export function GitlabConnection(props: {
       setToken("");
       props.onConnected();
     } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Не удалось подключить GitLab.",
-      );
+      setError(error instanceof Error ? error.message : "Не удалось подключить GitLab.");
     } finally {
       setBusy(false);
     }
@@ -87,17 +70,13 @@ export function GitlabConnection(props: {
               <p class="form-error" role="alert">
                 {error()}
               </p>
-              <button
-                class="text-button"
-                onClick={() => setRetry((value) => value + 1)}
-              >
+              <button class="text-button" onClick={() => setRetry((value) => value + 1)}>
                 Повторить
               </button>
             </>
           ) : (
             <p role="status">
-              <LoaderCircle size={14} class="spin" aria-hidden="true" />{" "}
-              Проверяем доступ GitLab…
+              <LoaderCircle size={14} class="spin" aria-hidden="true" /> Проверяем доступ GitLab…
             </p>
           )}
           <button class="text-button" onClick={props.onCancel}>
@@ -109,32 +88,16 @@ export function GitlabConnection(props: {
       return (
         <div class="gitlab-form gitlab-token-form">
           <p role="status">
-            Токен для {address().host} подключён. Он используется для всех твоих
-            проектов на этом сервере.
+            Токен для {address().host} подключён. Он используется для всех твоих проектов на этом сервере.
           </p>
           <div class="gitlab-actions">
-            <button
-              class="text-button"
-              type="button"
-              disabled={busy()}
-              onClick={() => setEditing(true)}
-            >
+            <button class="text-button" type="button" disabled={busy()} onClick={() => setEditing(true)}>
               Заменить токен
             </button>
-            <button
-              class="text-button"
-              type="button"
-              disabled={busy()}
-              onClick={() => void save(null)}
-            >
+            <button class="text-button" type="button" disabled={busy()} onClick={() => void save(null)}>
               Удалить токен для всех проектов
             </button>
-            <button
-              class="text-button"
-              type="button"
-              disabled={busy()}
-              onClick={props.onCancel}
-            >
+            <button class="text-button" type="button" disabled={busy()} onClick={props.onCancel}>
               Закрыть
             </button>
           </div>
@@ -147,19 +110,13 @@ export function GitlabConnection(props: {
       );
     return (
       <form class="gitlab-form gitlab-token-form" onSubmit={submit}>
-        <a
-          class="text-button gitlab-create-token"
-          href={createUrl().href}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <a class="text-button gitlab-create-token" href={createUrl().href} target="_blank" rel="noopener noreferrer">
           Создать токен в GitLab
           <ArrowUpRight size={14} aria-hidden="true" />
         </a>
         <p id="gitlab-token-help">
-          Один личный токен с правом <code>read_api</code> используется для всех
-          твоих проектов на {address().host}. Вставь существующий токен или
-          создай его один раз по ссылке выше.
+          Один личный токен с правом <code>read_api</code> используется для всех твоих проектов на {address().host}.
+          Вставь существующий токен или создай его один раз по ссылке выше.
         </p>
         <label for="gitlab-access-token">Токен доступа</label>
         <input
@@ -176,31 +133,15 @@ export function GitlabConnection(props: {
           disabled={busy()}
         />
         <div class="gitlab-actions">
-          <button
-            class="primary-button"
-            type="submit"
-            disabled={busy() || !token().trim()}
-          >
-            {busy() && (
-              <LoaderCircle size={14} class="spin" aria-hidden="true" />
-            )}
+          <button class="primary-button" type="submit" disabled={busy() || !token().trim()}>
+            {busy() && <LoaderCircle size={14} class="spin" aria-hidden="true" />}
             Подключить GitLab
           </button>
-          <button
-            class="text-button"
-            type="button"
-            disabled={busy()}
-            onClick={props.onCancel}
-          >
+          <button class="text-button" type="button" disabled={busy()} onClick={props.onCancel}>
             Отмена
           </button>
           {connected() && (
-            <button
-              class="text-button"
-              type="button"
-              disabled={busy()}
-              onClick={() => void save(null)}
-            >
+            <button class="text-button" type="button" disabled={busy()} onClick={() => void save(null)}>
               Удалить токен для всех проектов
             </button>
           )}

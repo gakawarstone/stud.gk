@@ -1,27 +1,9 @@
-import {
-  Code,
-  Download,
-  ExternalLink,
-  FileText,
-  LoaderCircle,
-  X,
-} from "lucide-solid";
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  on,
-  onCleanup,
-} from "solid-js";
+import { Code, Download, ExternalLink, FileText, LoaderCircle, X } from "lucide-solid";
+import { createEffect, createMemo, createSignal, on, onCleanup } from "solid-js";
 import { GitlabMarkdown } from "./GitlabMarkdown";
 import { HighlightedCode } from "./HighlightedCode";
 import { PdfViewer } from "./PdfViewer";
-import {
-  demoMarkdown,
-  gitlabApi,
-  type GitlabEntry,
-  type GitlabFile,
-} from "./gitlab-api";
+import { demoMarkdown, gitlabApi, type GitlabEntry, type GitlabFile } from "./gitlab-api";
 export function GitlabFileViewer(props: {
   entry: GitlabEntry;
   endpoint: string;
@@ -42,9 +24,7 @@ export function GitlabFileViewer(props: {
   const downloadUrl = createMemo(() => `${contentUrl()}&download=1`);
   return (
     <>
-      {/\.pdf$/i.test(props.entry.name) &&
-      !props.demo &&
-      !(props.embedded ?? false) ? (
+      {/\.pdf$/i.test(props.entry.name) && !props.demo && !(props.embedded ?? false) ? (
         <PdfViewer
           title={props.entry.name}
           contentUrl={contentUrl()}
@@ -84,9 +64,7 @@ function FileDialog(props: {
   const [file, setFile] = createSignal<GitlabFile | null>(null),
     [error, setError] = createSignal<string | null>(null);
   const [source, setSource] = createSignal(false);
-  const markdown = createMemo(() =>
-    /\.(md|markdown|mdown|mkd)$/i.test(props.entry.name),
-  );
+  const markdown = createMemo(() => /\.(md|markdown|mdown|mkd)$/i.test(props.entry.name));
   const media = createMemo(() =>
     /\.pdf$/i.test(props.entry.name)
       ? "pdf"
@@ -150,16 +128,12 @@ function FileDialog(props: {
                 : "export function greet(name: string): string {\n  return `Hello, ${name}!`;\n}\n",
           });
         } else
-          void gitlabApi<GitlabFile>(
-            `${props.endpoint}/file?${props.query}`,
-            controller.signal,
-          )
+          void gitlabApi<GitlabFile>(`${props.endpoint}/file?${props.query}`, controller.signal)
             .then((value) => {
               if (!controller.signal.aborted) setFile(value);
             })
             .catch((error) => {
-              if (!controller.signal.aborted)
-                setError(error.message || "Не удалось открыть файл.");
+              if (!controller.signal.aborted) setError(error.message || "Не удалось открыть файл.");
             });
         onCleanup(() => controller.abort());
       },
@@ -195,11 +169,7 @@ function FileDialog(props: {
         </div>
       )}
       {!props.demo && !props.entry.submodule && (
-        <a
-          href={props.downloadUrl}
-          aria-label={`Скачать ${props.entry.name}`}
-          title="Скачать"
-        >
+        <a href={props.downloadUrl} aria-label={`Скачать ${props.entry.name}`} title="Скачать">
           <Download size={18} />
         </a>
       )}
@@ -212,12 +182,7 @@ function FileDialog(props: {
       >
         <ExternalLink size={17} />
       </a>
-      <button
-        type="button"
-        aria-label="Закрыть просмотр"
-        title="Закрыть"
-        onClick={props.onClose}
-      >
+      <button type="button" aria-label="Закрыть просмотр" title="Закрыть" onClick={props.onClose}>
         <X size={21} />
       </button>
     </header>
@@ -234,16 +199,10 @@ function FileDialog(props: {
           {error()}
         </p>
       ) : props.entry.submodule ? (
-        <p class="gitlab-viewer-status">
-          Это подмодуль. Его можно открыть в GitLab.
-        </p>
+        <p class="gitlab-viewer-status">Это подмодуль. Его можно открыть в GitLab.</p>
       ) : media() ? (
         media() === "pdf" ? (
-          <iframe
-            class="gitlab-pdf-frame"
-            src={props.contentUrl}
-            title={props.entry.name}
-          />
+          <iframe class="gitlab-pdf-frame" src={props.contentUrl} title={props.entry.name} />
         ) : media() === "image" ? (
           <img
             src={props.contentUrl}
@@ -255,18 +214,14 @@ function FileDialog(props: {
             controls
             src={props.contentUrl}
             aria-label={props.entry.name}
-            onError={() =>
-              setError("Не удалось воспроизвести видео. Файл можно скачать.")
-            }
+            onError={() => setError("Не удалось воспроизвести видео. Файл можно скачать.")}
           />
         ) : (
           <audio
             controls
             src={props.contentUrl}
             aria-label={props.entry.name}
-            onError={() =>
-              setError("Не удалось воспроизвести аудио. Файл можно скачать.")
-            }
+            onError={() => setError("Не удалось воспроизвести аудио. Файл можно скачать.")}
           />
         )
       ) : !file() ? (
@@ -275,9 +230,7 @@ function FileDialog(props: {
           Загружаем файл…
         </p>
       ) : file()!.binary ? (
-        <p class="gitlab-viewer-status">
-          Бинарный файл. Скачай его для просмотра на компьютере.
-        </p>
+        <p class="gitlab-viewer-status">Бинарный файл. Скачай его для просмотра на компьютере.</p>
       ) : markdown() && !source() ? (
         <GitlabMarkdown content={content() || ""} webUrl={file()!.webUrl} />
       ) : (
@@ -288,10 +241,7 @@ function FileDialog(props: {
             </pre>
           )}
           <pre class="gitlab-source">
-            <HighlightedCode
-              content={content() || ""}
-              language={props.entry.name}
-            />
+            <HighlightedCode content={content() || ""} language={props.entry.name} />
           </pre>
         </div>
       )}

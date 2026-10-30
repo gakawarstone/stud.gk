@@ -5,8 +5,7 @@ import { FeedSession } from "./feed-session";
 import { clearThumbnailCache } from "./FileThumbnail";
 
 function notifyNewFiles(feed: Feed, previousSync: string | null) {
-  if (!previousSync || feed.mode !== "live" || feed.lastSync === previousSync)
-    return;
+  if (!previousSync || feed.mode !== "live" || feed.lastSync === previousSync) return;
   try {
     if (
       !("Notification" in window) ||
@@ -41,9 +40,7 @@ export function createFeedSession(onSignedOut: () => void) {
   // focus and expanded posts. Clone to keep the mutable store separate from
   // FeedSession's immutable snapshots and stale-response guards.
   const [state, setState] = createStore(structuredClone(session.getSnapshot()));
-  const unsubscribe = session.subscribe(() =>
-    setState(reconcile(structuredClone(session.getSnapshot()))),
-  );
+  const unsubscribe = session.subscribe(() => setState(reconcile(structuredClone(session.getSnapshot()))));
   onCleanup(() => {
     unsubscribe();
     session.dispose();

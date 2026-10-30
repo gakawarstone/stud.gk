@@ -1,13 +1,5 @@
 import { Check, ChevronDown, GitBranch, Search } from "lucide-solid";
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  createUniqueId,
-  For,
-  on,
-  onCleanup,
-} from "solid-js";
+import { createEffect, createMemo, createSignal, createUniqueId, For, on, onCleanup } from "solid-js";
 import type { GitlabBranch } from "./gitlab-api";
 export function GitlabBranchPicker(props: {
   branches: GitlabBranch[];
@@ -22,9 +14,7 @@ export function GitlabBranchPicker(props: {
     search: HTMLInputElement | null = null;
   const id = createUniqueId();
   const matches = createMemo(() =>
-    props.branches.filter((branch) =>
-      branch.name.toLocaleLowerCase().includes(query().toLocaleLowerCase()),
-    ),
+    props.branches.filter((branch) => branch.name.toLocaleLowerCase().includes(query().toLocaleLowerCase())),
   );
   function close() {
     setOpen(false);
@@ -55,9 +45,7 @@ export function GitlabBranchPicker(props: {
       close();
       return;
     }
-    const options = [
-      ...(root?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? []),
-    ];
+    const options = [...(root?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? [])];
     const index = options.indexOf(document.activeElement as HTMLButtonElement);
     if (index >= 0 && ["Enter", " "].includes(event.key)) {
       event.preventDefault();
@@ -65,10 +53,8 @@ export function GitlabBranchPicker(props: {
       return;
     }
     let next: number | null = null;
-    if (event.key === "ArrowDown")
-      next = Math.min(options.length - 1, index + 1);
-    else if (event.key === "ArrowUp")
-      next = index < 0 ? options.length - 1 : index - 1;
+    if (event.key === "ArrowDown") next = Math.min(options.length - 1, index + 1);
+    else if (event.key === "ArrowUp") next = index < 0 ? options.length - 1 : index - 1;
     else if (index >= 0 && event.key === "Home") next = 0;
     else if (index >= 0 && event.key === "End") next = options.length - 1;
     if (next !== null) {
@@ -82,8 +68,7 @@ export function GitlabBranchPicker(props: {
       class="gitlab-branch-picker"
       ref={(element) => (root = element)}
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
-          setOpen(false);
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
       }}
     >
       <button
@@ -108,19 +93,11 @@ export function GitlabBranchPicker(props: {
         }}
       >
         <GitBranch size={15} aria-hidden="true" />
-        <span>
-          {props.value || (props.loading ? "Загрузка…" : "Нет веток")}
-        </span>
+        <span>{props.value || (props.loading ? "Загрузка…" : "Нет веток")}</span>
         <ChevronDown size={13} aria-hidden="true" />
       </button>
       {open() && (
-        <div
-          id={id}
-          class="gitlab-branch-popover"
-          role="dialog"
-          aria-label="Сменить ветку"
-          onKeyDown={navigate}
-        >
+        <div id={id} class="gitlab-branch-popover" role="dialog" aria-label="Сменить ветку" onKeyDown={navigate}>
           <label class="gitlab-branch-search">
             <Search size={15} aria-hidden="true" />
             <input
@@ -132,34 +109,25 @@ export function GitlabBranchPicker(props: {
               autocomplete="off"
             />
           </label>
-          <div
-            class="gitlab-branch-options"
-            role="listbox"
-            aria-label="Ветки GitLab"
-          >
-            {
-              <For each={matches()}>
-                {(branch) => (
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={branch.name === props.value}
-                    title={branch.name}
-                    onClick={() => {
-                      close();
-                      if (branch.name !== props.value)
-                        props.onChange(branch.name);
-                    }}
-                  >
-                    <GitBranch size={14} aria-hidden="true" />
-                    <span>{branch.name}</span>
-                    {branch.name === props.value && (
-                      <Check size={15} aria-hidden="true" />
-                    )}
-                  </button>
-                )}
-              </For>
-            }
+          <div class="gitlab-branch-options" role="listbox" aria-label="Ветки GitLab">
+            <For each={matches()}>
+              {(branch) => (
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={branch.name === props.value}
+                  title={branch.name}
+                  onClick={() => {
+                    close();
+                    if (branch.name !== props.value) props.onChange(branch.name);
+                  }}
+                >
+                  <GitBranch size={14} aria-hidden="true" />
+                  <span>{branch.name}</span>
+                  {branch.name === props.value && <Check size={15} aria-hidden="true" />}
+                </button>
+              )}
+            </For>
             {!matches().length && <p role="status">Ветки не найдены</p>}
           </div>
         </div>

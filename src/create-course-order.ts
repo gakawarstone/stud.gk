@@ -4,16 +4,8 @@ export function createCourseOrder(courses: () => Course[]) {
   const [courseOrder, setCourseOrder] = createSignal<string[]>(
     (() => {
       try {
-        const saved: unknown = JSON.parse(
-          localStorage.getItem("campus-course-order") || "[]",
-        );
-        return Array.isArray(saved)
-          ? [
-              ...new Set(
-                saved.filter((id): id is string => typeof id === "string"),
-              ),
-            ]
-          : [];
+        const saved: unknown = JSON.parse(localStorage.getItem("campus-course-order") || "[]");
+        return Array.isArray(saved) ? [...new Set(saved.filter((id): id is string => typeof id === "string"))] : [];
       } catch {
         return [];
       }
@@ -29,9 +21,7 @@ export function createCourseOrder(courses: () => Course[]) {
   let suppressCardClickUntil = 0;
   const orderedCourses = createMemo(() => {
     const ranks = new Map(courseOrder().map((id, index) => [id, index]));
-    return [...courses()].sort(
-      (a, b) => (ranks.get(a.id) ?? Infinity) - (ranks.get(b.id) ?? Infinity),
-    );
+    return [...courses()].sort((a, b) => (ranks.get(a.id) ?? Infinity) - (ranks.get(b.id) ?? Infinity));
   });
   function moveCourse(id: string, targetId: string) {
     const ids = orderedCourses().map((c) => c.id);
@@ -62,14 +52,12 @@ export function createCourseOrder(courses: () => Course[]) {
     let targetId: string | null = null;
     function move(e: PointerEvent) {
       if (e.pointerId !== pointerId) return;
-      if (!started && Math.hypot(e.clientX - startX, e.clientY - startY) < 6)
-        return;
+      if (!started && Math.hypot(e.clientX - startX, e.clientY - startY) < 6) return;
       started = true;
       e.preventDefault();
       targetId =
-        document
-          .elementFromPoint(e.clientX, e.clientY)
-          ?.closest<HTMLElement>("[data-course-id]")?.dataset.courseId || null;
+        document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-course-id]")?.dataset.courseId ||
+        null;
       setCourseDrag({ id, targetId, x: e.clientX, y: e.clientY });
       if (e.clientY < 60) window.scrollBy(0, -20);
       else if (e.clientY > window.innerHeight - 60) window.scrollBy(0, 20);

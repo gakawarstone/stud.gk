@@ -1,17 +1,6 @@
 import { ExternalLink, Link, RefreshCw, Settings } from "lucide-solid";
-import {
-  createEffect,
-  createSignal,
-  createUniqueId,
-  on,
-  onCleanup,
-} from "solid-js";
-export function NextcloudSettings(props: {
-  url: string;
-  loading: boolean;
-  onRefresh: () => void;
-  onEdit: () => void;
-}) {
+import { createEffect, createSignal, createUniqueId, on, onCleanup } from "solid-js";
+export function NextcloudSettings(props: { url: string; loading: boolean; onRefresh: () => void; onEdit: () => void }) {
   const [open, setOpen] = createSignal(false);
   let container: HTMLDivElement | null = null;
   let button: HTMLButtonElement | null = null;
@@ -26,9 +15,7 @@ export function NextcloudSettings(props: {
       () => [open()],
       () => {
         if (!open()) return;
-        menu
-          ?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')
-          ?.focus();
+        menu?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')?.focus();
         function outside(event: PointerEvent) {
           if (!container?.contains(event.target as Node)) setOpen(false);
         }
@@ -52,8 +39,7 @@ export function NextcloudSettings(props: {
       class="nextcloud-tools"
       ref={(element) => (container = element)}
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
-          setOpen(false);
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
       }}
     >
       <button
@@ -82,14 +68,8 @@ export function NextcloudSettings(props: {
           role="menu"
           aria-label="Настройки Nextcloud"
           onKeyDown={(event) => {
-            const items = [
-              ...menu!.querySelectorAll<HTMLElement>(
-                '[role="menuitem"]:not(:disabled)',
-              ),
-            ];
-            const current = items.indexOf(
-              document.activeElement as HTMLElement,
-            );
+            const items = [...menu!.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)')];
+            const current = items.indexOf(document.activeElement as HTMLElement);
             const next =
               event.key === "ArrowDown"
                 ? (current + 1) % items.length

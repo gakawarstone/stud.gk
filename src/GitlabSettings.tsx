@@ -1,18 +1,5 @@
-import {
-  ExternalLink,
-  KeyRound,
-  Link,
-  RefreshCw,
-  Settings,
-  Unlink,
-} from "lucide-solid";
-import {
-  createEffect,
-  createSignal,
-  createUniqueId,
-  on,
-  onCleanup,
-} from "solid-js";
+import { ExternalLink, KeyRound, Link, RefreshCw, Settings, Unlink } from "lucide-solid";
+import { createEffect, createSignal, createUniqueId, on, onCleanup } from "solid-js";
 export function GitlabSettings(props: {
   url: string;
   onRefresh: () => void;
@@ -60,8 +47,7 @@ export function GitlabSettings(props: {
       ref={(element) => (root = element)}
       class="gitlab-tools"
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
-          setOpen(false);
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
       }}
     >
       <button
@@ -90,12 +76,8 @@ export function GitlabSettings(props: {
           role="menu"
           aria-label="Настройки GitLab"
           onKeyDown={(event) => {
-            const items = [
-              ...menu!.querySelectorAll<HTMLElement>('[role="menuitem"]'),
-            ];
-            const current = items.indexOf(
-              document.activeElement as HTMLElement,
-            );
+            const items = [...menu!.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+            const current = items.indexOf(document.activeElement as HTMLElement);
             const next =
               event.key === "ArrowDown"
                 ? (current + 1) % items.length
@@ -112,47 +94,25 @@ export function GitlabSettings(props: {
             }
           }}
         >
-          <button
-            role="menuitem"
-            type="button"
-            onClick={() => action(props.onRefresh)}
-          >
+          <button role="menuitem" type="button" onClick={() => action(props.onRefresh)}>
             <RefreshCw size={16} />
             <span>Обновить файлы</span>
           </button>
           {props.onAccess && (
-            <button
-              role="menuitem"
-              type="button"
-              onClick={() => action(props.onAccess!)}
-            >
+            <button role="menuitem" type="button" onClick={() => action(props.onAccess!)}>
               <KeyRound size={16} />
               <span>Доступ GitLab</span>
             </button>
           )}
-          <button
-            role="menuitem"
-            type="button"
-            onClick={() => action(props.onEdit)}
-          >
+          <button role="menuitem" type="button" onClick={() => action(props.onEdit)}>
             <Link size={16} />
             <span>Изменить ссылку</span>
           </button>
-          <a
-            role="menuitem"
-            href={props.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setOpen(false)}
-          >
+          <a role="menuitem" href={props.url} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>
             <ExternalLink size={16} />
             <span>Открыть в браузере</span>
           </a>
-          <button
-            role="menuitem"
-            type="button"
-            onClick={() => action(props.onUnlink)}
-          >
+          <button role="menuitem" type="button" onClick={() => action(props.onUnlink)}>
             <Unlink size={16} />
             <span>Отвязать проект</span>
           </button>

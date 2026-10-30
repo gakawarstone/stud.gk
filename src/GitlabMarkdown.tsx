@@ -16,10 +16,7 @@ export function GitlabMarkdown(props: { content: string; webUrl: string }) {
       </For>
     );
   }
-  function MarkdownElement(local: {
-    node: Element;
-    webUrl: string;
-  }): JSX.Element {
+  function MarkdownElement(local: { node: Element; webUrl: string }): JSX.Element {
     const node = local.node;
     if (node.tagName === "a")
       return (
@@ -34,10 +31,7 @@ export function GitlabMarkdown(props: { content: string; webUrl: string }) {
     if (node.tagName === "img")
       return (
         <a
-          href={sourceLink(
-            String(node.properties.src || ""),
-            local.webUrl.replace("/-/blob/", "/-/raw/"),
-          )}
+          href={sourceLink(String(node.properties.src || ""), local.webUrl.replace("/-/blob/", "/-/raw/"))}
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -45,17 +39,9 @@ export function GitlabMarkdown(props: { content: string; webUrl: string }) {
         </a>
       );
     if (node.tagName === "code") {
-      const language = String(node.properties.className || "").match(
-        /language-([\w+-]+)/,
-      )?.[1];
-      const content = node.children
-        .map((child) => (child.type === "text" ? child.value : ""))
-        .join("");
-      return language ? (
-        <HighlightedCode content={content} language={language} />
-      ) : (
-        <code>{content}</code>
-      );
+      const language = String(node.properties.className || "").match(/language-([\w+-]+)/)?.[1];
+      const content = node.children.map((child) => (child.type === "text" ? child.value : "")).join("");
+      return language ? <HighlightedCode content={content} language={language} /> : <code>{content}</code>;
     }
     const attributes = Object.fromEntries(
       Object.entries(node.properties).map(([key, value]) => [
@@ -64,10 +50,7 @@ export function GitlabMarkdown(props: { content: string; webUrl: string }) {
       ]),
     );
     return (
-      <Dynamic
-        component={node.tagName as keyof JSX.IntrinsicElements}
-        {...attributes}
-      >
+      <Dynamic component={node.tagName as keyof JSX.IntrinsicElements} {...attributes}>
         {children(node.children)}
       </Dynamic>
     );

@@ -12,14 +12,7 @@ import {
   X,
 } from "lucide-solid";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from "pdfjs-dist";
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  on,
-  onCleanup,
-  onMount,
-} from "solid-js";
+import { createEffect, createMemo, createSignal, on, onCleanup, onMount } from "solid-js";
 function PdfPage(props: {
   pdf: PDFDocumentProxy;
   number: number;
@@ -33,9 +26,7 @@ function PdfPage(props: {
   let slot: HTMLDivElement | null = null;
   const [ratio, setRatio] = createSignal(props.initialRatio);
   const [visible, setVisible] = createSignal(props.number === 1);
-  const [status, setStatus] = createSignal<"loading" | "ready" | "error">(
-    "loading",
-  );
+  const [status, setStatus] = createSignal<"loading" | "ready" | "error">("loading");
   createEffect(
     on(
       () => [props.pdf, props.number],
@@ -59,10 +50,10 @@ function PdfPage(props: {
     on(
       () => [props.scrollRoot],
       () => {
-        const observer = new IntersectionObserver(
-          ([entry]) => setVisible(entry.isIntersecting),
-          { root: props.scrollRoot, rootMargin: "600px 0px" },
-        );
+        const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), {
+          root: props.scrollRoot,
+          rootMargin: "600px 0px",
+        });
         observer.observe(slot!);
         onCleanup(() => observer.disconnect());
       },
@@ -82,13 +73,7 @@ function PdfPage(props: {
         setStatus("loading");
         void import("./pdf-document")
           .then(({ renderPdfPage }) =>
-            renderPdfPage(
-              props.pdf,
-              props.number,
-              props.width,
-              controller.signal,
-              props.themed,
-            ),
+            renderPdfPage(props.pdf, props.number, props.width, controller.signal, props.themed),
           )
           .then((surface) => {
             if (controller.signal.aborted) return;
@@ -167,20 +152,12 @@ export function PdfViewer(
   const [width, setWidth] = createSignal(800);
   const [initialRatio, setInitialRatio] = createSignal(1.4);
   const [fullscreen, setFullscreen] = createSignal(false);
-  const [fullscreenError, setFullscreenError] = createSignal<string | null>(
-    null,
-  );
+  const [fullscreenError, setFullscreenError] = createSignal<string | null>(null);
   let enteredFullscreen = false;
   let viewed = false;
-  const fileUrl = createMemo(
-    () => `/api/files/${encodeURIComponent(props.remoteId || "")}`,
-  );
-  const previewUrl = createMemo(
-    () => props.contentUrl || `${fileUrl()}/preview`,
-  );
-  const saveUrl = createMemo(
-    () => props.downloadUrl || `${fileUrl()}/download`,
-  );
+  const fileUrl = createMemo(() => `/api/files/${encodeURIComponent(props.remoteId || "")}`);
+  const previewUrl = createMemo(() => props.contentUrl || `${fileUrl()}/preview`);
+  const saveUrl = createMemo(() => props.downloadUrl || `${fileUrl()}/download`);
   onMount(() => {
     const element = dialog!;
     const previousFocus = document.activeElement;
@@ -195,15 +172,13 @@ export function PdfViewer(
     updateWidth();
     const observer = new ResizeObserver(updateWidth);
     observer.observe(area);
-    const trackFullscreen = () =>
-      setFullscreen(Boolean(document.fullscreenElement));
+    const trackFullscreen = () => setFullscreen(Boolean(document.fullscreenElement));
     trackFullscreen();
     document.addEventListener("fullscreenchange", trackFullscreen);
     onCleanup(() => {
       observer.disconnect();
       document.removeEventListener("fullscreenchange", trackFullscreen);
-      if (enteredFullscreen && document.fullscreenElement)
-        void document.exitFullscreen().catch(() => {});
+      if (enteredFullscreen && document.fullscreenElement) void document.exitFullscreen().catch(() => {});
       if (scrollFrame !== null) cancelAnimationFrame(scrollFrame);
       element.close();
       document.body.style.overflow = previousOverflow;
@@ -247,8 +222,7 @@ export function PdfViewer(
     on(
       () => [page()],
       () => {
-        if (document.activeElement !== numberInput)
-          setPageInput(String(page()));
+        if (document.activeElement !== numberInput) setPageInput(String(page()));
       },
     ),
   );
@@ -260,8 +234,7 @@ export function PdfViewer(
         const list = pages;
         if (!area || !list) return;
         const position = readingPosition;
-        const target = list.children[position.page - 1] as
-          HTMLElement | undefined;
+        const target = list.children[position.page - 1] as HTMLElement | undefined;
         if (target)
           area.scrollTop =
             list.offsetTop +
@@ -276,8 +249,7 @@ export function PdfViewer(
     let end = list.children.length - 1;
     while (start < end) {
       const middle = Math.ceil((start + end) / 2);
-      if ((list.children[middle] as HTMLElement).offsetTop <= offset)
-        start = middle;
+      if ((list.children[middle] as HTMLElement).offsetTop <= offset) start = middle;
       else end = middle - 1;
     }
     return start;
@@ -334,8 +306,7 @@ export function PdfViewer(
   }
   function fitToWidth() {
     const area = documentArea;
-    if (area)
-      setZoom(Math.max(0.5, Math.min(3, (area.clientWidth - 48) / width())));
+    if (area) setZoom(Math.max(0.5, Math.min(3, (area.clientWidth - 48) / width())));
   }
   return (
     <dialog
@@ -348,18 +319,14 @@ export function PdfViewer(
         props.onClose();
       }}
       onKeyDown={(event) => {
-        if (!pdf() || (event.target as Element).closest("input, button, a"))
-          return;
+        if (!pdf() || (event.target as Element).closest("input, button, a")) return;
         if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
           event.preventDefault();
           goToPage(page() + (event.key === "ArrowRight" ? 1 : -1));
         }
       }}
     >
-      <div
-        class="pdf-viewer-shell"
-        ref={(element) => (fullscreenContainer = element)}
-      >
+      <div class="pdf-viewer-shell" ref={(element) => (fullscreenContainer = element)}>
         <header class="pdf-viewer-toolbar">
           <h2 id="pdf-viewer-title">{props.title}</h2>
           <nav class="pdf-viewer-controls" aria-label="Управление PDF">
@@ -435,22 +402,10 @@ export function PdfViewer(
                 class="pdf-viewer-action"
                 disabled={!pdf()}
                 onClick={() => void toggleFullscreen()}
-                aria-label={
-                  fullscreen()
-                    ? "Выйти из полноэкранного режима"
-                    : "На весь экран"
-                }
-                title={
-                  fullscreen()
-                    ? "Выйти из полноэкранного режима"
-                    : "На весь экран"
-                }
+                aria-label={fullscreen() ? "Выйти из полноэкранного режима" : "На весь экран"}
+                title={fullscreen() ? "Выйти из полноэкранного режима" : "На весь экран"}
               >
-                {fullscreen() ? (
-                  <Minimize2 size={18} />
-                ) : (
-                  <Maximize2 size={18} />
-                )}
+                {fullscreen() ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
               </button>
             </div>
           </nav>
@@ -460,20 +415,11 @@ export function PdfViewer(
               onClick={() => setThemed((value) => !value)}
               aria-label="Цвета Catppuccin"
               aria-pressed={themed()}
-              title={
-                themed()
-                  ? "Показать исходные цвета"
-                  : "Применить цвета Catppuccin"
-              }
+              title={themed() ? "Показать исходные цвета" : "Применить цвета Catppuccin"}
             >
               <Palette size={18} />
             </button>
-            <a
-              class="pdf-viewer-action"
-              href={saveUrl()}
-              aria-label="Скачать PDF"
-              title="Скачать PDF"
-            >
+            <a class="pdf-viewer-action" href={saveUrl()} aria-label="Скачать PDF" title="Скачать PDF">
               <Download size={18} />
             </a>
             <button
@@ -522,10 +468,7 @@ export function PdfViewer(
                 <>
                   <TriangleAlert size={28} />
                   <p>Не удалось открыть PDF.</p>
-                  <button
-                    class="text-button"
-                    onClick={() => setAttempt((value) => value + 1)}
-                  >
+                  <button class="text-button" onClick={() => setAttempt((value) => value + 1)}>
                     Попробовать ещё раз
                   </button>
                 </>

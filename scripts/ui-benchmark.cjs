@@ -32,9 +32,7 @@ async function measure(window, action, condition) {
   app.setPath("userData", profile);
   await app.whenReady();
   const root = path.resolve(__dirname, "..");
-  const { startServer } = await import(
-    pathToFileURL(path.join(root, "server/runtime.js")).href
-  );
+  const { startServer } = await import(pathToFileURL(path.join(root, "server/runtime.js")).href);
   const { CookieJar } = await import("tough-cookie");
   runtime = await startServer({
     dataDir: path.join(profile, "data"),
@@ -44,9 +42,7 @@ async function measure(window, action, condition) {
       user: { id: "benchmark", name: "Benchmark" },
     }),
     getSnapshot: async () => ({
-      courses: [
-        { id: "c1", title: "Benchmark course", color: "blue", url: null },
-      ],
+      courses: [{ id: "c1", title: "Benchmark course", color: "blue", url: null }],
       // Text files deliberately avoid thumbnail IO and PDF workers.
       resources: Array.from({ length: 1000 }, (_, i) => ({
         id: `file-${i}`,
@@ -95,9 +91,7 @@ async function measure(window, action, condition) {
   await window.webContents.executeJavaScript(`(() => {
     for (const id of ['username','password']) { const input = document.getElementById(id); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'fixture'); input.dispatchEvent(new Event('input',{bubbles:true})); }
   })()`);
-  await window.webContents.executeJavaScript(
-    `document.querySelector('form').requestSubmit()`,
-  );
+  await window.webContents.executeJavaScript(`document.querySelector('form').requestSubmit()`);
   await waitFor(window, `!!document.querySelector('.course-card-link')`);
   const list = [];
   // First iteration warms parsing/layout; keep the following nine.
@@ -119,13 +113,8 @@ async function measure(window, action, condition) {
   );
   await window.reload();
   await waitFor(window, `!!document.querySelector('.course-card-link')`);
-  await window.webContents.executeJavaScript(
-    `location.hash = 'course=c1&tab=gitlab'`,
-  );
-  await waitFor(
-    window,
-    `document.querySelectorAll('[role="treeitem"]').length === 2000`,
-  );
+  await window.webContents.executeJavaScript(`location.hash = 'course=c1&tab=gitlab'`);
+  await waitFor(window, `document.querySelectorAll('[role="treeitem"]').length === 2000`);
   const expand = [],
     keyboard = [];
   for (let i = 0; i < 10; i++) {
@@ -155,20 +144,14 @@ async function measure(window, action, condition) {
   window.webContents.debugger.attach("1.3");
   await window.webContents.debugger.sendCommand("HeapProfiler.collectGarbage");
   await new Promise((r) => setTimeout(r, 1000));
-  const heap = await window.webContents.debugger.sendCommand(
-    "Runtime.getHeapUsage",
-  );
-  const metrics = app
-    .getAppMetrics()
-    .map(({ type, memory }) => ({
-      type,
-      workingSetKiB: memory.workingSetSize,
-    }));
+  const heap = await window.webContents.debugger.sendCommand("Runtime.getHeapUsage");
+  const metrics = app.getAppMetrics().map(({ type, memory }) => ({
+    type,
+    workingSetKiB: memory.workingSetSize,
+  }));
   assert.ok(metrics.some((m) => m.type === "Tab"));
   const html = await readFile(path.join(root, "dist/index.html"), "utf8");
-  const initial = [...html.matchAll(/(?:src|href)="([^"]+\.js)"/g)].map(
-    (m) => m[1],
-  );
+  const initial = [...html.matchAll(/(?:src|href)="([^"]+\.js)"/g)].map((m) => m[1]);
   const assets = await Promise.all(
     initial.map(async (url) => {
       const data = await readFile(path.join(root, "dist", url));
@@ -201,11 +184,7 @@ async function measure(window, action, condition) {
     },
   };
   console.log(JSON.stringify(result));
-  if (process.env.BENCH_OUTPUT)
-    await writeFile(
-      process.env.BENCH_OUTPUT,
-      JSON.stringify(result, null, 2) + "\n",
-    );
+  if (process.env.BENCH_OUTPUT) await writeFile(process.env.BENCH_OUTPUT, JSON.stringify(result, null, 2) + "\n");
   window.destroy();
   await runtime.close();
   await rm(profile, { recursive: true, force: true });

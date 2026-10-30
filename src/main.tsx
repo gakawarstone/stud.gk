@@ -16,16 +16,7 @@ import {
   LogOut,
   TriangleAlert,
 } from "lucide-solid";
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  For,
-  on,
-  onCleanup,
-  onMount,
-  Show,
-} from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { Dynamic, render } from "solid-js/web";
 import type { Change, Material } from "../shared/studip";
 import { CourseSections } from "./CourseSections";
@@ -54,23 +45,12 @@ function userInitials(name: string | undefined) {
   );
 }
 function materialDate(file: Material) {
-  return (
-    [file.updatedAt, file.createdAt].find(
-      (date) => date && Number.isFinite(Date.parse(date)),
-    ) || ""
-  );
+  return [file.updatedAt, file.createdAt].find((date) => date && Number.isFinite(Date.parse(date))) || "";
 }
 function fileAppearance(title: string) {
-  const extension = title.includes(".")
-    ? title.split(".").pop()!.toLowerCase()
-    : "";
-  if (extension === "pdf")
-    return { Icon: PdfFileIcon, label: "PDF", tone: "pdf" };
-  if (
-    ["png", "jpg", "jpeg", "gif", "webp", "avif", "svg", "bmp"].includes(
-      extension,
-    )
-  )
+  const extension = title.includes(".") ? title.split(".").pop()!.toLowerCase() : "";
+  if (extension === "pdf") return { Icon: PdfFileIcon, label: "PDF", tone: "pdf" };
+  if (["png", "jpg", "jpeg", "gif", "webp", "avif", "svg", "bmp"].includes(extension))
     return { Icon: FileImage, label: extension.toUpperCase(), tone: "image" };
   if (["zip", "rar", "7z", "gz", "tar"].includes(extension))
     return {
@@ -82,16 +62,11 @@ function fileAppearance(title: string) {
     return { Icon: FileAudio, label: extension.toUpperCase(), tone: "audio" };
   if (["mp4", "webm", "mov", "avi"].includes(extension))
     return { Icon: FileVideo, label: extension.toUpperCase(), tone: "video" };
-  if (
-    ["js", "ts", "py", "java", "c", "cpp", "html", "css", "json"].includes(
-      extension,
-    )
-  )
+  if (["js", "ts", "py", "java", "c", "cpp", "html", "css", "json"].includes(extension))
     return { Icon: FileCode, label: extension.toUpperCase(), tone: "code" };
   return {
     Icon: FileText,
-    label:
-      extension && extension.length <= 8 ? extension.toUpperCase() : "Файл",
+    label: extension && extension.length <= 8 ? extension.toUpperCase() : "Файл",
     tone: "document",
   };
 }
@@ -108,13 +83,7 @@ function fileCountLabel(count: number) {
   const last = count % 10;
   const lastTwo = count % 100;
   const word =
-    lastTwo >= 11 && lastTwo <= 14
-      ? "файлов"
-      : last === 1
-        ? "файл"
-        : last >= 2 && last <= 4
-          ? "файла"
-          : "файлов";
+    lastTwo >= 11 && lastTwo <= 14 ? "файлов" : last === 1 ? "файл" : last >= 2 && last <= 4 ? "файла" : "файлов";
   return `${count} ${word}`;
 }
 function App() {
@@ -135,25 +104,16 @@ function App() {
   } = createFeedSession(resetSessionUi);
   const [fileError, setFileError] = createSignal<string | null>(null);
   const [viewedPdf, setViewedPdf] = createSignal<Material | null>(null);
-  const [nextcloudToolbar, setNextcloudToolbar] =
-    createSignal<HTMLDivElement | null>(null);
-  const [gitlabToolbar, setGitlabToolbar] = createSignal<HTMLDivElement | null>(
-    null,
-  );
-  const [selectedCourseId, setSelectedCourseId] =
-    createSignal(courseFromHash());
-  const [selectedTab, setSelectedTab] = createSignal(
-    (() => courseTabFromHash())(),
-  );
-  const [selectedFolderId, setSelectedFolderId] =
-    createSignal(folderFromHash());
+  const [nextcloudToolbar, setNextcloudToolbar] = createSignal<HTMLDivElement | null>(null);
+  const [gitlabToolbar, setGitlabToolbar] = createSignal<HTMLDivElement | null>(null);
+  const [selectedCourseId, setSelectedCourseId] = createSignal(courseFromHash());
+  const [selectedTab, setSelectedTab] = createSignal(courseTabFromHash());
+  const [selectedFolderId, setSelectedFolderId] = createSignal(folderFromHash());
   const [fileView, setFileView] = createSignal<"all" | "folders">(
     (() => {
       if (folderFromHash()) return "folders";
       try {
-        return localStorage.getItem("stud-gk-file-view") === "folders"
-          ? "folders"
-          : "all";
+        return localStorage.getItem("stud-gk-file-view") === "folders" ? "folders" : "all";
       } catch {
         return "all";
       }
@@ -166,42 +126,21 @@ function App() {
     data: CourseFolders | null;
     error: string | null;
   } | null>(null);
-  const {
-    orderedCourses,
-    courseDrag,
-    moveCourse,
-    startCourseDrag,
-    suppressCardClickUntil,
-    cancelCourseDrag,
-  } = createCourseOrder(() => data()?.courses ?? []);
-  const selectedCourse = createMemo(() =>
-    orderedCourses().find((c) => c.id === selectedCourseId()),
-  );
+  const { orderedCourses, courseDrag, moveCourse, startCourseDrag, suppressCardClickUntil, cancelCourseDrag } =
+    createCourseOrder(() => data()?.courses ?? []);
+  const selectedCourse = createMemo(() => orderedCourses().find((c) => c.id === selectedCourseId()));
   const courseSettingsScope = createMemo(() =>
-    JSON.stringify([
-      phase(),
-      data()?.user?.id || "",
-      selectedCourse()?.id || "",
-    ]),
+    JSON.stringify([phase(), data()?.user?.id || "", selectedCourse()?.id || ""]),
   );
   const fileChanges = createMemo(() =>
-    (data()?.changes ?? []).filter(
-      (c) => c.kind === "file" && c.action !== "removed",
-    ),
+    (data()?.changes ?? []).filter((c) => c.kind === "file" && c.action !== "removed"),
   );
   const currentFileIds = createMemo(
-    () =>
-      new Set(
-        (data()?.resources ?? [])
-          .filter((r) => r.kind === "file")
-          .map((r) => r.id),
-      ),
+    () => new Set((data()?.resources ?? []).filter((r) => r.kind === "file").map((r) => r.id)),
   );
   const unreadFiles = createMemo(() => {
     const result = new Map<string, Change>();
-    for (const change of [...fileChanges()].sort(
-      (a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt),
-    )) {
+    for (const change of [...fileChanges()].sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt))) {
       if (
         !change.read &&
         change.resourceId &&
@@ -240,14 +179,7 @@ function App() {
   );
   createEffect(
     on(
-      () => [
-        selectedCourse()?.id,
-        selectedTab(),
-        fileView(),
-        phase(),
-        data()?.lastSync,
-        folderRevision(),
-      ],
+      () => [selectedCourse()?.id, selectedTab(), fileView(), phase(), data()?.lastSync, folderRevision()],
       () => {
         const courseId = selectedCourse()?.id;
         if (
@@ -262,11 +194,7 @@ function App() {
         const version = generation.current;
         setFolderState({ courseId, data: null, error: null });
         const route = phase() === "demo" ? "/api/demo/courses" : "/api/courses";
-        void api<CourseFolders>(
-          `${route}/${encodeURIComponent(courseId)}/folders`,
-          undefined,
-          controller.signal,
-        )
+        void api<CourseFolders>(`${route}/${encodeURIComponent(courseId)}/folders`, undefined, controller.signal)
           .then((folders) => {
             if (!cancelled && version === generation.current) {
               setFolderState({ courseId, data: folders, error: null });
@@ -275,18 +203,11 @@ function App() {
                 const root = listFolder(
                   folders,
                   null,
-                  (data()?.resources ?? []).filter(
-                    (file) =>
-                      file.kind === "file" && file.courseId === courseId,
-                  ),
+                  (data()?.resources ?? []).filter((file) => file.kind === "file" && file.courseId === courseId),
                 );
                 const first = root.folders.find((folder) => folder.readable);
                 if (!folderFromHash() && !root.files.length && first) {
-                  window.history.replaceState(
-                    null,
-                    "",
-                    folderLink(courseId, first.id),
-                  );
+                  window.history.replaceState(null, "", folderLink(courseId, first.id));
                   setSelectedFolderId(first.id);
                 }
               }
@@ -301,10 +222,7 @@ function App() {
             setFolderState({
               courseId,
               data: null,
-              error:
-                error instanceof ApiError
-                  ? error.message
-                  : "Не удалось загрузить папки. Попробуй ещё раз.",
+              error: error instanceof ApiError ? error.message : "Не удалось загрузить папки. Попробуй ещё раз.",
             });
           });
         onCleanup(() => {
@@ -320,11 +238,7 @@ function App() {
     setFolderState(null);
     initialFolderCourse = null;
     setFileError(null);
-    window.history.replaceState(
-      null,
-      "",
-      window.location.pathname + window.location.search,
-    );
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
     setSelectedCourseId(null);
     setSelectedTab("files");
     setSelectedFolderId(null);
@@ -345,9 +259,7 @@ function App() {
   async function saveGitlabProject(url: string | null) {
     if (selectedCourse()) await saveProject(selectedCourse()!.id, url);
   }
-  const allFiles = createMemo(() =>
-    (data()?.resources ?? []).filter((r) => r.kind === "file"),
-  );
+  const allFiles = createMemo(() => (data()?.resources ?? []).filter((r) => r.kind === "file"));
   const courseFiles = createMemo(() =>
     allFiles()
       .filter((f) => f.courseId === selectedCourse()?.id)
@@ -359,39 +271,24 @@ function App() {
           a.id.localeCompare(b.id),
       ),
   );
-  const folderData = createMemo(() =>
-    folderState()?.courseId === selectedCourse()?.id
-      ? folderState()?.data
-      : null,
-  );
+  const folderData = createMemo(() => (folderState()?.courseId === selectedCourse()?.id ? folderState()?.data : null));
   const folderError = createMemo(() =>
-    folderState()?.courseId === selectedCourse()?.id
-      ? folderState()?.error
-      : null,
+    folderState()?.courseId === selectedCourse()?.id ? folderState()?.error : null,
   );
   const folderListing = createMemo(() =>
-    folderData()
-      ? listFolder(folderData()!, selectedFolderId(), courseFiles())
-      : null,
+    folderData() ? listFolder(folderData()!, selectedFolderId(), courseFiles()) : null,
   );
-  const folders = createMemo(() =>
-    fileView() === "folders" ? (folderListing()?.folders ?? []) : [],
-  );
-  const files = createMemo(() =>
-    fileView() === "folders" ? (folderListing()?.files ?? []) : courseFiles(),
-  );
+  const folders = createMemo(() => (fileView() === "folders" ? (folderListing()?.folders ?? []) : []));
+  const files = createMemo(() => (fileView() === "folders" ? (folderListing()?.files ?? []) : courseFiles()));
   const linkedProject = createMemo(() => {
     const course = selectedCourse(),
       projects = data()?.gitlabProjects;
     // Read the key even when absent so a later server binding is reactive.
     const project = course ? projects?.[course.id] : undefined;
-    return course && projects && Object.hasOwn(projects, course.id)
-      ? (project ?? null)
-      : null;
+    return course && projects && Object.hasOwn(projects, course.id) ? (project ?? null) : null;
   });
   function changeFileView(view: "all" | "folders") {
-    if (view === "folders" && fileView() !== "folders")
-      initialFolderCourse = null;
+    if (view === "folders" && fileView() !== "folders") initialFolderCourse = null;
     setFileView(view);
     setFileError(null);
     setViewedPdf(null);
@@ -404,9 +301,7 @@ function App() {
   const partial = createMemo(() =>
     Boolean(
       selectedCourse() &&
-      data()?.unavailableSources?.some(
-        (s) => s.courseId === selectedCourse()!.id && s.kind === "file",
-      ),
+        data()?.unavailableSources?.some((s) => s.courseId === selectedCourse()!.id && s.kind === "file"),
     ),
   );
   const syncing = createMemo(() => busy() || data()?.syncing);
@@ -415,12 +310,7 @@ function App() {
       <header class={`header${selectedCourse() ? " header--course" : ""}`}>
         <div class="brand" role="img" aria-label="Stud.GK">
           <svg viewBox="0 0 64 64" fill="currentColor" aria-hidden="true">
-            <g
-              fill="none"
-              stroke-width="8"
-              stroke-linecap="butt"
-              stroke-linejoin="round"
-            >
+            <g fill="none" stroke-width="8" stroke-linecap="butt" stroke-linejoin="round">
               <path
                 d="M48 14H25.657Q24 14 22.828 15.172L16.828 21.172Q14 24 17.655 25.625L24.858 28.826"
                 stroke="currentColor"
@@ -454,9 +344,7 @@ function App() {
                   aria-label={`Выйти из аккаунта ${data()?.user?.name || ""}`}
                   title={`Выйти из аккаунта ${data()?.user?.name || ""}`}
                 >
-                  <span class="account-name">
-                    {userInitials(data()?.user?.name)}
-                  </span>
+                  <span class="account-name">{userInitials(data()?.user?.name)}</span>
                   <LogOut size={16} stroke-width={1.5} aria-hidden="true" />
                 </button>
               </>
@@ -470,12 +358,7 @@ function App() {
           Загружаем…
         </div>
       ) : phase() === "login" ? (
-        <Login
-          error={error()}
-          busy={busy()}
-          onLogin={login}
-          onDemo={() => void showDemo()}
-        />
+        <Login error={error()} busy={busy()} onLogin={login} onDemo={() => void showDemo()} />
       ) : (
         <main class="feed-main">
           {selectedCourse() ? (
@@ -487,20 +370,14 @@ function App() {
                 <ChevronRight class="path-separator" size={16} />
                 <h1 class="course-heading" title={selectedCourse()!.title}>
                   {selectedTab() === "files" && fileView() === "folders" ? (
-                    <a href={folderLink(selectedCourse()!.id)}>
-                      {selectedCourse()!.title}
-                    </a>
+                    <a href={folderLink(selectedCourse()!.id)}>{selectedCourse()!.title}</a>
                   ) : (
                     selectedCourse()!.title
                   )}
                 </h1>
               </nav>
               {selectedTab() === "files" && (
-                <div
-                  class="file-view-switch"
-                  role="group"
-                  aria-label="Вид файлов"
-                >
+                <div class="file-view-switch" role="group" aria-label="Вид файлов">
                   <button
                     type="button"
                     aria-pressed={fileView() === "all"}
@@ -521,12 +398,8 @@ function App() {
                   </button>
                 </div>
               )}
-              {selectedTab() === "nextcloud" && (
-                <div class="nextcloud-toolbar" ref={setNextcloudToolbar} />
-              )}
-              {selectedTab() === "gitlab" && (
-                <div class="gitlab-toolbar" ref={setGitlabToolbar} />
-              )}
+              {selectedTab() === "nextcloud" && <div class="nextcloud-toolbar" ref={setNextcloudToolbar} />}
+              {selectedTab() === "gitlab" && <div class="gitlab-toolbar" ref={setGitlabToolbar} />}
             </div>
           ) : (
             <h1 class="visually-hidden">Курсы</h1>
@@ -536,20 +409,15 @@ function App() {
               {syncError() || fileError()}
             </div>
           )}
-          {selectedCourse() &&
-            selectedTab() === "files" &&
-            partial() &&
-            !syncError() &&
-            !fileError() && (
-              <div class="feed-warning" role="status">
-                <TriangleAlert size={13} />
-                Часть файлов недоступна в Stud.IP.
-              </div>
-            )}
+          {selectedCourse() && selectedTab() === "files" && partial() && !syncError() && !fileError() && (
+            <div class="feed-warning" role="status">
+              <TriangleAlert size={13} />
+              Часть файлов недоступна в Stud.IP.
+            </div>
+          )}
           {!selectedCourse() && (
             <p id="course-sort-help" class="visually-hidden">
-              Перетащи карточку за ручку, чтобы изменить порядок. На клавиатуре
-              используй стрелки на ручке.
+              Перетащи карточку за ручку, чтобы изменить порядок. На клавиатуре используй стрелки на ручке.
             </p>
           )}
           {courseDrag() && (
@@ -578,16 +446,10 @@ function App() {
                         change.kind === "news" &&
                         !change.read &&
                         change.action !== "removed" &&
-                        data()?.resources.some(
-                          (item) => item.id === change.resourceId,
-                        ),
+                        data()?.resources.some((item) => item.id === change.resourceId),
                     )}
                     onSelect={(tab) => {
-                      window.location.hash = courseTabLink(
-                        selectedCourse()!.id,
-                        tab,
-                        selectedFolderId(),
-                      );
+                      window.location.hash = courseTabLink(selectedCourse()!.id, tab, selectedFolderId());
                     }}
                   />
                 )}
@@ -625,9 +487,7 @@ function App() {
                         resources={data()?.resources ?? []}
                         unavailable={Boolean(
                           data()?.unavailableSources?.some(
-                            (source) =>
-                              source.courseId === selectedCourse()!.id &&
-                              source.kind === selectedTab(),
+                            (source) => source.courseId === selectedCourse()!.id && source.kind === selectedTab(),
                           ),
                         )}
                         onRead={(id) => void markResourceViewed(id)}
@@ -637,102 +497,57 @@ function App() {
                 )
               ) : (
                 <div
-                  class={
-                    selectedCourse() && fileView() === "folders" && folderData()
-                      ? "course-explorer"
-                      : undefined
-                  }
+                  class={selectedCourse() && fileView() === "folders" && folderData() ? "course-explorer" : undefined}
                 >
-                  {selectedCourse() &&
-                    fileView() === "folders" &&
-                    folderData() && (
-                      <Show when={selectedCourse()!.id} keyed>
-                        {(_key) => (
-                          <FolderExplorer
-                            data={folderData()!}
-                            currentId={folderListing()?.currentId ?? null}
-                            courseId={selectedCourse()!.id}
-                          />
-                        )}
-                      </Show>
-                    )}
+                  {selectedCourse() && fileView() === "folders" && folderData() && (
+                    <Show when={selectedCourse()!.id} keyed>
+                      {(_key) => (
+                        <FolderExplorer
+                          data={folderData()!}
+                          currentId={folderListing()?.currentId ?? null}
+                          courseId={selectedCourse()!.id}
+                        />
+                      )}
+                    </Show>
+                  )}
                   <section
                     class={
-                      selectedCourse()
-                        ? fileView() === "folders"
-                          ? "explorer-files"
-                          : "file-grid"
-                        : "course-grid"
+                      selectedCourse() ? (fileView() === "folders" ? "explorer-files" : "file-grid") : "course-grid"
                     }
                     aria-label={
-                      selectedCourse()
-                        ? fileView() === "folders"
-                          ? "Папки и файлы курса"
-                          : "Файлы курса"
-                        : "Курсы"
+                      selectedCourse() ? (fileView() === "folders" ? "Папки и файлы курса" : "Файлы курса") : "Курсы"
                     }
                   >
-                    {selectedCourse() &&
-                      fileView() === "folders" &&
-                      !folderListing() && (
-                        <div class="empty" role="status">
-                          {folderError() ? (
-                            <TriangleAlert size={28} />
-                          ) : (
-                            <LoaderCircle class="spin" size={28} />
-                          )}
-                          <h2>
-                            {folderError()
-                              ? "Не удалось загрузить папки"
-                              : "Загружаем папки…"}
-                          </h2>
-                          {folderError() && (
-                            <>
-                              <p>{folderError()}</p>
-                              <button
-                                class="empty-link"
-                                onClick={() =>
-                                  setFolderRevision((value) => value + 1)
-                                }
-                              >
-                                Повторить
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
+                    {selectedCourse() && fileView() === "folders" && !folderListing() && (
+                      <div class="empty" role="status">
+                        {folderError() ? <TriangleAlert size={28} /> : <LoaderCircle class="spin" size={28} />}
+                        <h2>{folderError() ? "Не удалось загрузить папки" : "Загружаем папки…"}</h2>
+                        {folderError() && (
+                          <>
+                            <p>{folderError()}</p>
+                            <button class="empty-link" onClick={() => setFolderRevision((value) => value + 1)}>
+                              Повторить
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
                     {!selectedCourse() && (
                       <For each={orderedCourses()}>
                         {(course) => {
-                          const CourseIcon = createMemo(() =>
-                            courseIcon(course.title),
-                          );
-                          const count = createMemo(
-                            () =>
-                              allFiles().filter((f) => f.courseId === course.id)
-                                .length,
-                          );
+                          const CourseIcon = createMemo(() => courseIcon(course.title));
+                          const count = createMemo(() => allFiles().filter((f) => f.courseId === course.id).length);
                           const newCount = createMemo(
-                            () =>
-                              allFiles().filter(
-                                (f) =>
-                                  f.courseId === course.id &&
-                                  unreadFiles().has(f.id),
-                              ).length,
+                            () => allFiles().filter((f) => f.courseId === course.id && unreadFiles().has(f.id)).length,
                           );
                           const unavailable = createMemo(() =>
-                            data()?.unavailableSources?.some(
-                              (s) =>
-                                s.courseId === course.id && s.kind === "file",
-                            ),
+                            data()?.unavailableSources?.some((s) => s.courseId === course.id && s.kind === "file"),
                           );
                           return (
                             <article
                               class={`course-card ${course.color || "mauve"} ${courseDrag()?.id === course.id ? "dragging" : ""} ${courseDrag()?.targetId === course.id && courseDrag()!.id !== course.id ? "drop-target" : ""}`}
                               data-course-id={course.id}
-                              onPointerDown={(event) =>
-                                startCourseDrag(event, course.id)
-                              }
+                              onPointerDown={(event) => startCourseDrag(event, course.id)}
                               onDragStart={(event) => event.preventDefault()}
                               on:click={{
                                 capture: true,
@@ -750,15 +565,8 @@ function App() {
                                 draggable={false}
                               >
                                 <div class="course-card-top">
-                                  <span
-                                    class="course-card-icon"
-                                    aria-hidden="true"
-                                  >
-                                    <Dynamic
-                                      component={CourseIcon()}
-                                      size={24}
-                                      stroke-width={1.6}
-                                    />
+                                  <span class="course-card-icon" aria-hidden="true">
+                                    <Dynamic component={CourseIcon()} size={24} stroke-width={1.6} />
                                   </span>
                                   <h2 title={course.title}>{course.title}</h2>
                                 </div>
@@ -770,8 +578,7 @@ function App() {
                                       aria-label={fileCountLabel(count())}
                                       title={fileCountLabel(count())}
                                     >
-                                      <FileText size={14} aria-hidden="true" />{" "}
-                                      {count()}
+                                      <FileText size={14} aria-hidden="true" /> {count()}
                                     </span>
                                     {newCount() > 0 && (
                                       <span
@@ -780,8 +587,7 @@ function App() {
                                         aria-label={`Обновлений: ${newCount()}`}
                                         title={`Обновлений: ${newCount()}`}
                                       >
-                                        <BellDot size={14} aria-hidden="true" />{" "}
-                                        {newCount()}
+                                        <BellDot size={14} aria-hidden="true" /> {newCount()}
                                       </span>
                                     )}
                                     {unavailable() && (
@@ -791,10 +597,7 @@ function App() {
                                         aria-label="Часть файлов недоступна"
                                         title="Часть файлов недоступна"
                                       >
-                                        <TriangleAlert
-                                          size={14}
-                                          aria-hidden="true"
-                                        />
+                                        <TriangleAlert size={14} aria-hidden="true" />
                                       </span>
                                     )}
                                   </div>
@@ -807,21 +610,15 @@ function App() {
                                 title="Перетащить курс"
                                 onKeyDown={(event) => {
                                   const direction =
-                                    event.key === "ArrowUp" ||
-                                    event.key === "ArrowLeft"
+                                    event.key === "ArrowUp" || event.key === "ArrowLeft"
                                       ? -1
-                                      : event.key === "ArrowDown" ||
-                                          event.key === "ArrowRight"
+                                      : event.key === "ArrowDown" || event.key === "ArrowRight"
                                         ? 1
                                         : 0;
                                   if (!direction) return;
                                   event.preventDefault();
                                   const target =
-                                    orderedCourses()[
-                                      orderedCourses().findIndex(
-                                        (c) => c.id === course.id,
-                                      ) + direction
-                                    ];
+                                    orderedCourses()[orderedCourses().findIndex((c) => c.id === course.id) + direction];
                                   if (target) {
                                     const handle = event.currentTarget;
                                     moveCourse(course.id, target.id);
@@ -839,13 +636,9 @@ function App() {
                     {selectedCourse() && (
                       <For each={files()}>
                         {(file) => {
-                          const appearance = createMemo(() =>
-                            fileAppearance(file.title),
-                          );
+                          const appearance = createMemo(() => fileAppearance(file.title));
                           const date = createMemo(() => materialDate(file));
-                          const unread = createMemo(() =>
-                            unreadFiles().get(file.id),
-                          );
+                          const unread = createMemo(() => unreadFiles().get(file.id));
                           const previewLabel = createMemo(
                             () =>
                               `Открыть ${file.title}${unread() ? (unread()!.action === "added" ? ". Новый файл" : ". Обновлённый файл") : ""}`,
@@ -863,25 +656,16 @@ function App() {
                                 </span>
                               ) : phase() === "live" &&
                                 file.remoteId &&
-                                (appearance().tone === "pdf" ||
-                                  appearance().tone === "image") ? (
+                                (appearance().tone === "pdf" || appearance().tone === "image") ? (
                                 <FileThumbnail
                                   url={`/api/files/${encodeURIComponent(file.remoteId)}/content`}
                                   version={`${generation.current}:${file.updatedAt || file.createdAt || ""}`}
                                   kind={appearance().tone as "pdf" | "image"}
                                 />
                               ) : (
-                                <div
-                                  class={`file-preview ${appearance().tone}`}
-                                >
-                                  <Dynamic
-                                    component={appearance().Icon}
-                                    size={44}
-                                    stroke-width={1.4}
-                                  />
-                                  <span class="file-type">
-                                    {appearance().label}
-                                  </span>
+                                <div class={`file-preview ${appearance().tone}`}>
+                                  <Dynamic component={appearance().Icon} size={44} stroke-width={1.4} />
+                                  <span class="file-type">{appearance().label}</span>
                                 </div>
                               )}
                               <div class="file-info">
@@ -889,14 +673,11 @@ function App() {
                                 <div class="file-meta">
                                   {date() && (
                                     <time datetime={date()}>
-                                      {new Date(date()).toLocaleDateString(
-                                        "ru-RU",
-                                        {
-                                          day: "numeric",
-                                          month: "short",
-                                          year: "numeric",
-                                        },
-                                      )}
+                                      {new Date(date()).toLocaleDateString("ru-RU", {
+                                        day: "numeric",
+                                        month: "short",
+                                        year: "numeric",
+                                      })}
                                     </time>
                                   )}
                                 </div>
@@ -904,12 +685,8 @@ function App() {
                             </>
                           ));
                           return (
-                            <article
-                              class={`file-card ${unread() ? "unread" : ""}`}
-                            >
-                              {phase() === "live" &&
-                              file.remoteId &&
-                              appearance().tone === "pdf" ? (
+                            <article class={`file-card ${unread() ? "unread" : ""}`}>
+                              {phase() === "live" && file.remoteId && appearance().tone === "pdf" ? (
                                 <button
                                   class="file-card-link"
                                   aria-label={previewLabel()}
@@ -953,8 +730,7 @@ function App() {
                       </For>
                     )}
                     {(selectedCourse()
-                      ? !files().length &&
-                        (fileView() === "all" || Boolean(folderListing()))
+                      ? !files().length && (fileView() === "all" || Boolean(folderListing()))
                       : !orderedCourses().length) && (
                       <div class="empty">
                         <span>
@@ -983,11 +759,7 @@ function App() {
                           {data()?.syncing ? (
                             "Это может занять немного времени."
                           ) : syncError() || !data()?.lastSync ? (
-                            <button
-                              class="empty-link"
-                              onClick={() => void refresh()}
-                              disabled={syncing()}
-                            >
+                            <button class="empty-link" onClick={() => void refresh()} disabled={syncing()}>
                               Повторить проверку
                             </button>
                           ) : selectedCourse() ? (
@@ -1013,10 +785,7 @@ function App() {
           </div>
         </main>
       )}
-      <Show
-        when={phase() === "live" && viewedPdf()?.remoteId ? viewedPdf() : null}
-        keyed
-      >
+      <Show when={phase() === "live" && viewedPdf()?.remoteId ? viewedPdf() : null} keyed>
         {(file) => (
           <PdfViewer
             title={file.title}

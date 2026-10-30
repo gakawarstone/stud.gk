@@ -10,15 +10,10 @@ function relativeDate(value: string, now: number) {
     ["hour", 3600],
     ["minute", 60],
   ];
-  const [unit, divisor] = units.find(
-    ([, size]) => Math.abs(seconds) >= size,
-  ) || ["second", 1];
+  const [unit, divisor] = units.find(([, size]) => Math.abs(seconds) >= size) || ["second", 1];
   return Math.abs(seconds) < 60
     ? "только что"
-    : new Intl.RelativeTimeFormat("ru", { numeric: "auto" }).format(
-        Math.round(seconds / divisor),
-        unit,
-      );
+    : new Intl.RelativeTimeFormat("ru", { numeric: "auto" }).format(Math.round(seconds / divisor), unit);
 }
 export function GitlabCommitSummary(props: { commit: GitlabCommit }) {
   const [now, setNow] = createSignal(Date.now());
@@ -37,10 +32,7 @@ export function GitlabCommitSummary(props: { commit: GitlabCommit }) {
         .join("")
         .toUpperCase() || "?",
   );
-  const date = createMemo(
-    () =>
-      props.commit.committedAt && relativeDate(props.commit.committedAt, now()),
-  );
+  const date = createMemo(() => props.commit.committedAt && relativeDate(props.commit.committedAt, now()));
   return (
     <div class="gitlab-last-commit" aria-label="Последний коммит">
       <span class="gitlab-commit-avatar" aria-hidden="true">
@@ -63,10 +55,7 @@ export function GitlabCommitSummary(props: { commit: GitlabCommit }) {
           {date() && (
             <>
               <span aria-hidden="true">·</span>
-              <time
-                datetime={props.commit.committedAt!}
-                title={new Date(props.commit.committedAt!).toLocaleString()}
-              >
+              <time datetime={props.commit.committedAt!} title={new Date(props.commit.committedAt!).toLocaleString()}>
                 {date()}
               </time>
             </>

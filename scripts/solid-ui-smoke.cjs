@@ -1,4 +1,6 @@
 const { app, BrowserWindow } = require("electron");
+// Teardown is awaited below; closing the last window must not exit early.
+app.on("window-all-closed", () => {});
 const assert = require("node:assert/strict");
 const { mkdtemp, rm, writeFile } = require("node:fs/promises");
 const path = require("node:path");
@@ -20,18 +22,11 @@ async function evaluate(window, code) {
   return window.webContents.executeJavaScript(code);
 }
 async function frames(window) {
-  await evaluate(
-    window,
-    "new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))",
-  );
+  await evaluate(window, "new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))");
 }
 // Small, deterministic 12-page PDF with real selectable text and a white page.
 function pdfFixture() {
-  const objects = [
-    "<< /Type /Catalog /Pages 2 0 R >>",
-    "",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-  ];
+  const objects = ["<< /Type /Catalog /Pages 2 0 R >>", "", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"];
   const kids = [];
   for (let page = 1; page <= 12; page++) {
     const id = objects.length + 1;
@@ -56,19 +51,14 @@ function pdfFixture() {
       .slice(1)
       .map((n) => `${String(n).padStart(10, "0")} 00000 n \n`)
       .join("");
-  return Buffer.from(
-    result +
-      `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`,
-  );
+  return Buffer.from(result + `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
 }
 (async () => {
   profile = await mkdtemp(path.join(tmpdir(), "stud-gk-ui-"));
   app.setPath("userData", profile);
   await app.whenReady();
   const root = process.env.CAMPUS_SMOKE_ROOT || path.resolve(__dirname, "..");
-  const { startServer } = await import(
-    pathToFileURL(path.join(root, "server/runtime.js")).href
-  );
+  const { startServer } = await import(pathToFileURL(path.join(root, "server/runtime.js")).href);
   const { CookieJar } = await import("tough-cookie");
   const pdf = pdfFixture();
   let filename = "Fixture.pdf",
@@ -153,24 +143,12 @@ function pdfFixture() {
   );
   await frames(window);
   assert.deepEqual(
-    await evaluate(
-      window,
-      "[...document.querySelectorAll('.course-card')].map(x=>x.dataset.courseId)",
-    ),
+    await evaluate(window, "[...document.querySelectorAll('.course-card')].map(x=>x.dataset.courseId)"),
     ["c2", "c1", "c3"],
   );
+  assert.equal(await evaluate(window, "document.activeElement.closest('.course-card').dataset.courseId"), "c1");
   assert.equal(
-    await evaluate(
-      window,
-      "document.activeElement.closest('.course-card').dataset.courseId",
-    ),
-    "c1",
-  );
-  assert.equal(
-    await evaluate(
-      window,
-      "document.querySelectorAll('.course-card')[1]===originalCard",
-    ),
+    await evaluate(window, "document.querySelectorAll('.course-card')[1]===originalCard"),
     true,
     "Keyed reorder keeps the same DOM node",
   );
@@ -184,9 +162,7 @@ function pdfFixture() {
     assert.equal(
       await evaluate(
         window,
-        "document.querySelectorAll('.course-card')[" +
-          (type === "mouse" ? 2 : 0) +
-          "].dataset.courseId",
+        "document.querySelectorAll('.course-card')[" + (type === "mouse" ? 2 : 0) + "].dataset.courseId",
       ),
       "c1",
     );
@@ -201,25 +177,13 @@ function pdfFixture() {
     window,
     "document.querySelectorAll('.pdf-page').length===12 && !!document.querySelector('.pdf-page canvas')",
   );
-  assert.equal(
-    await evaluate(window, "document.querySelector('.pdf-viewer').open"),
-    true,
-  );
-  assert.equal(
-    await evaluate(window, "document.body.style.overflow"),
-    "hidden",
-  );
+  assert.equal(await evaluate(window, "document.querySelector('.pdf-viewer').open"), true);
+  assert.equal(await evaluate(window, "document.body.style.overflow"), "hidden");
   assert.ok(
-    await evaluate(
-      window,
-      "document.querySelectorAll('.pdf-page canvas').length < 12",
-    ),
+    await evaluate(window, "document.querySelectorAll('.pdf-page canvas').length < 12"),
     "PDF renders nearby pages only",
   );
-  await waitFor(
-    window,
-    "document.querySelector('.pdf-text-layer').textContent.includes('Fixture page 1')",
-  );
+  await waitFor(window, "document.querySelector('.pdf-text-layer').textContent.includes('Fixture page 1')");
   assert.equal(
     await evaluate(
       window,
@@ -233,10 +197,7 @@ function pdfFixture() {
       "[...document.querySelector('.pdf-page canvas').getContext('2d').getImageData(1,1,1,1).data].slice(0,3)",
     );
   const themed = await pixel();
-  await evaluate(
-    window,
-    "document.querySelector('.pdf-viewer [title*=\"цвета\"]').click()",
-  );
+  await evaluate(window, "document.querySelector('.pdf-viewer [title*=\"цвета\"]').click()");
   await waitFor(
     window,
     "document.querySelector('.pdf-viewer').dataset.themed === 'false' && !!document.querySelector('.pdf-page canvas')",
@@ -268,88 +229,42 @@ function pdfFixture() {
   await waitFor(window, "!!document.fullscreenElement");
   await evaluate(window, "document.exitFullscreen()");
   await waitFor(window, "!document.fullscreenElement");
-  const width = await evaluate(
-    window,
-    "document.querySelector('.pdf-page').getBoundingClientRect().width",
-  );
-  await evaluate(
-    window,
-    "document.querySelector('[aria-label=\"Увеличить масштаб\"]').click()",
-  );
-  await waitFor(
-    window,
-    `document.querySelector('.pdf-page').getBoundingClientRect().width > ${width}`,
-  );
+  const width = await evaluate(window, "document.querySelector('.pdf-page').getBoundingClientRect().width");
+  await evaluate(window, "document.querySelector('[aria-label=\"Увеличить масштаб\"]').click()");
+  await waitFor(window, `document.querySelector('.pdf-page').getBoundingClientRect().width > ${width}`);
   await evaluate(
     window,
     `(()=>{const input=document.querySelector('.pdf-page-number input');input.value='10';input.dispatchEvent(new Event('input',{bubbles:true}));input.closest('form').requestSubmit();})()`,
   );
-  await waitFor(
-    window,
-    "!!document.querySelector('[data-page=\"10\"] canvas')",
-  );
+  await waitFor(window, "!!document.querySelector('[data-page=\"10\"] canvas')");
   await waitFor(window, "!document.querySelector('[data-page=\"1\"] canvas')");
-  assert.equal(
-    await evaluate(
-      window,
-      "document.querySelector('.pdf-page-number input').value",
-    ),
-    "10",
-  );
+  assert.equal(await evaluate(window, "document.querySelector('.pdf-page-number input').value"), "10");
   const original = await evaluate(
     window,
     "fetch(document.querySelector('.pdf-viewer a[download],.pdf-viewer a[href$=\"/download\"]').href).then(r=>r.arrayBuffer()).then(b=>Array.from(new Uint8Array(b)))",
   );
-  assert.deepEqual(
-    Buffer.from(original),
-    pdf,
-    "Download keeps original PDF bytes",
-  );
+  assert.deepEqual(Buffer.from(original), pdf, "Download keeps original PDF bytes");
   if (process.env.CAMPUS_SMOKE_PDF_SCREENSHOT)
-    await writeFile(
-      process.env.CAMPUS_SMOKE_PDF_SCREENSHOT,
-      (await window.webContents.capturePage()).toPNG(),
-    );
-  await evaluate(
-    window,
-    "document.querySelector('.pdf-viewer-document').focus()",
-  );
+    await writeFile(process.env.CAMPUS_SMOKE_PDF_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
+  await evaluate(window, "document.querySelector('.pdf-viewer-document').focus()");
   window.webContents.sendInputEvent({ type: "keyDown", keyCode: "Escape" });
   window.webContents.sendInputEvent({ type: "keyUp", keyCode: "Escape" });
   await waitFor(window, "!document.querySelector('.pdf-viewer')");
   assert.equal(await evaluate(window, "document.body.style.overflow"), "");
-  assert.equal(
-    await evaluate(window, "document.activeElement.className"),
-    "file-card-link",
-  );
+  assert.equal(await evaluate(window, "document.activeElement.className"), "file-card-link");
   // Reconcile fresh JSON snapshots by resource ID, preserving focus, DOM and
   // local expansion while still updating every field read by a component.
-  await evaluate(
-    window,
-    "window.originalFile=document.querySelector('.file-card');",
-  );
+  await evaluate(window, "window.originalFile=document.querySelector('.file-card');");
   updatedAt = "2026-10-02T12:00:00Z";
   await evaluate(
     window,
     "fetch('/api/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(()=>runUiPoll())",
   );
   await waitFor(window, "!!document.querySelector('.file-card.unread')");
-  assert.equal(
-    await evaluate(
-      window,
-      "document.querySelector('.file-card')===originalFile",
-    ),
-    true,
-  );
+  assert.equal(await evaluate(window, "document.querySelector('.file-card')===originalFile"), true);
   await evaluate(window, "document.querySelector('.file-card button').click()");
-  await waitFor(
-    window,
-    "!!document.querySelector('.pdf-page canvas') && !document.querySelector('.file-card.unread')",
-  );
-  await evaluate(
-    window,
-    "document.querySelector('.pdf-viewer [aria-label=\"Закрыть просмотр\"]').click()",
-  );
+  await waitFor(window, "!!document.querySelector('.pdf-page canvas') && !document.querySelector('.file-card.unread')");
+  await evaluate(window, "document.querySelector('.pdf-viewer [aria-label=\"Закрыть просмотр\"]').click()");
   await waitFor(window, "!document.querySelector('.pdf-viewer')");
   filename = "Renamed.txt";
   updatedAt = "2026-10-03T12:00:00Z";
@@ -361,15 +276,12 @@ function pdfFixture() {
     window,
     "document.querySelector('.file-card h2').textContent==='Renamed.txt' && !!document.querySelector('.file-preview.document')",
   );
-  assert.equal(
-    await evaluate(
-      window,
-      "document.querySelector('.file-card')===originalFile",
-    ),
-    true,
-  );
+  assert.equal(await evaluate(window, "document.querySelector('.file-card')===originalFile"), true);
   await evaluate(window, "location.hash='course=c1&tab=news'");
   await waitFor(window, "!!document.querySelector('.course-news-more')");
+  // Finish visibility/read tracking before starting the next controlled poll.
+  await frames(window);
+  await waitFor(window, "!document.querySelector('.course-rail-dot')");
   await evaluate(
     window,
     "document.querySelector('.course-news-more').click();window.originalNews=document.querySelector('.course-news');",
@@ -380,22 +292,10 @@ function pdfFixture() {
     window,
     "fetch('/api/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(()=>runUiPoll())",
   );
-  await waitFor(
-    window,
-    "document.querySelector('.course-news h3').textContent==='Updated announcement'",
-  );
+  await waitFor(window, "document.querySelector('.course-news h3').textContent==='Updated announcement'");
+  assert.equal(await evaluate(window, "document.querySelector('.course-news')===originalNews"), true);
   assert.equal(
-    await evaluate(
-      window,
-      "document.querySelector('.course-news')===originalNews",
-    ),
-    true,
-  );
-  assert.equal(
-    await evaluate(
-      window,
-      "document.querySelector('.course-news-more').getAttribute('aria-expanded')",
-    ),
+    await evaluate(window, "document.querySelector('.course-news-more').getAttribute('aria-expanded')"),
     "true",
   );
   await evaluate(window, "document.querySelector('.account-button').click()");

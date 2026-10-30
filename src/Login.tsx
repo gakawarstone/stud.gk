@@ -1,9 +1,4 @@
-import {
-  ArrowUpRight,
-  GraduationCap,
-  LoaderCircle,
-  ShieldCheck,
-} from "lucide-solid";
+import { ArrowUpRight, GraduationCap, LoaderCircle, ShieldCheck } from "lucide-solid";
 import { createSignal } from "solid-js";
 export function Login(props: {
   error: string | null;

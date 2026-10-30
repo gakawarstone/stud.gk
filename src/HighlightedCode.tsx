@@ -14,11 +14,7 @@ export function HighlightedCode(props: { content: string; language: string }) {
           .then(({ highlightCode }) => {
             const value = highlightCode(props.content, props.language);
             if (!cancelled)
-              setHtml(
-                value === null
-                  ? null
-                  : { content: props.content, language: props.language, value },
-              );
+              setHtml(value === null ? null : { content: props.content, language: props.language, value });
           })
           .catch(() => {});
         onCleanup(() => {
@@ -30,8 +26,7 @@ export function HighlightedCode(props: { content: string; language: string }) {
   // highlight.js escapes source text before adding its own token spans.
   return (
     <>
-      {html()?.content === props.content &&
-      html()!.language === props.language ? (
+      {html()?.content === props.content && html()!.language === props.language ? (
         <code class="gitlab-code hljs" innerHTML={html()!.value} />
       ) : (
         <code class="gitlab-code">{props.content}</code>

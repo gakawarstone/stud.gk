@@ -1,4 +1,6 @@
 const { app, BrowserWindow } = require("electron");
+// Teardown is awaited below; closing the last window must not exit early.
+app.on("window-all-closed", () => {});
 const assert = require("node:assert/strict");
 const { mkdtemp, readFile, writeFile, rm } = require("node:fs/promises");
 const { tmpdir } = require("node:os");

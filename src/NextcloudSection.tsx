@@ -1,23 +1,10 @@
-import {
-  ChevronRight,
-  Download,
-  FileText,
-  Film,
-  Folder,
-  Headphones,
-  Image,
-  LoaderCircle,
-} from "lucide-solid";
+import { ChevronRight, Download, FileText, Film, Folder, Headphones, Image, LoaderCircle } from "lucide-solid";
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { Portal } from "solid-js/web";
 import { FileThumbnail } from "./FileThumbnail";
 import { nextcloudUrl } from "./nextcloud-url";
 import { NextcloudSettings } from "./NextcloudSettings";
-import {
-  nextcloudFileKind,
-  NextcloudViewer,
-  type NextcloudEntry,
-} from "./NextcloudViewer";
+import { nextcloudFileKind, NextcloudViewer, type NextcloudEntry } from "./NextcloudViewer";
 type Listing = {
   title: string;
   path: string;
@@ -33,10 +20,7 @@ function sizeLabel(size: number) {
         ? `${Math.round(size / 1024)} КБ`
         : `${size} Б`;
 }
-export function NextcloudSection(props: {
-  storageKey: string;
-  toolbarTarget: HTMLElement | null;
-}) {
+export function NextcloudSection(props: { storageKey: string; toolbarTarget: HTMLElement | null }) {
   const [savedUrl, setSavedUrl] = createSignal(
     (() => {
       try {
@@ -81,10 +65,7 @@ export function NextcloudSection(props: {
         })
           .then(async (response) => {
             const data = await response.json();
-            if (!response.ok)
-              throw new Error(
-                data.error || "Не удалось получить файлы Nextcloud.",
-              );
+            if (!response.ok) throw new Error(data.error || "Не удалось получить файлы Nextcloud.");
             if (!controller.signal.aborted) setListing(data);
           })
           .catch((error) => {
@@ -125,9 +106,7 @@ export function NextcloudSection(props: {
             event.preventDefault();
             const url = nextcloudUrl(input());
             if (!url) {
-              setError(
-                "Введи полную публичную ссылку Nextcloud с https:// или http://.",
-              );
+              setError("Введи полную публичную ссылку Nextcloud с https:// или http://.");
               return;
             }
             try {
@@ -140,15 +119,11 @@ export function NextcloudSection(props: {
               setEditing(false);
               setRevision((value) => value + 1);
             } catch {
-              setError(
-                "Не удалось сохранить ссылку. Проверь, разрешено ли локальное хранилище.",
-              );
+              setError("Не удалось сохранить ссылку. Проверь, разрешено ли локальное хранилище.");
             }
           }}
         >
-          <label for="nextcloud-url">
-            Ссылка на общую папку или файл Nextcloud
-          </label>
+          <label for="nextcloud-url">Ссылка на общую папку или файл Nextcloud</label>
           <input
             ref={(element) => (urlInput = element)}
             id="nextcloud-url"
@@ -209,9 +184,7 @@ export function NextcloudSection(props: {
                     <button
                       type="button"
                       disabled={index === parts.length - 1}
-                      onClick={() =>
-                        setPath(parts.slice(0, index + 1).join("/"))
-                      }
+                      onClick={() => setPath(parts.slice(0, index + 1).join("/"))}
                     >
                       {part}
                     </button>
@@ -227,106 +200,76 @@ export function NextcloudSection(props: {
           {loadError() && (
             <div class="nextcloud-load-error" role="alert">
               <p>{loadError()}</p>
-              <button
-                class="nextcloud-save"
-                type="button"
-                onClick={() => setRevision((value) => value + 1)}
-              >
+              <button class="nextcloud-save" type="button" onClick={() => setRevision((value) => value + 1)}>
                 Повторить
               </button>
             </div>
           )}
           {listing() && (
             <div class="file-grid nextcloud-files" aria-label="Файлы Nextcloud">
-              {
-                <For each={listing()!.entries}>
-                  {(file) => {
-                    const kind = nextcloudFileKind(file);
-                    const Icon = file.directory
-                      ? Folder
-                      : kind === "video"
-                        ? Film
-                        : kind === "audio"
-                          ? Headphones
-                          : kind === "image"
-                            ? Image
-                            : FileText;
-                    return (
-                      <article class="file-card nextcloud-file">
-                        <button
-                          type="button"
-                          class="file-card-link"
-                          aria-label={`${file.directory ? "Открыть папку" : "Открыть"} ${file.name}`}
-                          aria-haspopup={file.directory ? undefined : "dialog"}
-                          onClick={() =>
-                            file.directory
-                              ? setPath(file.path)
-                              : setViewed(file)
-                          }
-                        >
-                          {!file.directory &&
-                          (kind === "pdf" ||
-                            kind === "image" ||
-                            kind === "video") ? (
-                            <FileThumbnail
-                              url={fileUrl(file, "preview")}
-                              version={file.etag}
-                              kind={kind}
-                            />
-                          ) : (
-                            <div
-                              class={`file-preview ${file.directory ? "folder" : kind}`}
-                            >
-                              <Icon size={42} stroke-width={1.4} />
-                              <span class="file-type">
-                                {file.directory
-                                  ? "Папка"
-                                  : kind === "video"
-                                    ? "Видео"
-                                    : kind === "audio"
-                                      ? "Аудио"
-                                      : file.name
-                                          .split(".")
-                                          .pop()
-                                          ?.toUpperCase()}
-                              </span>
-                            </div>
-                          )}
-                          <div class="file-info">
-                            <h2 title={file.name}>{file.name}</h2>
-                            <div class="file-meta">
-                              {!file.directory && (
-                                <span>{sizeLabel(file.size)}</span>
-                              )}
-                              {file.modified && (
-                                <time datetime={file.modified}>
-                                  {new Date(file.modified).toLocaleDateString(
-                                    "ru-RU",
-                                  )}
-                                </time>
-                              )}
-                            </div>
+              <For each={listing()!.entries}>
+                {(file) => {
+                  const kind = nextcloudFileKind(file);
+                  const Icon = file.directory
+                    ? Folder
+                    : kind === "video"
+                      ? Film
+                      : kind === "audio"
+                        ? Headphones
+                        : kind === "image"
+                          ? Image
+                          : FileText;
+                  return (
+                    <article class="file-card nextcloud-file">
+                      <button
+                        type="button"
+                        class="file-card-link"
+                        aria-label={`${file.directory ? "Открыть папку" : "Открыть"} ${file.name}`}
+                        aria-haspopup={file.directory ? undefined : "dialog"}
+                        onClick={() => (file.directory ? setPath(file.path) : setViewed(file))}
+                      >
+                        {!file.directory && (kind === "pdf" || kind === "image" || kind === "video") ? (
+                          <FileThumbnail url={fileUrl(file, "preview")} version={file.etag} kind={kind} />
+                        ) : (
+                          <div class={`file-preview ${file.directory ? "folder" : kind}`}>
+                            <Icon size={42} stroke-width={1.4} />
+                            <span class="file-type">
+                              {file.directory
+                                ? "Папка"
+                                : kind === "video"
+                                  ? "Видео"
+                                  : kind === "audio"
+                                    ? "Аудио"
+                                    : file.name.split(".").pop()?.toUpperCase()}
+                            </span>
                           </div>
-                        </button>
-                        {!file.directory && (
-                          <a
-                            class="nextcloud-download"
-                            href={fileUrl(file, "download")}
-                            aria-label={`Скачать ${file.name}`}
-                          >
-                            <Download size={17} />
-                          </a>
                         )}
-                      </article>
-                    );
-                  }}
-                </For>
-              }
-              {!listing()!.entries.length && (
-                <p class="course-section-notice">
-                  В этой папке пока нет файлов.
-                </p>
-              )}
+                        <div class="file-info">
+                          <h2 title={file.name}>{file.name}</h2>
+                          <div class="file-meta">
+                            {!file.directory && <span>{sizeLabel(file.size)}</span>}
+                            {file.modified && (
+                              <time datetime={file.modified}>
+                                {new Date(file.modified).toLocaleDateString("ru-RU")}
+                              </time>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                      {!file.directory && (
+                        <a
+                          class="nextcloud-download"
+                          href={fileUrl(file, "download")}
+                          aria-label={`Скачать ${file.name}`}
+                        >
+                          <Download size={17} />
+                        </a>
+                      )}
+                    </article>
+                  );
+                }}
+              </For>
+              {!listing()!.entries.length && <p class="course-section-notice">В этой папке пока нет файлов.</p>}
             </div>
           )}
         </>

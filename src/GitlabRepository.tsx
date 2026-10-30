@@ -1,26 +1,11 @@
 import { ChevronRight, Folder, FolderOpen, LoaderCircle } from "lucide-solid";
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  For,
-  on,
-  onCleanup,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, type JSX } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { GitlabBranchPicker } from "./GitlabBranchPicker";
 import { GitlabCommitSummary } from "./GitlabCommitSummary";
 import { GitlabFileViewer } from "./GitlabFileViewer";
 import { RepositoryFileIcon } from "./RepositoryFileIcon";
-import {
-  gitlabApi,
-  GitlabApiError,
-  type GitlabBranch,
-  type GitlabEntry,
-  type GitlabListing,
-} from "./gitlab-api";
+import { gitlabApi, GitlabApiError, type GitlabBranch, type GitlabEntry, type GitlabListing } from "./gitlab-api";
 type FolderState = {
   entries: GitlabEntry[];
   loading: boolean;
@@ -34,29 +19,17 @@ export function GitlabRepository(props: {
   onAuthRequired: () => void;
 }) {
   const [folders, setFolders] = createSignal<Record<string, FolderState>>({});
-  const [expanded, setExpanded] = createSignal<Set<string>>(
-    (() => new Set())(),
-  );
-  let expandedRef = expanded();
+  const [expanded, setExpanded] = createSignal<Set<string>>(new Set());
   const [branch, setBranch] = createSignal<string | null>(null);
-  let branchRef: (string | null) | null = null;
-  const [requestedBranch, setRequestedBranch] = createSignal<string | null>(
-    null,
-  );
+  let branchRef: string | null = null;
+  const [requestedBranch, setRequestedBranch] = createSignal<string | null>(null);
   const [branches, setBranches] = createSignal<GitlabBranch[]>([]);
   const [branchesLoading, setBranchesLoading] = createSignal(true);
   const [branchesError, setBranchesError] = createSignal<string | null>(null);
   const [branchesRetry, setBranchesRetry] = createSignal(0);
   createEffect(
     on(
-      () => [
-        props.endpoint,
-        props.projectUrl,
-        props.revision,
-        props.demo,
-        props.onAuthRequired,
-        branchesRetry(),
-      ],
+      () => [props.endpoint, props.projectUrl, props.revision, props.demo, props.onAuthRequired, branchesRetry()],
       () => {
         const controller = new AbortController();
         setBranchesLoading(true);
@@ -80,11 +53,7 @@ export function GitlabRepository(props: {
           .catch((error) => {
             if (!controller.signal.aborted) {
               setBranchesError(error.message || "Не удалось загрузить ветки.");
-              if (
-                error instanceof GitlabApiError &&
-                error.code === "GITLAB_AUTH_REQUIRED"
-              )
-                props.onAuthRequired();
+              if (error instanceof GitlabApiError && error.code === "GITLAB_AUTH_REQUIRED") props.onAuthRequired();
             }
           })
           .finally(() => {
@@ -100,14 +69,7 @@ export function GitlabRepository(props: {
   let loadFolder: (path: string) => void = () => {};
   createEffect(
     on(
-      () => [
-        props.endpoint,
-        props.projectUrl,
-        props.revision,
-        props.demo,
-        props.onAuthRequired,
-        requestedBranch(),
-      ],
+      () => [props.endpoint, props.projectUrl, props.revision, props.demo, props.onAuthRequired, requestedBranch()],
       () => {
         let cancelled = false;
         let currentBranch: string | null = requestedBranch() || branchRef;
@@ -115,12 +77,7 @@ export function GitlabRepository(props: {
         const requests = new Map<string, AbortController>();
         setFolders({});
         async function load(path: string) {
-          if (
-            cancelled ||
-            cache[path]?.loading ||
-            (cache[path] && !cache[path].error)
-          )
-            return;
+          if (cancelled || cache[path]?.loading || (cache[path] && !cache[path].error)) return;
           const controller = new AbortController();
           requests.set(path, controller);
           cache[path] = { entries: [], loading: true, error: null };
@@ -167,25 +124,16 @@ export function GitlabRepository(props: {
             };
             setFolders({ ...cache });
             if (!path) setFocused(value.entries[0]?.path ?? null);
-            for (const entry of value.entries)
-              if (entry.directory && expandedRef.has(entry.path))
-                void load(entry.path);
+            for (const entry of value.entries) if (entry.directory && expanded().has(entry.path)) void load(entry.path);
           } catch (error) {
             if (cancelled || controller.signal.aborted) return;
             cache[path] = {
               entries: [],
               loading: false,
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Не удалось загрузить папку.",
+              error: error instanceof Error ? error.message : "Не удалось загрузить папку.",
             };
             setFolders({ ...cache });
-            if (
-              error instanceof GitlabApiError &&
-              error.code === "GITLAB_AUTH_REQUIRED"
-            )
-              props.onAuthRequired();
+            if (error instanceof GitlabApiError && error.code === "GITLAB_AUTH_REQUIRED") props.onAuthRequired();
           } finally {
             requests.delete(path);
           }
@@ -202,27 +150,23 @@ export function GitlabRepository(props: {
     ),
   );
   function focusPath(path: string) {
-    let target = tree?.querySelector<HTMLElement>(
-      `[data-entry-path="${CSS.escape(path)}"]`,
-    );
+    let target = tree?.querySelector<HTMLElement>(`[data-entry-path="${CSS.escape(path)}"]`);
     let parent = path;
     while (!target && parent.includes("/")) {
       parent = parent.slice(0, parent.lastIndexOf("/"));
-      target = tree?.querySelector<HTMLElement>(
-        `[data-entry-path="${CSS.escape(parent)}"]`,
-      );
+      target = tree?.querySelector<HTMLElement>(`[data-entry-path="${CSS.escape(parent)}"]`);
     }
     target ??= tree?.querySelector<HTMLElement>('[role="treeitem"]');
     setFocused(target?.dataset.entryPath ?? path);
     target?.focus({ preventScroll: true });
   }
   function toggle(entry: GitlabEntry, open = !expanded().has(entry.path)) {
-    const next = new Set(expandedRef);
+    const next = new Set(expanded());
     if (open) {
       next.add(entry.path);
       loadFolder(entry.path);
     } else next.delete(entry.path);
-    expandedRef = next;
+
     setExpanded(next);
     focusPath(entry.path);
   }
@@ -238,31 +182,21 @@ export function GitlabRepository(props: {
     entry: GitlabEntry,
   ) {
     if (event.target !== event.currentTarget) return;
-    const rows = [
-      ...(tree?.querySelectorAll<HTMLElement>('[role="treeitem"]') ?? []),
-    ];
+    const rows = [...(tree?.querySelectorAll<HTMLElement>('[role="treeitem"]') ?? [])];
     const index = rows.indexOf(event.currentTarget);
     let target: HTMLElement | undefined | null;
-    if (event.key === "ArrowDown")
-      target = rows[Math.min(rows.length - 1, index + 1)];
+    if (event.key === "ArrowDown") target = rows[Math.min(rows.length - 1, index + 1)];
     else if (event.key === "ArrowUp") target = rows[Math.max(0, index - 1)];
     else if (event.key === "Home") target = rows[0];
     else if (event.key === "End") target = rows[rows.length - 1];
     else if (event.key === "ArrowRight" && entry.directory) {
       event.preventDefault();
       if (!expanded().has(entry.path)) toggle(entry, true);
-      else
-        target = event.currentTarget.querySelector<HTMLElement>(
-          '[role="group"] [role="treeitem"]',
-        );
+      else target = event.currentTarget.querySelector<HTMLElement>('[role="group"] [role="treeitem"]');
     } else if (event.key === "ArrowLeft") {
       event.preventDefault();
       if (entry.directory && expanded().has(entry.path)) toggle(entry, false);
-      else
-        target =
-          event.currentTarget.parentElement?.closest<HTMLElement>(
-            '[role="treeitem"]',
-          );
+      else target = event.currentTarget.parentElement?.closest<HTMLElement>('[role="treeitem"]');
     } else if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       activate(entry);
@@ -282,10 +216,7 @@ export function GitlabRepository(props: {
     },
     entry: GitlabEntry,
   ) {
-    if (
-      (event.target as Element).closest('[role="treeitem"]') ===
-      event.currentTarget
-    ) {
+    if ((event.target as Element).closest('[role="treeitem"]') === event.currentTarget) {
       event.stopPropagation();
       activate(entry);
     }
@@ -293,11 +224,7 @@ export function GitlabRepository(props: {
   function status(path: string, depth: number) {
     const state = createMemo(() => folders()[path]);
     return state()?.error ? (
-      <li
-        role="none"
-        class="gitlab-tree-status"
-        style={{ "padding-left": `${depth * 14 + 6}px` }}
-      >
+      <li role="none" class="gitlab-tree-status" style={{ "padding-left": `${depth * 14 + 6}px` }}>
         <p role="alert">{state().error}</p>
         <button
           class="text-button"
@@ -310,30 +237,21 @@ export function GitlabRepository(props: {
         </button>
       </li>
     ) : !state() || state().loading ? (
-      <li
-        role="none"
-        class="gitlab-tree-status"
-        style={{ "padding-left": `${depth * 14 + 6}px` }}
-      >
+      <li role="none" class="gitlab-tree-status" style={{ "padding-left": `${depth * 14 + 6}px` }}>
         <span role="status">
           <LoaderCircle size={13} class="spin" aria-hidden="true" />
           Загрузка…
         </span>
       </li>
     ) : !state().entries.length ? (
-      <li
-        role="none"
-        class="gitlab-tree-status"
-        style={{ "padding-left": `${depth * 14 + 6}px` }}
-      >
+      <li role="none" class="gitlab-tree-status" style={{ "padding-left": `${depth * 14 + 6}px` }}>
         Папка пуста
       </li>
     ) : null;
   }
   function children(path: string, depth: number): JSX.Element {
     const state = createMemo(() => folders()[path]);
-    if (!state() || state().loading || state().error || !state().entries.length)
-      return status(path, depth);
+    if (!state() || state().loading || state().error || !state().entries.length) return status(path, depth);
     return (
       <For each={state().entries}>
         {(entry) => {
@@ -347,45 +265,27 @@ export function GitlabRepository(props: {
               aria-label={entry.name}
               aria-level={depth + 1}
               aria-expanded={entry.directory ? open() : undefined}
-              aria-selected={
-                !entry.directory ? selected()?.path === entry.path : undefined
-              }
+              aria-selected={!entry.directory ? selected()?.path === entry.path : undefined}
               onFocus={(event) => {
-                if (event.target === event.currentTarget)
-                  setFocused(entry.path);
+                if (event.target === event.currentTarget) setFocused(entry.path);
               }}
               onClick={(event) => click(event, entry)}
               onKeyDown={(event) => keyboard(event, entry)}
             >
-              <div
-                class="gitlab-tree-row"
-                style={{ "padding-left": `${depth * 14 + 6}px` }}
-                title={entry.path}
-              >
+              <div class="gitlab-tree-row" style={{ "padding-left": `${depth * 14 + 6}px` }} title={entry.path}>
                 {entry.directory ? (
-                  <ChevronRight
-                    class={open() ? "expanded" : undefined}
-                    size={13}
-                    aria-hidden="true"
-                  />
+                  <ChevronRight class={open() ? "expanded" : undefined} size={13} aria-hidden="true" />
                 ) : (
                   <span class="gitlab-tree-spacer" />
                 )}
                 {entry.directory ? (
-                  <Dynamic
-                    component={Icon()}
-                    size={15}
-                    stroke-width={1.6}
-                    aria-hidden="true"
-                  />
+                  <Dynamic component={Icon()} size={15} stroke-width={1.6} aria-hidden="true" />
                 ) : (
                   <RepositoryFileIcon name={entry.name} />
                 )}
                 <span class="gitlab-tree-name">{entry.name}</span>
               </div>
-              {entry.directory && open() && (
-                <ul role="group">{children(entry.path, depth + 1)}</ul>
-              )}
+              {entry.directory && open() && <ul role="group">{children(entry.path, depth + 1)}</ul>}
             </li>
           );
         }}
@@ -393,15 +293,9 @@ export function GitlabRepository(props: {
     );
   }
   const activeBranch = createMemo(
-    () =>
-      requestedBranch() ||
-      branch() ||
-      branches().find((item) => item.default)?.name ||
-      "",
+    () => requestedBranch() || branch() || branches().find((item) => item.default)?.name || "",
   );
-  const commit = createMemo(
-    () => branches().find((item) => item.name === activeBranch())?.commit,
-  );
+  const commit = createMemo(() => branches().find((item) => item.name === activeBranch())?.commit);
   return (
     <div class="gitlab-browser">
       <aside class="gitlab-repo-sidebar" aria-label="Репозиторий GitLab">
@@ -415,7 +309,7 @@ export function GitlabRepository(props: {
               setFolders({});
               setFocused(null);
               const empty = new Set<string>();
-              expandedRef = empty;
+
               setExpanded(empty);
               branchRef = next;
               setBranch(next);
@@ -433,12 +327,7 @@ export function GitlabRepository(props: {
           )}
         </div>
         <nav class="gitlab-tree-pane" aria-label="Файлы репозитория">
-          <ul
-            ref={(element) => (tree = element)}
-            class="gitlab-tree"
-            role="tree"
-            aria-label="Файлы GitLab"
-          >
+          <ul ref={(element) => (tree = element)} class="gitlab-tree" role="tree" aria-label="Файлы GitLab">
             {children("", 0)}
           </ul>
         </nav>
@@ -457,10 +346,7 @@ export function GitlabRepository(props: {
           }
         >
           {(entry) => (
-            <Show
-              when={`${activeBranch()}:${entry.path}:${props.revision}`}
-              keyed
-            >
+            <Show when={`${activeBranch()}:${entry.path}:${props.revision}`} keyed>
               {(_key) => (
                 <GitlabFileViewer
                   entry={entry}

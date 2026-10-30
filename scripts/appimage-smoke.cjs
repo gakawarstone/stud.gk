@@ -7,21 +7,13 @@ const path = require("node:path");
 const assert = require("node:assert/strict");
 
 (async () => {
-  assert.ok(
-    process.argv[2],
-    "Usage: node scripts/appimage-smoke.cjs path/to.AppImage",
-  );
+  assert.ok(process.argv[2], "Usage: node scripts/appimage-smoke.cjs path/to.AppImage");
   const profile = await mkdtemp(path.join(tmpdir(), "stud-gk-appimage-"));
   const env = { ...process.env, XDG_CONFIG_HOME: profile };
   delete env.ELECTRON_RUN_AS_NODE;
   const child = spawn(
     path.resolve(process.argv[2]),
-    [
-      "--appimage-extract-and-run",
-      "--no-sandbox",
-      "--ozone-platform=x11",
-      "--remote-debugging-port=0",
-    ],
+    ["--appimage-extract-and-run", "--no-sandbox", "--ozone-platform=x11", "--remote-debugging-port=0"],
     { env, detached: true, stdio: ["ignore", "pipe", "pipe"] },
   );
   let output = "",
@@ -29,14 +21,9 @@ const assert = require("node:assert/strict");
     timer;
   try {
     const address = await new Promise((resolve, reject) => {
-      timer = setTimeout(
-        () => reject(new Error(`AppImage startup timed out: ${output}`)),
-        30000,
-      );
+      timer = setTimeout(() => reject(new Error(`AppImage startup timed out: ${output}`)), 30000);
       child.once("error", reject);
-      child.once("exit", (code) =>
-        reject(new Error(`AppImage exited ${code}: ${output}`)),
-      );
+      child.once("exit", (code) => reject(new Error(`AppImage exited ${code}: ${output}`)));
       const read = (data) => {
         output += data.toString();
         const match = output.match(/DevTools listening on (ws:\/\/[^\s]+)/);
@@ -61,9 +48,7 @@ const assert = require("node:assert/strict");
       if (pending) {
         requests.delete(message.id);
         clearTimeout(pending.timer);
-        message.error
-          ? pending.reject(new Error(JSON.stringify(message.error)))
-          : pending.resolve(message.result);
+        message.error ? pending.reject(new Error(JSON.stringify(message.error))) : pending.resolve(message.result);
       }
     };
     function send(method, params = {}, sessionId) {
@@ -98,22 +83,14 @@ const assert = require("node:assert/strict");
       flatten: true,
     });
     async function evaluate(expression) {
-      const result = await send(
-        "Runtime.evaluate",
-        { expression, returnByValue: true, awaitPromise: true },
-        sessionId,
-      );
-      if (result.exceptionDetails)
-        throw new Error(JSON.stringify(result.exceptionDetails));
+      const result = await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true }, sessionId);
+      if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
       return result.result.value;
     }
     await evaluate(
       `(async()=>{while(!document.querySelector('.demo-link')) await new Promise(r=>setTimeout(r,25));document.querySelector('.demo-link').click();while(!document.querySelector('.course-card')) await new Promise(r=>setTimeout(r,25));})()`,
     );
-    assert.equal(
-      await evaluate("document.querySelectorAll('.course-card').length"),
-      4,
-    );
+    assert.equal(await evaluate("document.querySelectorAll('.course-card').length"), 4);
     await evaluate("document.querySelector('.course-card-link').click()");
     await evaluate(
       `(async()=>{while(!document.querySelector('.course-heading')) await new Promise(r=>setTimeout(r,25));})()`,
@@ -124,10 +101,7 @@ const assert = require("node:assert/strict");
     // Observe executable exit; its CDP session disappears with the window.
     const exited = new Promise((resolve, reject) => {
       if (child.exitCode !== null) return resolve(child.exitCode);
-      const deadline = setTimeout(
-        () => reject(new Error("AppImage did not exit")),
-        10000,
-      );
+      const deadline = setTimeout(() => reject(new Error("AppImage did not exit")), 10000);
       child.once("exit", (code) => {
         clearTimeout(deadline);
         resolve(code);

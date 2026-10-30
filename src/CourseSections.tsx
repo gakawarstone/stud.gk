@@ -1,14 +1,5 @@
 import { ChevronDown } from "lucide-solid";
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  createUniqueId,
-  For,
-  on,
-  onCleanup,
-  Show,
-} from "solid-js";
+import { createEffect, createMemo, createSignal, createUniqueId, For, on, onCleanup } from "solid-js";
 import type { CourseDetails, CourseResource } from "../shared/studip";
 import { CourseSchedule } from "./CourseSchedule";
 import { courseTabs } from "./CourseSidebar";
@@ -32,16 +23,11 @@ function ResourceDate(props: { value: string | number | null | undefined }) {
     </>
   );
 }
-function NewsPost(props: {
-  item: CourseResource;
-  onRead: (id: string) => void;
-}) {
+function NewsPost(props: { item: CourseResource; onRead: (id: string) => void }) {
   const [expanded, setExpanded] = createSignal(false);
   let heading: HTMLDivElement | null = null;
   const id = createUniqueId();
-  const text = createMemo(
-    () => props.item.description || "Текст объявления отсутствует.",
-  );
+  const text = createMemo(() => props.item.description || "Текст объявления отсутствует.");
   const isLong = createMemo(() => text().length > 420);
   const parts = createMemo(() => newsParts(text(), expanded()));
   createEffect(
@@ -105,15 +91,11 @@ export function CourseSections(props: {
   onRead: (id: string) => void;
 }) {
   const items = createMemo(() =>
-    props.resources.filter(
-      (item) => item.courseId === props.course.id && item.kind === props.tab,
-    ),
+    props.resources.filter((item) => item.courseId === props.course.id && item.kind === props.tab),
   );
   const news = createMemo(() =>
     [...items()].sort(
-      (a, b) =>
-        (date(b.createdAt || b.updatedAt)?.getTime() ?? 0) -
-        (date(a.createdAt || a.updatedAt)?.getTime() ?? 0),
+      (a, b) => (date(b.createdAt || b.updatedAt)?.getTime() ?? 0) - (date(a.createdAt || a.updatedAt)?.getTime() ?? 0),
     ),
   );
   return (
@@ -121,9 +103,7 @@ export function CourseSections(props: {
       class={`course-section${props.tab === "schedule" ? " course-section-schedule" : props.tab === "news" ? " course-section-news" : ""}`}
       aria-label={courseTabs[props.tab].label}
     >
-      {props.tab === "course" && (
-        <h2 class="course-section-title">{courseTabs[props.tab].label}</h2>
-      )}
+      {props.tab === "course" && <h2 class="course-section-title">{courseTabs[props.tab].label}</h2>}
       {props.unavailable && (
         <p class="course-section-notice" role="status">
           Нет доступа к этому разделу в Stud.IP.
@@ -131,58 +111,31 @@ export function CourseSections(props: {
       )}
       {props.tab === "news" &&
         (news().length ? (
-          <For each={news()}>
-            {(item) => (
-              <Show when={item.id} keyed>
-                {(_key) => <NewsPost item={item} onRead={props.onRead} />}
-              </Show>
-            )}
-          </For>
+          <For each={news()}>{(item) => <NewsPost item={item} onRead={props.onRead} />}</For>
         ) : (
-          !props.unavailable && (
-            <p class="course-section-notice">Объявлений пока нет.</p>
-          )
+          !props.unavailable && <p class="course-section-notice">Объявлений пока нет.</p>
         ))}
       {props.tab === "schedule" &&
         (items().length ? (
           <CourseSchedule items={items()} courseTitle={props.course.title} />
         ) : (
-          !props.unavailable && (
-            <p class="course-section-notice">Занятий пока нет.</p>
-          )
+          !props.unavailable && <p class="course-section-notice">Занятий пока нет.</p>
         ))}
       {props.tab === "course" && (
         <div class="course-info">
           <h3>{props.course.title}</h3>
-          {(props.course.code ||
-            props.course.semester ||
-            props.course.location) && (
+          {(props.course.code || props.course.semester || props.course.location) && (
             <p class="course-event-meta">
-              {
-                <For
-                  each={[
-                    props.course.code,
-                    props.course.semester,
-                    props.course.location,
-                  ].filter(Boolean)}
-                >
-                  {(value, i) => <span>{value}</span>}
-                </For>
-              }
+              <For each={[props.course.code, props.course.semester, props.course.location].filter(Boolean)}>
+                {(value) => <span>{value}</span>}
+              </For>
             </p>
           )}
           {(props.course.description || items()[0]?.description) && (
-            <p class="course-resource-body">
-              {props.course.description || items()[0]?.description}
-            </p>
+            <p class="course-resource-body">{props.course.description || items()[0]?.description}</p>
           )}
           {props.course.url && (
-            <a
-              class="course-original-link"
-              href={props.course.url}
-              target="_blank"
-              rel="noreferrer"
-            >
+            <a class="course-original-link" href={props.course.url} target="_blank" rel="noreferrer">
               Открыть в Stud.IP ↗
             </a>
           )}

@@ -1,10 +1,7 @@
 import { LoaderCircle } from "lucide-solid";
 import { createMemo, createSignal, Show } from "solid-js";
 import { Portal } from "solid-js/web";
-import {
-  normalizeGitlabProject,
-  type GitlabProject as Project,
-} from "../server/gitlab.js";
+import { normalizeGitlabProject, type GitlabProject as Project } from "../server/gitlab.js";
 import { GitlabConnection } from "./GitlabConnection";
 import { GitlabRepository } from "./GitlabRepository";
 import { GitlabSettings } from "./GitlabSettings";
@@ -28,9 +25,7 @@ export function GitlabProject(props: {
       }
     })(),
   );
-  const project = createMemo(() =>
-    props.demo ? demoProject() : props.project,
-  );
+  const project = createMemo(() => (props.demo ? demoProject() : props.project));
   const [editing, setEditing] = createSignal(false),
     [url, setUrl] = createSignal("");
   const [busy, setBusy] = createSignal(false),
@@ -39,9 +34,7 @@ export function GitlabProject(props: {
     [authRequired, setAuthRequired] = createSignal(false);
   const [revision, setRevision] = createSignal(0);
   const requireAuth = () => setAuthRequired(true);
-  const endpoint = createMemo(
-    () => `/api/courses/${encodeURIComponent(props.courseId)}/gitlab`,
-  );
+  const endpoint = createMemo(() => `/api/courses/${encodeURIComponent(props.courseId)}/gitlab`);
   async function save(value: string | null) {
     setError(null);
     setBusy(true);
@@ -58,9 +51,7 @@ export function GitlabProject(props: {
       setAuthRequired(false);
       setRevision((value) => value + 1);
     } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Не удалось сохранить проект.",
-      );
+      setError(error instanceof Error ? error.message : "Не удалось сохранить проект.");
     } finally {
       setBusy(false);
     }
@@ -115,23 +106,12 @@ export function GitlabProject(props: {
             disabled={busy()}
           />
           <div class="gitlab-actions">
-            <button
-              class="primary-button"
-              type="submit"
-              disabled={busy() || !url().trim()}
-            >
-              {busy() && (
-                <LoaderCircle size={14} class="spin" aria-hidden="true" />
-              )}
+            <button class="primary-button" type="submit" disabled={busy() || !url().trim()}>
+              {busy() && <LoaderCircle size={14} class="spin" aria-hidden="true" />}
               {project() ? "Сохранить" : "Добавить проект"}
             </button>
             {project() && (
-              <button
-                class="text-button"
-                type="button"
-                disabled={busy()}
-                onClick={() => setEditing(false)}
-              >
+              <button class="text-button" type="button" disabled={busy()} onClick={() => setEditing(false)}>
                 Отмена
               </button>
             )}

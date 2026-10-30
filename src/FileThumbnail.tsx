@@ -1,23 +1,11 @@
 import { FileText, Film, LoaderCircle } from "lucide-solid";
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  on,
-  onCleanup,
-  onMount,
-  Show,
-} from "solid-js";
+import { createEffect, createMemo, createSignal, on, onCleanup, onMount, Show } from "solid-js";
 import { PdfFileIcon } from "./PdfFileIcon";
 const cache = new Map<string, string>();
 export function clearThumbnailCache() {
   cache.clear();
 }
-export function FileThumbnail(props: {
-  url: string;
-  version: string;
-  kind: "pdf" | "image" | "video";
-}) {
+export function FileThumbnail(props: { url: string; version: string; kind: "pdf" | "image" | "video" }) {
   const key = createMemo(() => `${props.url}:${props.version}`);
   let container: HTMLDivElement | null = null;
   const [visible, setVisible] = createSignal(false);
@@ -26,9 +14,7 @@ export function FileThumbnail(props: {
     src: string;
   } | null>(null);
   const [failedKey, setFailedKey] = createSignal<string | null>(null);
-  const src = createMemo(
-    () => cache.get(key()) || (result()?.key === key() ? result()!.src : null),
-  );
+  const src = createMemo(() => cache.get(key()) || (result()?.key === key() ? result()!.src : null));
   const failed = createMemo(() => failedKey() === key());
   onMount(() => {
     const observer = new IntersectionObserver(
@@ -73,10 +59,7 @@ export function FileThumbnail(props: {
     ),
   );
   return (
-    <div
-      class={`file-preview thumbnail-preview ${props.kind}`}
-      ref={(element) => (container = element)}
-    >
+    <div class={`file-preview thumbnail-preview ${props.kind}`} ref={(element) => (container = element)}>
       {failed() ? (
         <span class="thumbnail-fallback">
           {props.kind === "pdf" ? (
@@ -102,11 +85,7 @@ export function FileThumbnail(props: {
           )}
         </Show>
       ) : (
-        <LoaderCircle
-          class="thumbnail-loading spin"
-          size={20}
-          aria-label="Загружаем превью"
-        />
+        <LoaderCircle class="thumbnail-loading spin" size={20} aria-label="Загружаем превью" />
       )}
     </div>
   );

@@ -9,19 +9,11 @@ const assets = import.meta.glob<string>("./assets/file-icons/*.svg", {
 });
 export function RepositoryFileIcon(props: { name: string }) {
   const kind = createMemo(() => fileIcon(props.name));
-  const url = createMemo(
-    () => kind() && assets[`./assets/file-icons/${kind()}.svg`],
-  );
+  const url = createMemo(() => kind() && assets[`./assets/file-icons/${kind()}.svg`]);
   const view = () => {
     if (url())
       return (
-        <img
-          class="gitlab-file-icon"
-          src={url() || undefined}
-          alt=""
-          aria-hidden="true"
-          data-file-icon={kind()}
-        />
+        <img class="gitlab-file-icon" src={url() || undefined} alt="" aria-hidden="true" data-file-icon={kind()} />
       );
     const Icon = createMemo(() =>
       /\.(png|jpe?g|gif|webp|svg|avif|ico)$/i.test(props.name)
@@ -32,14 +24,7 @@ export function RepositoryFileIcon(props: { name: string }) {
             ? FileText
             : File,
     );
-    return (
-      <Dynamic
-        component={Icon()}
-        size={15}
-        stroke-width={1.6}
-        aria-hidden="true"
-      />
-    );
+    return <Dynamic component={Icon()} size={15} stroke-width={1.6} aria-hidden="true" />;
   };
   return <>{view()}</>;
 }

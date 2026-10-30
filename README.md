@@ -151,13 +151,9 @@ GET  /api/nextcloud/file/download?share=…&path=…&backend=dav
 
 Форма входа сверена с текущей установкой Hochschule Flensburg. Схемы и маршруты сверены с [исходным кодом Stud.IP](https://gitlab.studip.de/studip/studip/-/blob/main/lib/classes/JsonApi/RouteMap.php). Автоматические проверки используют тестовый сервер университета; успешный вход в реальный аккаунт требует твоих данных в интерфейсе.
 
-## Перенос на SolidJS
-
-Весь интерфейс использует SolidJS 1 и строгий TypeScript. Сервер и Electron
-сохранены. [Решения, проверки и сравнение с React](docs/solidjs-migration.md)
-включают исходные измерения размера JS, больших списков и памяти.
-
 ## Проверки
+
+[Сравнение SolidJS с React и методика замеров](docs/solidjs-migration.md).
 
 Проверка интерфейса GitLab использует отдельный временный профиль и тестовый API, без обращения к приватным проектам. После `npm run build` запусти `xvfb-run -a npm run test:gitlab -- --no-sandbox --ozone-platform=x11`. Она проверяет токен, дерево папок, смену ветки, коммит, подсветку, Markdown, прокрутку и узкое окно.
 
