@@ -6,11 +6,12 @@ import { StudipError } from "./studip.js";
 import { normalizeGitlabProject } from "./gitlab.js";
 import { GitlabError, validateGitlabToken } from "./gitlab-client.js";
 import { previewType } from "./file-preview.js";
-import { call } from "./session-calls.js";
 
 /** @param {import('./types.js').RouteState & Required<Pick<import('./types.js').AppOptions,
- * 'getGitlabReadme' | 'getGitlabTree' | 'getGitlabBranches' | 'getGitlabCommits' | 'getGitlabCommit' | 'getGitlabFile' | 'getGitlabContent'>>} options */
-export function gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGitlabTree, getGitlabBranches, getGitlabCommits, getGitlabCommit, getGitlabFile, getGitlabContent }) {
+ * 'getGitlabReadme' | 'getGitlabTree' | 'getGitlabBranches' | 'getGitlabCommits' | 'getGitlabCommit' | 'getGitlabFile' | 'getGitlabContent'>> & {
+ * gitlabTokens: Awaited<ReturnType<typeof import('./gitlab-tokens.js').openGitlabTokens>>
+ * }} options */
+export function gitlabRoutes({ state, save, requireLogin, gitlabTokens, getGitlabReadme, getGitlabTree, getGitlabBranches, getGitlabCommits, getGitlabCommit, getGitlabFile, getGitlabContent }) {
   const router = Router();
   function courseAccount(req) {
     const account = state.accounts[req.context.user.id];
@@ -56,7 +57,7 @@ export function gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGi
   }
   router.get(["/courses/:id/gitlab/readme", `${projectRoute}/readme`], requireLogin, async (req, res) => {
     const project = linkedGitlab(req);
-    const token = req.session.gitlabTokens?.[project.origin];
+    const token = gitlabTokens.get(req.context.user.id, project.origin);
     const controller = new AbortController();
     const cancel = () => controller.abort();
     res.once("close", cancel);
@@ -73,17 +74,14 @@ export function gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGi
   });
   router.get(["/courses/:id/gitlab/token", `${projectRoute}/token`], requireLogin, (req, res) => {
     const project = linkedGitlab(req);
-    res.json({ connected: Boolean(req.session.gitlabTokens?.[project.origin]) });
+    res.json({ connected: Boolean(gitlabTokens.get(req.context.user.id, project.origin)) });
   });
   router.post(["/courses/:id/gitlab/token", `${projectRoute}/token`], requireLogin, async (req, res) => {
     const project = linkedGitlab(req);
     const token = req.body?.token === null ? null : validateGitlabToken(req.body?.token);
     if (token && project.protocol !== "https:")
       throw new GitlabError("An HTTPS GitLab URL is required to connect a token.", 400);
-    const tokens = { ...req.session.gitlabTokens, [project.origin]: token };
-    if (!token) delete tokens[project.origin];
-    req.session.gitlabTokens = tokens;
-    await call(req.session, "save");
+    await gitlabTokens.set(req.context.user.id, project.origin, token);
     res.json({ connected: Boolean(token) });
   });
   /** @type {[string, (url: string, path: string, options: import('./types.js').GitlabOptions) => Promise<unknown>][]} */
@@ -103,7 +101,7 @@ export function gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGi
         if (typeof path !== "string" || (ref !== undefined && typeof ref !== "string") || (page !== undefined && typeof page !== "string"))
           throw new GitlabError("Invalid repository path, branch, or page.", 400);
         const result = await read(project.href, path, {
-          ref: typeof ref === "string" ? ref : undefined, page: typeof page === "string" ? page : undefined, token: req.session.gitlabTokens?.[project.origin],
+          ref: typeof ref === "string" ? ref : undefined, page: typeof page === "string" ? page : undefined, token: gitlabTokens.get(req.context.user.id, project.origin),
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]),
         });
         if (req.context.revoked || req.context.expiresAt <= Date.now()) {

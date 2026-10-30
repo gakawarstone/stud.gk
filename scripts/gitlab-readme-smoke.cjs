@@ -213,6 +213,7 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   if (await window.webContents.executeJavaScript(`!!document.querySelector('.course-sidebar')`))
     assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.course-toolbar .gitlab-tools') !== null`));
   assert.equal((await readFile(path.join(profile, "data/sessions.enc"), "utf8")).includes(token), false);
+  assert.equal((await readFile(path.join(profile, "data/gitlab-tokens.enc"), "utf8")).includes(token), false);
   await window.webContents.executeJavaScript(`document.querySelector('[data-entry-path="src"]').click()`);
   await waitFor(window, `document.querySelector('[data-entry-path="src/index.ts"]') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('[data-entry-path="src"]').getAttribute('aria-expanded')`), "true");
@@ -573,7 +574,7 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   await waitFor(window, `document.querySelector('.demo-link') !== null`);
   await window.webContents.executeJavaScript(`document.querySelector('.demo-link').click()`);
   await waitFor(window, `Number(document.querySelector('.gitlab-project-picker')?.dataset.projectCount) === 2`);
-  console.log(JSON.stringify({ result: "passed", root, checks: "embedded PDF rendering, retry, theme, pages, zoom, fullscreen, narrow controls, Escape focus, nested tree, folder cache/refresh, keyboard selection, inline highlighted code, compact commit strip, SHA copy, history toggle, date-grouped compact history, syntax-highlighted TypeScript and Kotlin diffs, hidden scrollbars, native wheel scrolling through long and wide diffs, commit history and diff pagination, diff retry, line numbers, rename/binary/large patches, branch changes, narrow layout, safe diff text, Markdown, multiple projects per course, duplicate rejection, compact header picker, keyboard project switching, selected project editing and unlinking, cross-server auth isolation, reload persistence, demo storage migration, shared token, encrypted session" }));
+  console.log(JSON.stringify({ result: "passed", root, checks: "embedded PDF rendering, retry, theme, pages, zoom, fullscreen, narrow controls, Escape focus, nested tree, folder cache/refresh, keyboard selection, inline highlighted code, compact commit strip, SHA copy, history toggle, date-grouped compact history, syntax-highlighted TypeScript and Kotlin diffs, hidden scrollbars, native wheel scrolling through long and wide diffs, commit history and diff pagination, diff retry, line numbers, rename/binary/large patches, branch changes, narrow layout, safe diff text, Markdown, multiple projects per course, duplicate rejection, compact header picker, keyboard project switching, selected project editing and unlinking, cross-server auth isolation, reload persistence, demo storage migration, shared token, encrypted account tokens" }));
   window.destroy();
   await runtime.close();
   await rm(profile, { recursive: true, force: true });

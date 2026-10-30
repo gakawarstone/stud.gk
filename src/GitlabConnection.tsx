@@ -35,7 +35,7 @@ export function GitlabConnection({ endpoint, projectUrl, onConnected, onCancel }
     <button className="text-button" onClick={onCancel}>Cancel</button>
   </div>;
   if (connected && !editing) return <div className="gitlab-form gitlab-token-form">
-    <p role="status">The token for {address.host} is connected. It is used for all your projects on this server.</p>
+    <p role="status">The token for {address.host} is connected. It is used for all your projects on this server and stays saved after you sign out of Stud.IP.</p>
     <div className="gitlab-actions">
       <button className="text-button" type="button" disabled={busy} onClick={() => setEditing(true)}>Replace token</button>
       <button className="text-button" type="button" disabled={busy} onClick={() => void save(null)}>Remove token for all projects</button>
@@ -47,7 +47,7 @@ export function GitlabConnection({ endpoint, projectUrl, onConnected, onCancel }
     <a className="text-button gitlab-create-token" href={createUrl.href} target="_blank" rel="noopener noreferrer">
       Create token in GitLab<ArrowUpRight size={14} aria-hidden="true" />
     </a>
-    <p id="gitlab-token-help">One personal access token with the <code>read_api</code> scope is used for all your projects on {address.host}. Paste an existing token or create one using the link above.</p>
+    <p id="gitlab-token-help">One personal access token with the <code>read_api</code> scope is used for all your projects on {address.host}. It stays saved when you sign out and back in to your Stud.IP account. Paste an existing token or create one using the link above.</p>
     <label htmlFor="gitlab-access-token">Access token</label>
     <input id="gitlab-access-token" type="password" value={token} onChange={(event) => setToken(event.target.value)} required maxLength={512}
       autoComplete="off" spellCheck={false} placeholder="glpat-…" aria-describedby="gitlab-token-help" disabled={busy} />

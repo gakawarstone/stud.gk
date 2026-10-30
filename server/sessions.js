@@ -1,12 +1,8 @@
 import session from "express-session";
-import {
-  createCipheriv,
-  createDecipheriv,
-  randomBytes,
-  hkdfSync,
-} from "node:crypto";
-import { chmod, mkdir, readFile, writeFile, rename } from "node:fs/promises";
+import { randomBytes, hkdfSync } from "node:crypto";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { readEncryptedJson, writeEncryptedJson } from "./encrypted-json.js";
 
 export const SESSION_NAME = "campus.sid";
 export const SESSION_LIFETIME = 7 * 24 * 60 * 60 * 1000;
@@ -38,21 +34,7 @@ export class EncryptedSessionStore extends session.Store {
     await chmod(keyPath, 0o600);
     let entries = {};
     try {
-      const envelope = JSON.parse(
-        await readFile(path.join(directory, "sessions.enc"), "utf8"),
-      );
-      const decipher = createDecipheriv(
-        "aes-256-gcm",
-        key,
-        Buffer.from(envelope.iv, "base64"),
-      );
-      decipher.setAuthTag(Buffer.from(envelope.tag, "base64"));
-      entries = JSON.parse(
-        Buffer.concat([
-          decipher.update(Buffer.from(envelope.data, "base64")),
-          decipher.final(),
-        ]).toString(),
-      );
+      entries = await readEncryptedJson(path.join(directory, "sessions.enc"), key);
     } catch (e) {
       if (e.code !== "ENOENT")
         throw new Error(
@@ -78,23 +60,7 @@ export class EncryptedSessionStore extends session.Store {
     const text = JSON.stringify(this.entries);
     this.queue = this.queue
       .catch(() => {})
-      .then(async () => {
-        const iv = randomBytes(12),
-          cipher = createCipheriv("aes-256-gcm", this.key, iv);
-        const data = Buffer.concat([
-          cipher.update(text, "utf8"),
-          cipher.final(),
-        ]);
-        const envelope = JSON.stringify({
-          v: 1,
-          iv: iv.toString("base64"),
-          tag: cipher.getAuthTag().toString("base64"),
-          data: data.toString("base64"),
-        });
-        const target = path.join(this.directory, "sessions.enc");
-        await writeFile(`${target}.tmp`, envelope, { mode: 0o600 });
-        await rename(`${target}.tmp`, target);
-      });
+      .then(() => writeEncryptedJson(path.join(this.directory, "sessions.enc"), this.key, text));
     return this.queue;
   }
   get(id, callback) {
