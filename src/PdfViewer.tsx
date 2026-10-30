@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from "pdfjs-dist";
 import {
   ChevronLeft,
@@ -123,12 +123,16 @@ export function PdfViewer({
   downloadUrl,
   onClose,
   onViewed,
+  embedded = false,
 }: {
   title: string;
   onClose: () => void;
   onViewed?: () => void;
+  embedded?: boolean;
 } & ({ remoteId: string; contentUrl?: never; downloadUrl?: never } | { remoteId?: never; contentUrl: string; downloadUrl: string })) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const Container = embedded ? "section" : "dialog";
   const fullscreenContainer = useRef<HTMLDivElement>(null);
   const documentArea = useRef<HTMLDivElement>(null);
   const pages = useRef<HTMLDivElement>(null);
@@ -153,11 +157,13 @@ export function PdfViewer({
   const saveUrl = downloadUrl || `${fileUrl}/download`;
 
   useEffect(() => {
-    const element = dialog.current!;
+    const element = dialog.current;
     const previousFocus = document.activeElement;
     const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    element.showModal();
+    if (!embedded) {
+      document.body.style.overflow = "hidden";
+      element!.showModal();
+    }
     const area = documentArea.current!;
     area.focus({ preventScroll: true });
     const updateWidth = () => {
@@ -177,12 +183,14 @@ export function PdfViewer({
         void document.exitFullscreen().catch(() => {});
       if (scrollFrame.current !== null)
         cancelAnimationFrame(scrollFrame.current);
-      element.close();
-      document.body.style.overflow = previousOverflow;
-      if (previousFocus instanceof HTMLElement && previousFocus.isConnected)
-        previousFocus.focus({ preventScroll: true });
+      if (!embedded) {
+        element!.close();
+        document.body.style.overflow = previousOverflow;
+        if (previousFocus instanceof HTMLElement && previousFocus.isConnected)
+          previousFocus.focus({ preventScroll: true });
+      }
     };
-  }, []);
+  }, [embedded]);
 
   useEffect(() => {
     let cancelled = false;
@@ -303,16 +311,21 @@ export function PdfViewer({
   }
 
   return (
-    <dialog
-      className="pdf-viewer"
+    <Container
+      className={`pdf-viewer${embedded ? " pdf-viewer-embedded" : ""}`}
       data-themed={themed}
-      ref={dialog}
-      aria-labelledby="pdf-viewer-title"
+      ref={embedded ? undefined : dialog}
+      aria-labelledby={titleId}
       onCancel={(event) => {
         event.preventDefault();
         onClose();
       }}
       onKeyDown={(event) => {
+        if (embedded && event.key === "Escape") {
+          event.preventDefault();
+          onClose();
+          return;
+        }
         if (!pdf || (event.target as Element).closest("input, button, a"))
           return;
         if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
@@ -323,7 +336,7 @@ export function PdfViewer({
     >
       <div className="pdf-viewer-shell" ref={fullscreenContainer}>
         <header className="pdf-viewer-toolbar">
-          <h2 id="pdf-viewer-title">{title}</h2>
+          <h2 id={titleId}>{title}</h2>
           <nav className="pdf-viewer-controls" aria-label="PDF controls">
             <div className="pdf-control-group">
               <button
@@ -501,6 +514,6 @@ export function PdfViewer({
           )}
         </div>
       </div>
-    </dialog>
+    </Container>
   );
 }

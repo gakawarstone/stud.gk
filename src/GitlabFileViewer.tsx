@@ -11,8 +11,8 @@ export function GitlabFileViewer({ entry, endpoint, branch, projectUrl, demo, on
   const query = new URLSearchParams({ path: entry.path, ...(branch ? { ref: branch } : {}) });
   const contentUrl = `${endpoint}/content?${query}`;
   const downloadUrl = `${contentUrl}&download=1`;
-  return /\.pdf$/i.test(entry.name) && !demo && !embedded
-    ? <PdfViewer title={entry.name} contentUrl={contentUrl} downloadUrl={downloadUrl} onClose={onClose} />
+  return /\.pdf$/i.test(entry.name)
+    ? <PdfViewer key={contentUrl} title={entry.name} contentUrl={contentUrl} downloadUrl={downloadUrl} onClose={onClose} embedded={embedded} />
     : <FileDialog entry={entry} endpoint={endpoint} query={query.toString()} contentUrl={contentUrl} downloadUrl={downloadUrl}
       projectUrl={projectUrl} branch={branch} demo={demo} onClose={onClose} embedded={embedded} />;
 }
@@ -24,7 +24,7 @@ function FileDialog({ entry, endpoint, query, contentUrl, downloadUrl, projectUr
   const [file, setFile] = useState<GitlabFile | null>(null), [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState(false);
   const markdown = /\.(md|markdown|mdown|mkd)$/i.test(entry.name);
-  const media = /\.pdf$/i.test(entry.name) ? "pdf" : /\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(entry.name) ? "image"
+  const media = /\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(entry.name) ? "image"
     : /\.(mp4|webm|ogv|mov)$/i.test(entry.name) ? "video" : /\.(mp3|wav|ogg|m4a|flac)$/i.test(entry.name) ? "audio" : null;
   const webUrl = `${projectUrl}/-/blob/${(branch || "HEAD").split("/").map(encodeURIComponent).join("/")}/${entry.path.split("/").map(encodeURIComponent).join("/")}`;
   useEffect(() => {
@@ -63,8 +63,7 @@ function FileDialog({ entry, endpoint, query, contentUrl, downloadUrl, projectUr
     </header>;
   const body = <div className="gitlab-viewer-body" tabIndex={embedded ? 0 : undefined} role="region" aria-label="File content">
       {error ? <p className="gitlab-viewer-status" role="alert">{error}</p> : entry.submodule ? <p className="gitlab-viewer-status">This is a submodule. You can open it in GitLab.</p> : media ? (
-        media === "pdf" ? <iframe className="gitlab-pdf-frame" src={contentUrl} title={entry.name} />
-          : media === "image" ? <img src={contentUrl} alt={entry.name} onError={() => setError("Could not load the image.")} />
+        media === "image" ? <img src={contentUrl} alt={entry.name} onError={() => setError("Could not load the image.")} />
           : media === "video" ? <video controls src={contentUrl} aria-label={entry.name} onError={() => setError("Could not play the video. You can download the file.")} />
             : <audio controls src={contentUrl} aria-label={entry.name} onError={() => setError("Could not play the audio. You can download the file.")} />
       ) : !file ? <p className="gitlab-viewer-status" role="status"><LoaderCircle size={18} className="spin" />Loading file…</p>

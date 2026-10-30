@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import path from "node:path";
+import { gitlabProjectList } from "./gitlab.js";
 import { createDemo } from "./demo.js";
 
 /** @param {string} dataDir */
@@ -18,6 +19,10 @@ export async function openAccountState(dataDir) {
   state ??= { accounts: {}, demo };
   state.demo = demo;
   state.accounts = Object.assign(Object.create(null), state.accounts);
+  for (const account of Object.values(state.accounts)) {
+    account.gitlabProjects = Object.fromEntries(Object.entries(account.gitlabProjects ?? {})
+      .map(([courseId, projects]) => [courseId, gitlabProjectList(projects)]));
+  }
   let queue = Promise.resolve();
   function save() {
     const json = JSON.stringify(state);

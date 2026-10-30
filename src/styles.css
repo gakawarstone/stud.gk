@@ -1155,6 +1155,30 @@ input::placeholder {
   display: flex;
   flex-direction: column;
 }
+.pdf-viewer-embedded {
+  position: relative;
+  inset: auto;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  container-type: inline-size;
+}
+@container (max-width: 720px) {
+  .pdf-viewer-embedded .pdf-viewer-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+  .pdf-viewer-embedded .pdf-viewer-toolbar h2 {
+    grid-column: 1 / -1;
+  }
+  .pdf-viewer-embedded .pdf-viewer-controls {
+    justify-content: start;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+}
 .pdf-viewer-shell {
   display: flex;
   flex-direction: column;

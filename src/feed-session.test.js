@@ -117,9 +117,9 @@ test("a pending poll cannot undo read marks or a saved GitLab project", async ()
   h.pending[1].resolve(feed({ changes: [change] })); await old;
   assert.equal(h.session.getSnapshot().data.changes[0].read, true);
   const stale = h.session.load(), save = h.session.saveGitlabProject("c1", "https://gitlab.com/team/project");
-  h.pending[4].resolve({ project: { url: "https://gitlab.com/team/project" } }); await save;
+  h.pending[4].resolve({ projects: [{ id: "p1", url: "https://gitlab.com/team/project" }] }); await save;
   h.pending[3].resolve(feed()); await stale;
-  assert.equal(h.session.getSnapshot().data.gitlabProjects.c1.url, "https://gitlab.com/team/project");
+  assert.equal(h.session.getSnapshot().data.gitlabProjects.c1[0].url, "https://gitlab.com/team/project");
 });
 
 test("refresh expiry clears data and a read completion cannot cross a session boundary", async () => {
@@ -142,4 +142,26 @@ test("unmount ignores pending work and allows a subsequent effect setup", async 
   assert.equal(h.session.getSnapshot().phase, "loading");
   const current = h.session.load(); h.pending[1].resolve(feed()); await current;
   assert.equal(h.session.getSnapshot().phase, "live");
+});
+
+
+test("GitLab edits and removals update the course list using the selected project ID", async () => {
+  const h = harness();
+  const first = { id: "p1", url: "https://gitlab.com/team/materials" };
+  const second = { id: "p2", url: "https://gitlab.example/team/exercises" };
+  const initial = h.session.load();
+  h.pending[0].resolve(feed({ gitlabProjects: { c1: [first, second] } })); await initial;
+  const edited = { ...second, url: "https://gitlab.example/team/solutions" };
+  const edit = h.session.saveGitlabProject("c1", edited.url, second.id);
+  assert.equal(h.pending[1].url, "/api/courses/c1/gitlab/projects/p2");
+  assert.deepEqual(h.pending[1].body, { url: edited.url });
+  h.pending[1].resolve({ project: edited, projects: [first, edited] });
+  assert.deepEqual(await edit, [first, edited]);
+  const remove = h.session.saveGitlabProject("c1", null, second.id);
+  assert.equal(h.pending[2].url, "/api/courses/c1/gitlab/projects/p2");
+  h.pending[2].resolve({ project: null, projects: [first] }); await remove;
+  assert.deepEqual(h.session.getSnapshot().data.gitlabProjects.c1, [first]);
+  const last = h.session.saveGitlabProject("c1", null, first.id);
+  h.pending[3].resolve({ project: null, projects: [] }); await last;
+  assert.deepEqual(h.session.getSnapshot().data.gitlabProjects, {});
 });

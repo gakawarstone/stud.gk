@@ -80,7 +80,7 @@ Public links from newer and older Nextcloud installations are supported through 
 
 The other tabs use Stud.IP data that has already been loaded. Announcements appear as compact cards with a title, date, and text. Long posts have a "Read more" button. Links in the text open in a browser. Related changes are marked as read when the card enters the screen. The selected section is included in the page URL, so back and forward navigation work.
 
-Use the plus button in the course sidebar to add GitLab and link one project from GitLab.com or a self-hosted server, including projects in nested groups. Select a branch above the file tree. Folders load when expanded, including every page of results, and retain their expanded state when refreshed. A compact bar above the file preview shows the selected branch's latest commit, its message, author, time, a link with the short SHA, and a button to copy the full SHA. The gear button in the course header lets you refresh files, manage GitLab access, change the link, and unlink the project.
+Use the plus button in the course sidebar to add GitLab and link several projects from GitLab.com or self-hosted servers, including projects in nested groups. The selected project name appears beside the gear button in the course header. Select it to switch projects or choose "Add project". The dropdown shows each project's group, name, and server. The selector does not add a separate row above the files. Editing a link or unlinking a project applies to the selected project. Existing single-project links are migrated to lists automatically. Select a branch above the file tree. Folders load when expanded, including every page of results, and retain their expanded state when refreshed. A compact bar above the file preview shows the selected branch's latest commit, its message, author, time, a link with the short SHA, and a button to copy the full SHA. The gear button in the course header lets you refresh files, manage GitLab access, change the link, and unlink the project.
 
 The "History" button in the commit bar replaces the file tree on the left with a compact list of commits from that branch, grouped by day. Each row shows the commit title, author, and time. The selected commit's SHA appears in the top bar. Select "History" again to return to the tree and the previously opened file. Select a commit to see its full message and file diffs with line numbers, additions, and deletions. Diffs use the same syntax highlighting as file previews. Each side is highlighted separately, preserving multiline comments and strings within a change block. Unknown languages and diffs longer than 200,000 characters use plain text.
 
@@ -143,17 +143,17 @@ POST /api/auth/logout         {}
 GET  /api/state
 GET  /api/demo
 GET  /api/courses/{id}/folders
-POST /api/courses/{id}/gitlab  { "url": "https://gitlab.com/group/project" }
-GET  /api/courses/{id}/gitlab/branches
-GET  /api/courses/{id}/gitlab/commits?ref=main&page=1
-GET  /api/courses/{id}/gitlab/commit?sha={commit-id}&page=1
-GET  /api/courses/{id}/gitlab/readme
-GET  /api/courses/{id}/gitlab/tree?path=src&ref=main
-GET  /api/courses/{id}/gitlab/file?path=src%2Findex.ts&ref=main
-GET  /api/courses/{id}/gitlab/content?path=image.png&ref=main
-GET  /api/courses/{id}/gitlab/content?path=archive.zip&ref=main&download=1
-GET  /api/courses/{id}/gitlab/token
-POST /api/courses/{id}/gitlab/token { "token": "..." }
+POST /api/courses/{id}/gitlab/projects { "url": "https://gitlab.com/group/project" }
+GET  /api/courses/{id}/gitlab/projects/{projectId}/branches
+GET  /api/courses/{id}/gitlab/projects/{projectId}/commits?ref=main&page=1
+GET  /api/courses/{id}/gitlab/projects/{projectId}/commit?sha={commit-id}&page=1
+GET  /api/courses/{id}/gitlab/projects/{projectId}/readme
+GET  /api/courses/{id}/gitlab/projects/{projectId}/tree?path=src&ref=main
+GET  /api/courses/{id}/gitlab/projects/{projectId}/file?path=src%2Findex.ts&ref=main
+GET  /api/courses/{id}/gitlab/projects/{projectId}/content?path=image.png&ref=main
+GET  /api/courses/{id}/gitlab/projects/{projectId}/content?path=archive.zip&ref=main&download=1
+GET  /api/courses/{id}/gitlab/projects/{projectId}/token
+POST /api/courses/{id}/gitlab/projects/{projectId}/token { "token": "..." }
 GET  /api/changes?since=2026-10-02T12:00:00Z
 GET  /api/files/{fileRefId}/download
 GET  /api/files/{fileRefId}/preview
@@ -165,7 +165,9 @@ GET  /api/nextcloud/file/preview?share=…&path=…&backend=dav
 GET  /api/nextcloud/file/download?share=…&path=…&backend=dav
 ```
 
-To unlink a GitLab project, send `{ "url": null }` to `/api/courses/{id}/gitlab`. To remove the server's token from the current session, send `{ "token": null }` to `/api/courses/{id}/gitlab/token`.
+To edit or unlink the selected GitLab project, send a new URL as `{ "url": "https://gitlab.com/group/project" }` or `{ "url": null }` to `/api/courses/{id}/gitlab/projects/{projectId}`. To remove the server's token from the current session, send `{ "token": null }` to `/api/courses/{id}/gitlab/projects/{projectId}/token`.
+
+The `gitlabProjects` field in `/api/state` contains a list of `{ id, url }` objects for each course. Adding or editing a project returns `{ project, projects }`. Duplicate links in the same course are rejected with HTTP 409. The legacy `/api/courses/{id}/gitlab` and `/api/courses/{id}/gitlab/...` routes still operate on the course's first project.
 
 Private routes require a valid Stud.GK cookie. Only files in the current account's snapshot can be downloaded. Stud.IP checks permissions when content is loaded from the university server. Cache access reflects the last successful course refresh. University cookies stay on the server. Download redirects to external addresses are not supported. Without sign-in, `/api/state` reports only authentication status. `/api/demo` contains only demonstration data. Manually entering a university cookie and using `STUDIP_COOKIE` are no longer supported.
 
@@ -173,7 +175,7 @@ The sign-in form has been checked against the current Hochschule Flensburg insta
 
 ## Checks
 
-The GitLab interface check uses a separate temporary profile and a mock API without accessing private projects. After `npm run build`, run `xvfb-run -a npm run test:gitlab -- --no-sandbox --ozone-platform=x11`. It checks tokens, the folder tree, branch switching, paginated history and diffs, retries after errors, line numbers, renames, binary and large files, highlighting, Markdown, scrolling, and a narrow window.
+The GitLab interface check uses a separate temporary profile and a mock API without accessing private projects. After `npm run build`, run `xvfb-run -a npm run test:gitlab -- --no-sandbox --ozone-platform=x11`. It checks adding several projects to one course, duplicate links, switching projects, editing and unlinking the selected project, persistence after reload, token isolation between servers, the folder tree, branch switching, paginated history and diffs, retries after errors, line numbers, renames, binary and large files, highlighting, Markdown, scrolling, and a narrow window. GitLab PDFs use the shared reader, with checks for retries, text selection, page navigation, zoom, colors, download links, fullscreen mode, narrow layouts, and returning focus to the tree.
 
 ```sh
 npm test

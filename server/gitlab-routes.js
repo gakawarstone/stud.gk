@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -11,34 +12,49 @@ import { call } from "./session-calls.js";
  * 'getGitlabReadme' | 'getGitlabTree' | 'getGitlabBranches' | 'getGitlabCommits' | 'getGitlabCommit' | 'getGitlabFile' | 'getGitlabContent'>>} options */
 export function gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGitlabTree, getGitlabBranches, getGitlabCommits, getGitlabCommit, getGitlabFile, getGitlabContent }) {
   const router = Router();
-  router.post("/courses/:id/gitlab", requireLogin, async (req, res) => {
+  function courseAccount(req) {
     const account = state.accounts[req.context.user.id];
     if (!account?.courses.some((course) => course.id === String(req.params.id)))
       throw new StudipError("Course not found in your courses.", 404);
+    return account;
+  }
+  const projectRoute = "/courses/:id/gitlab/projects/:projectId";
+  // Keep the old endpoint working for clients that only know the first project.
+  async function saveProject(req, res, adding = false) {
+    const account = courseAccount(req);
+    const courseId = String(req.params.id);
+    const current = Object.hasOwn(account.gitlabProjects ?? {}, courseId) ? account.gitlabProjects[courseId] : [];
+    const id = req.params.projectId ? String(req.params.projectId) : adding ? undefined : current[0]?.id;
+    if (id && !current.some((project) => project.id === id))
+      throw new StudipError("GitLab project not found in this course.", 404);
     let project = null;
     if (req.body?.url !== null) {
       try {
-        project = normalizeGitlabProject(req.body?.url);
+        project = { id: id ?? randomUUID(), ...normalizeGitlabProject(req.body?.url) };
       } catch (error) {
         throw new StudipError(error.message, 400);
       }
-    }
-    const projects = { ...account.gitlabProjects, [String(req.params.id)]: project };
-    if (!project) delete projects[String(req.params.id)];
-    account.gitlabProjects = projects;
+      if (current.some((item) => item.id !== id && item.url === project.url))
+        throw new StudipError("This GitLab project is already linked to the course.", 409);
+    } else if (adding) throw new StudipError("Enter a GitLab project URL.", 400);
+    const projects = id ? current.flatMap((item) => item.id === id ? project ? [project] : [] : [item])
+      : project ? [...current, project] : current;
+    account.gitlabProjects = { ...account.gitlabProjects, [courseId]: projects };
+    if (!projects.length) delete account.gitlabProjects[courseId];
     await save();
-    res.json({ project });
-  });
+    res.json({ project, projects });
+  }
+  router.post("/courses/:id/gitlab/projects", requireLogin, (req, res) => saveProject(req, res, true));
+  router.post(["/courses/:id/gitlab", projectRoute], requireLogin, (req, res) => saveProject(req, res));
   function linkedGitlab(req) {
-    const account = state.accounts[req.context.user.id];
-    if (!account?.courses.some((course) => course.id === String(req.params.id)))
-      throw new StudipError("Course not found in your courses.", 404);
-    const project = Object.hasOwn(account.gitlabProjects ?? {}, String(req.params.id))
-      ? account.gitlabProjects[String(req.params.id)] : null;
-    if (!project) throw new StudipError("Link a GitLab project to the course first.", 404);
+    const account = courseAccount(req);
+    const courseId = String(req.params.id);
+    const projects = Object.hasOwn(account.gitlabProjects ?? {}, courseId) ? account.gitlabProjects[courseId] : [];
+    const project = req.params.projectId ? projects.find((item) => item.id === req.params.projectId) : projects[0];
+    if (!project) throw new StudipError("GitLab project not found in this course.", 404);
     return new URL(normalizeGitlabProject(project.url).url);
   }
-  router.get("/courses/:id/gitlab/readme", requireLogin, async (req, res) => {
+  router.get(["/courses/:id/gitlab/readme", `${projectRoute}/readme`], requireLogin, async (req, res) => {
     const project = linkedGitlab(req);
     const token = req.session.gitlabTokens?.[project.origin];
     const controller = new AbortController();
@@ -55,11 +71,11 @@ export function gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGi
       res.off("close", cancel);
     }
   });
-  router.get("/courses/:id/gitlab/token", requireLogin, (req, res) => {
+  router.get(["/courses/:id/gitlab/token", `${projectRoute}/token`], requireLogin, (req, res) => {
     const project = linkedGitlab(req);
     res.json({ connected: Boolean(req.session.gitlabTokens?.[project.origin]) });
   });
-  router.post("/courses/:id/gitlab/token", requireLogin, async (req, res) => {
+  router.post(["/courses/:id/gitlab/token", `${projectRoute}/token`], requireLogin, async (req, res) => {
     const project = linkedGitlab(req);
     const token = req.body?.token === null ? null : validateGitlabToken(req.body?.token);
     if (token && project.protocol !== "https:")
@@ -75,7 +91,7 @@ export function gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGi
     ["commits", (url, _path, options) => getGitlabCommits(url, options)], ["commit", getGitlabCommit],
     ["tree", getGitlabTree], ["file", getGitlabFile], ["content", getGitlabContent]];
   for (const [route, read] of readers) {
-    router.get(`/courses/:id/gitlab/${route}`, requireLogin, async (req, res) => {
+    router.get([`/courses/:id/gitlab/${route}`, `${projectRoute}/${route}`], requireLogin, async (req, res) => {
       const project = linkedGitlab(req);
       const controller = new AbortController();
       const cancel = () => controller.abort();
