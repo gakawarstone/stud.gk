@@ -52,6 +52,7 @@ declare global {
 declare module "express-session" {
   interface SessionData {
     auth?: Auth;
+    /** Legacy tokens, migrated to the account store on startup. */
     gitlabTokens?: Record<string, string>;
   }
 }

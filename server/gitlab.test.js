@@ -173,6 +173,7 @@ test("course project links are private, persist across sync and restart, and can
   await html.arrayBuffer();
   assert.ok(!JSON.stringify((await request("/api/state", alice)).data).includes(secret));
   assert.ok(!(await readFile(path.join(directory, "sessions.enc"), "utf8")).includes(secret));
+  assert.ok(!(await readFile(path.join(directory, "gitlab-tokens.enc"), "utf8")).includes(secret));
   assert.ok(!(await readFile(path.join(directory, "state.json"), "utf8")).includes(secret));
 
   // A newly linked project in another course uses the same server's token.
@@ -277,7 +278,7 @@ test("course project links are private, persist across sync and restart, and can
   assert.deepEqual((await request("/api/state", alice)).data.gitlabProjects, { shared: [{ id: firstId, url: replacement }] });
   assert.deepEqual((await request("/api/state", bob)).data.gitlabProjects, {});
   await request(route, alice, { url });
-  assert.equal((await request(readmeRoute, alice)).status, 200, "Encrypted session restores its token after restart");
+  assert.equal((await request(readmeRoute, alice)).status, 200, "Encrypted account store restores its token after restart");
   assert.deepEqual((await request(tokenRoute, alice, { token: null })).data, { connected: false });
   assert.equal((await request(readmeRoute, alice)).status, 403);
   assert.deepEqual((await request(route, alice, { url: null })).data, { project: null, projects: [] });

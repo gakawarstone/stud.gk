@@ -17,6 +17,7 @@ import { createFileCache } from "./file-cache.js";
 
 import { authRoutes } from "./auth-routes.js";
 import { gitlabRoutes } from "./gitlab-routes.js";
+import { openGitlabTokens } from "./gitlab-tokens.js";
 import { fileRoutes } from "./file-routes.js";
 import { openAccountState } from "./account-state.js";
 import { call } from "./session-calls.js";
@@ -52,6 +53,7 @@ export async function createApp({
   const accountState = await openAccountState(dataDir);
   const { state, save } = accountState;
   const store = await EncryptedSessionStore.open(dataDir);
+  const gitlabTokens = await openGitlabTokens(dataDir, store);
   const fileCache = await createFileCache(path.join(dataDir, "files"), { maxBytes: fileCacheBytes });
   /** @param {import('../shared/studip.js').AccountState} account */
   const accessibleFiles = (account) => account.resources.filter((file) =>
@@ -235,7 +237,7 @@ export async function createApp({
     await sync(req.context);
     res.json({ ok: true });
   });
-  app.use("/api", gitlabRoutes({ state, save, requireLogin, getGitlabReadme, getGitlabTree, getGitlabBranches, getGitlabCommits, getGitlabCommit, getGitlabFile, getGitlabContent }));
+  app.use("/api", gitlabRoutes({ state, save, requireLogin, gitlabTokens, getGitlabReadme, getGitlabTree, getGitlabBranches, getGitlabCommits, getGitlabCommit, getGitlabFile, getGitlabContent }));
   app.use("/api", fileRoutes({ state, save, expire, requireLogin, getFolders, getDownload, fileCache }));
   app.get("/api/changes", requireLogin, (req, res) => {
     const since = req.query.since;
@@ -306,6 +308,7 @@ export async function createApp({
       await accountState.close();
       await fileCache.close();
       await store.queue;
+      await gitlabTokens.close();
     },
   };
 }
