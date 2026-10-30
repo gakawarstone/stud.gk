@@ -1,9 +1,10 @@
 import { useCallback, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
-import { GitFork, LoaderCircle, Plus } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { gitlabProjectList, normalizeGitlabProject, type GitlabProject as Project } from "../server/gitlab.js";
 import { GitlabConnection } from "./GitlabConnection";
 import { GitlabRepository } from "./GitlabRepository";
+import { GitlabProjectPicker } from "./GitlabProjectPicker";
 import { GitlabSettings } from "./GitlabSettings";
 import "./gitlab.css";
 
@@ -64,21 +65,10 @@ export function GitlabProject({ courseId, projects: savedProjects, demo, onSave,
     if (next) setSelectedId((url ? next.find((item) => item.url === url) : next[0])?.id ?? null);
     setAdding(false);
   }
+  const picker = project ? <GitlabProjectPicker projects={projects} selected={project} adding={adding}
+    onSelect={(id) => { setSelectedId(id); setAdding(false); }} onAdd={() => setAdding(true)} /> : null;
   return <section className="gitlab-section" aria-label="GitLab">
-    {projects.length > 0 && <div className="gitlab-project-bar">
-      <div className="gitlab-project-list" role="group" aria-label="Проекты GitLab">
-        {projects.map((item) => {
-          const address = new URL(item.url);
-          return <button key={item.id} type="button" className="gitlab-project-tab" title={item.url}
-            aria-pressed={!adding && project?.id === item.id} onClick={() => { setSelectedId(item.id); setAdding(false); }}>
-            <GitFork size={15} aria-hidden="true" /><span><strong>{address.pathname.slice(1)}</strong><small>{address.host}</small></span>
-          </button>;
-        })}
-      </div>
-      <button className="text-button gitlab-add-project" type="button" aria-expanded={adding} onClick={() => setAdding(true)}>
-        <Plus size={16} aria-hidden="true" />Добавить проект
-      </button>
-    </div>}
+    {picker && (toolbarTarget ? createPortal(picker, toolbarTarget) : <div className="gitlab-local-toolbar">{picker}</div>)}
     {(!projects.length || adding) ? <ProjectForm onSave={(url) => save(url)} onCancel={projects.length ? () => setAdding(false) : undefined} />
       : project && <ProjectView key={`${project.id}:${project.url}`} courseId={courseId} project={project} demo={demo}
         onSave={(url) => save(url, project.id)} toolbarTarget={toolbarTarget} />}
