@@ -35,7 +35,7 @@ export function GitlabConnection({ endpoint, projectUrl, onConnected, onCancel }
     <button className="text-button" onClick={onCancel}>Отмена</button>
   </div>;
   if (connected && !editing) return <div className="gitlab-form gitlab-token-form">
-    <p role="status">Токен для {address.host} подключён. Он используется для всех твоих проектов на этом сервере.</p>
+    <p role="status">Токен для {address.host} подключён. Он используется для всех твоих проектов на этом сервере и сохраняется после выхода из Stud.IP.</p>
     <div className="gitlab-actions">
       <button className="text-button" type="button" disabled={busy} onClick={() => setEditing(true)}>Заменить токен</button>
       <button className="text-button" type="button" disabled={busy} onClick={() => void save(null)}>Удалить токен для всех проектов</button>
@@ -47,7 +47,7 @@ export function GitlabConnection({ endpoint, projectUrl, onConnected, onCancel }
     <a className="text-button gitlab-create-token" href={createUrl.href} target="_blank" rel="noopener noreferrer">
       Создать токен в GitLab<ArrowUpRight size={14} aria-hidden="true" />
     </a>
-    <p id="gitlab-token-help">Один личный токен с правом <code>read_api</code> используется для всех твоих проектов на {address.host}. Вставь существующий токен или создай его один раз по ссылке выше.</p>
+    <p id="gitlab-token-help">Один личный токен с правом <code>read_api</code> используется для всех твоих проектов на {address.host}. Он сохранится после выхода и повторного входа в твой аккаунт Stud.IP. Вставь существующий токен или создай его один раз по ссылке выше.</p>
     <label htmlFor="gitlab-access-token">Токен доступа</label>
     <input id="gitlab-access-token" type="password" value={token} onChange={(event) => setToken(event.target.value)} required maxLength={512}
       autoComplete="off" spellCheck={false} placeholder="glpat-…" aria-describedby="gitlab-token-help" disabled={busy} />
