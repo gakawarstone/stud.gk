@@ -57,6 +57,9 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   const { GitlabError } = await import(pathToFileURL(path.join(root, "server/gitlab-client.js")).href);
   const token = "smoke-private-token";
   const markdown = '# Actual fixture README\n\nA **private project**.\n\n| Task | State |\n| --- | --- |\n| README | Ready |\n\n```sh\nnpm install\n```\n\n[Guide](docs/guide.md)\n\n<script>window.readmeInjected = true</script>\n\n[Unsafe](javascript:alert(1))';
+  const pdfFixture = await readFile(path.join(__dirname, "fixtures/robot.pdf"));
+  const contentRequests = [];
+  let failPdf = true;
   const treeRequests = [];
   const historyRequests = [], diffRequests = [];
   let failDiff = true;
@@ -109,7 +112,13 @@ async function wheelOverDiff(window, deltaX, deltaY) {
       return { branch: "main", path: folder, entries: folder === "src/components"
         ? [{ path: "src/components/Button.tsx", name: "Button.tsx", directory: false }]
         : folder === "src" ? [{ path: "src/components", name: "components", directory: true }, { path: "src/index.ts", name: "index.ts", directory: false }]
-        : [{ path: "src", name: "src", directory: true }, { path: "README.md", name: "README.md", directory: false }] };
+        : [{ path: "src", name: "src", directory: true }, { path: "README.md", name: "README.md", directory: false }, { path: "A04.pdf", name: "A04.pdf", directory: false }] };
+    },
+    getGitlabContent: async (_url, file, options) => {
+      assert.equal(options.token, token);
+      contentRequests.push({ path: file, ref: options.ref });
+      if (failPdf) { failPdf = false; throw new GitlabError("Fixture PDF unavailable", 502); }
+      return new Response(pdfFixture, { headers: { "Content-Type": "application/pdf" } });
     },
     getGitlabFile: async (_url, file, options) => {
       assert.equal(options.token, token); assert.ok(["main", "feature/kotlin"].includes(options.ref));
@@ -119,7 +128,7 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   });
   const window = new BrowserWindow({ show: false, width: 1280, height: 850,
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } });
-  if (process.env.CAMPUS_SMOKE_SCREENSHOT || process.env.CAMPUS_SMOKE_CODE_SCREENSHOT
+  if (process.env.CAMPUS_SMOKE_PDF_SCREENSHOT || process.env.CAMPUS_SMOKE_SCREENSHOT || process.env.CAMPUS_SMOKE_CODE_SCREENSHOT
     || process.env.CAMPUS_SMOKE_HISTORY_SCREENSHOT || process.env.CAMPUS_SMOKE_KOTLIN_DIFF_SCREENSHOT) window.showInactive();
   await window.loadURL(runtime.url);
   await waitFor(window, `document.querySelector('#username') !== null`);
@@ -153,9 +162,54 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   await fill(window, "#gitlab-access-token", token);
   await window.webContents.executeJavaScript(`document.querySelector('.gitlab-token-form').requestSubmit()`);
   await waitFor(window, `document.querySelector('[role="treeitem"][data-entry-path="README.md"]') !== null`);
-  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('[role="treeitem"]').length`), 2);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('[role="treeitem"]').length`), 3);
+
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-files, .gitlab-panel, .gitlab-readme-preview')`), null);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-preview-empty').textContent`), "Выбери файл в дереве");
+  await window.webContents.executeJavaScript(`document.querySelector('[data-entry-path="A04.pdf"]').click()`);
+  await waitFor(window, `document.querySelector('.pdf-viewer-embedded [role="alert"]') !== null`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('iframe, dialog[open]')`), null);
+  assert.notEqual(await window.webContents.executeJavaScript(`document.body.style.overflow`), "hidden");
+  await window.webContents.executeJavaScript(`document.querySelector('.pdf-viewer-embedded .text-button').click()`);
+  await waitFor(window, `document.querySelector('.pdf-page[data-page="1"] canvas') !== null && document.querySelector('.pdf-text-layer')?.textContent.includes('Software Engineering')`);
+  assert.deepEqual(contentRequests, [{ path: "A04.pdf", ref: "main" }, { path: "A04.pdf", ref: "main" }]);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Номер страницы"]').max`), "2");
+  assert.ok(await window.webContents.executeJavaScript(`(() => {
+    const pane = document.querySelector('.gitlab-preview-content').getBoundingClientRect();
+    const viewer = document.querySelector('.pdf-viewer-embedded').getBoundingClientRect();
+    const area = document.querySelector('.pdf-viewer-document');
+    return Math.abs(pane.top - viewer.top) < 1 && Math.abs(pane.bottom - viewer.bottom) < 1
+      && area.scrollHeight > area.clientHeight && viewer.left >= document.querySelector('.gitlab-repo-sidebar').getBoundingClientRect().right;
+  })()`), 'Embedded PDF fills the preview and scrolls independently beside the tree');
+  if (process.env.CAMPUS_SMOKE_PDF_SCREENSHOT) {
+    await new Promise(resolve => setTimeout(resolve, 150));
+    await writeFile(process.env.CAMPUS_SMOKE_PDF_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
+  }
+  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Следующая страница"]').click()`);
+  await waitFor(window, `document.querySelector('[aria-label="Номер страницы"]').value === '2' && document.querySelector('.pdf-page[data-page="2"] canvas') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Увеличить масштаб"]').click()`);
+  await waitFor(window, `document.querySelector('[aria-label="По ширине"]').textContent === '125%' && document.querySelector('[aria-label="Номер страницы"]').value === '2'`);
+  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Цвета Catppuccin"]').click()`);
+  await waitFor(window, `document.querySelector('.pdf-viewer-embedded').dataset.themed === 'false'`);
+  assert.match(await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Скачать PDF"]').href`), /path=A04.pdf&ref=main&download=1$/);
+  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="На весь экран"]').click()`, true);
+  await waitFor(window, `document.fullscreenElement?.classList.contains('pdf-viewer-shell')`);
+  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Выйти из полноэкранного режима"]').click()`, true);
+  await waitFor(window, `document.fullscreenElement === null`);
+  window.setSize(480, 950);
+  await new Promise(resolve => setTimeout(resolve, 100));
+  assert.equal(await window.webContents.executeJavaScript(`document.documentElement.scrollWidth > innerWidth`), false);
+  assert.ok(await window.webContents.executeJavaScript(`(() => {
+    const toolbar = document.querySelector('.pdf-viewer-toolbar').getBoundingClientRect();
+    return Array.from(toolbar ? document.querySelectorAll('.pdf-viewer-toolbar button, .pdf-viewer-toolbar a') : []).every(b => {
+      const rect = b.getBoundingClientRect(); return rect.left >= toolbar.left && rect.right <= toolbar.right;
+    });
+  })()`), 'PDF controls remain inside the narrow preview');
+  window.setSize(1280, 1000);
+  await window.webContents.executeJavaScript(`document.querySelector('.pdf-viewer-document').focus()`);
+  window.webContents.sendInputEvent({ type: "keyDown", keyCode: "Escape" });
+  window.webContents.sendInputEvent({ type: "keyUp", keyCode: "Escape" });
+  await waitFor(window, `document.querySelector('.pdf-viewer') === null && document.activeElement?.dataset.entryPath === 'A04.pdf'`);
   if (await window.webContents.executeJavaScript(`!!document.querySelector('.course-sidebar')`))
     assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.course-toolbar .gitlab-tools') !== null`));
   assert.equal((await readFile(path.join(profile, "data/sessions.enc"), "utf8")).includes(token), false);
@@ -519,7 +573,7 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   await waitFor(window, `document.querySelector('.demo-link') !== null`);
   await window.webContents.executeJavaScript(`document.querySelector('.demo-link').click()`);
   await waitFor(window, `Number(document.querySelector('.gitlab-project-picker')?.dataset.projectCount) === 2`);
-  console.log(JSON.stringify({ result: "passed", root, checks: "nested tree, folder cache/refresh, keyboard selection, inline highlighted code, compact commit strip, SHA copy, history toggle, date-grouped compact history, syntax-highlighted TypeScript and Kotlin diffs, hidden scrollbars, native wheel scrolling through long and wide diffs, commit history and diff pagination, diff retry, line numbers, rename/binary/large patches, branch changes, narrow layout, safe diff text, Markdown, multiple projects per course, duplicate rejection, compact header picker, keyboard project switching, selected project editing and unlinking, cross-server auth isolation, reload persistence, demo storage migration, shared token, encrypted session" }));
+  console.log(JSON.stringify({ result: "passed", root, checks: "embedded PDF rendering, retry, theme, pages, zoom, fullscreen, narrow controls, Escape focus, nested tree, folder cache/refresh, keyboard selection, inline highlighted code, compact commit strip, SHA copy, history toggle, date-grouped compact history, syntax-highlighted TypeScript and Kotlin diffs, hidden scrollbars, native wheel scrolling through long and wide diffs, commit history and diff pagination, diff retry, line numbers, rename/binary/large patches, branch changes, narrow layout, safe diff text, Markdown, multiple projects per course, duplicate rejection, compact header picker, keyboard project switching, selected project editing and unlinking, cross-server auth isolation, reload persistence, demo storage migration, shared token, encrypted session" }));
   window.destroy();
   await runtime.close();
   await rm(profile, { recursive: true, force: true });
