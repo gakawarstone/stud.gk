@@ -1,6 +1,6 @@
 {
   "name": "stud.gk",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Stud.GK, a local read-only Stud.IP companion in Catppuccin Mocha",
   "main": "electron/main.cjs",
   "desktopName": "stud-gk.desktop",

@@ -9,7 +9,7 @@ export function nextcloudRoutes(client = createNextcloudClient()) {
   router.use((req, res, next) => {
     res.set("Referrer-Policy", "no-referrer");
     res.set("Cross-Origin-Resource-Policy", "same-origin");
-    if (req.headers["sec-fetch-site"] === "cross-site") return res.status(403).json({ error: "Запрос разрешён только из приложения." });
+    if (req.headers["sec-fetch-site"] === "cross-site") return res.status(403).json({ error: "Requests are only allowed from the app." });
     next();
   });
   router.post("/list", async (req, res) => {
@@ -17,13 +17,13 @@ export function nextcloudRoutes(client = createNextcloudClient()) {
     const cancel = () => controller.abort();
     res.on("close", cancel);
     try {
-      if (typeof req.body?.url !== "string") throw new NextcloudError("Укажи ссылку Nextcloud.", 400);
+      if (typeof req.body?.url !== "string") throw new NextcloudError("Enter a Nextcloud URL.", 400);
       res.json(await client.list(req.body.url, filePath(req.body.path), { signal: controller.signal }));
     } finally { res.off("close", cancel); }
   });
   router.get("/file/:mode", async (req, res) => {
     if (!["preview", "download"].includes(req.params.mode) || typeof req.query.share !== "string" || typeof req.query.path !== "string") {
-      throw new NextcloudError("Некорректная ссылка на файл Nextcloud.", 400);
+      throw new NextcloudError("Invalid Nextcloud file URL.", 400);
     }
     const controller = new AbortController();
     const cancel = () => controller.abort();
@@ -57,7 +57,7 @@ export function nextcloudRoutes(client = createNextcloudClient()) {
   router.use((error, req, res, next) => {
     if (res.headersSent) return next(error);
     res.status(error instanceof NextcloudError ? error.status : 502).json({
-      error: error instanceof NextcloudError ? error.message : "Не удалось подключиться к Nextcloud. Проверь ссылку и соединение.",
+      error: error instanceof NextcloudError ? error.message : "Could not connect to Nextcloud. Check the URL and your connection.",
       code: "NEXTCLOUD_ERROR",
     });
   });

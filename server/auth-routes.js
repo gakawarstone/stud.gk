@@ -18,7 +18,7 @@ export function authRoutes({ authenticate, contexts, contextFor, sync, sessionNa
     legacyHeaders: false,
     skipSuccessfulRequests: true,
     message: {
-      error: "Слишком много попыток входа. Подожди 15 минут и попробуй снова.",
+      error: "Too many sign-in attempts. Wait 15 minutes and try again.",
     },
   });
   router.post("/login", loginLimiter, async (req, res) => {

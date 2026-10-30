@@ -9,16 +9,16 @@ import {
   type ScheduleEntry,
 } from "./course-schedule";
 import { weeklySchedule } from "./weekly-schedule";
-const weekdayFormat = new Intl.DateTimeFormat("ru-RU", { weekday: "long" });
-const dateMonthFormat = new Intl.DateTimeFormat("ru-RU", {
+const weekdayFormat = new Intl.DateTimeFormat("en-GB", { weekday: "long" });
+const dateMonthFormat = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "long",
 });
-const monthFormat = new Intl.DateTimeFormat("ru-RU", {
+const monthFormat = new Intl.DateTimeFormat("en-GB", {
   month: "long",
   year: "numeric",
 });
-const fullDateFormat = new Intl.DateTimeFormat("ru-RU", {
+const fullDateFormat = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "long",
   year: "numeric",
@@ -32,7 +32,7 @@ export function CourseSchedule(props: { items: CourseResource[]; courseTitle: st
   });
   const events = createMemo(() => scheduleEntries(props.items, now()));
   const view = () => {
-    if (!events().length) return <p class="course-section-notice">Предстоящих занятий нет.</p>;
+    if (!events().length) return <p class="course-section-notice">No upcoming classes.</p>;
     const weekly = createMemo(() => weeklySchedule(props.items, events(), now()));
     if (weekly()) return <WeeklyCourseSchedule model={weekly()!} events={events()} courseTitle={props.courseTitle} />;
     const shared = createMemo(() => sharedScheduleDetails(events()));
@@ -47,16 +47,16 @@ export function CourseSchedule(props: { items: CourseResource[]; courseTitle: st
       <div class="course-schedule">
         {sharedTitle() && <span class="visually-hidden">{sharedTitle()}</span>}
         {(shared().time || shared().location) && (
-          <dl class="course-schedule-shared" aria-label="Общие детали занятий">
+          <dl class="course-schedule-shared" aria-label="Shared class details">
             {shared().time && (
               <div class="course-schedule-shared-field">
-                <dt>Время</dt>
+                <dt>Time</dt>
                 <dd class="course-schedule-shared-time">{shared().time}</dd>
               </div>
             )}
             {shared().location && (
               <div class="course-schedule-shared-field">
-                <dt>Аудитория</dt>
+                <dt>Room</dt>
                 <dd class="course-schedule-shared-location">{shared().location}</dd>
               </div>
             )}
@@ -97,7 +97,7 @@ function ScheduleTimeline(props: {
       <For each={months()}>
         {([key, entries]) => {
           const monthStart = entries[0].start;
-          const monthLabel = monthStart ? monthFormat.format(monthStart).replace(/\s*г\.$/, "") : "Без даты";
+          const monthLabel = monthStart ? monthFormat.format(monthStart) : "No date";
           return (
             <section class="course-schedule-month" aria-label={monthLabel}>
               <div class="course-timeline-month">
@@ -116,7 +116,7 @@ function ScheduleTimeline(props: {
                       >
                         <article
                           class="course-timeline-event"
-                          aria-label={start ? fullDateFormat.format(start) : "Дата не указана"}
+                          aria-label={start ? fullDateFormat.format(start) : "No date specified"}
                         >
                           {start ? (
                             <time
@@ -125,7 +125,7 @@ function ScheduleTimeline(props: {
                               aria-label={fullDateFormat.format(start)}
                             >
                               <span>
-                                {start.toLocaleDateString("ru-RU", {
+                                {start.toLocaleDateString("en-GB", {
                                   day: "2-digit",
                                 })}
                               </span>
@@ -133,22 +133,22 @@ function ScheduleTimeline(props: {
                           ) : (
                             <div class="course-timeline-date">
                               <span aria-hidden="true">?</span>
-                              <small>Без даты</small>
+                              <small>No date</small>
                             </div>
                           )}
                           <div class="course-timeline-details">
                             <div class="course-timeline-date-label">
                               <span>
-                                {start ? dateMonthFormat.format(start).replace(/^\d+\s+/, "") : "Дата не указана"}
+                                {start ? dateMonthFormat.format(start).replace(/^\d+\s+/, "") : "No date specified"}
                               </span>
                               <div class="course-timeline-date-secondary">
                                 {start && <span>{weekdayFormat.format(start)}</span>}
-                                {(isNext || item.cancelled || status === "Идёт сейчас") && (
+                                {(isNext || item.cancelled || status === "In progress") && (
                                   <>
                                     {start && <span aria-hidden="true">·</span>}
                                     <span class="course-timeline-status">
                                       {item.cancelled && <X size={12} aria-hidden="true" />}
-                                      {status.toLocaleLowerCase("ru-RU")}
+                                      {status.toLocaleLowerCase("en-GB")}
                                     </span>
                                   </>
                                 )}
@@ -161,7 +161,7 @@ function ScheduleTimeline(props: {
                                     time: null,
                                     location: null,
                                   }
-                                ).time) && <div class="course-timeline-time">{time || "Время не указано"}</div>}
+                                ).time) && <div class="course-timeline-time">{time || "No time specified"}</div>}
                             {(!(props.shared ?? { time: null, location: null }).location ||
                               location !==
                                 (
@@ -171,7 +171,7 @@ function ScheduleTimeline(props: {
                                   }
                                 ).location) && (
                               <div class="course-timeline-location">
-                                {location ? `Аудитория ${location}` : "Аудитория не указана"}
+                                {location ? `Room ${location}` : "No room specified"}
                               </div>
                             )}
                             {title() && title() !== (props.sharedTitle ?? null) && (
@@ -192,8 +192,8 @@ function ScheduleTimeline(props: {
     </div>
   );
 }
-const recurringWeekdays = ["воскресеньям", "понедельникам", "вторникам", "средам", "четвергам", "пятницам", "субботам"];
-const shortDateFormat = new Intl.DateTimeFormat("ru-RU", {
+const recurringWeekdays = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];
+const shortDateFormat = new Intl.DateTimeFormat("en-GB", {
   day: "2-digit",
   month: "short",
 });
@@ -209,15 +209,14 @@ function WeeklyCourseSchedule(props: {
     <div class="course-schedule course-weekly-schedule">
       <For each={weekdays()}>
         {(weekday, index) => (
-          <section class="course-weekly-day" aria-label={`По ${recurringWeekdays[weekday]}`}>
-            <h2>По {recurringWeekdays[weekday]}</h2>
+          <section class="course-weekly-day" aria-label={`On ${recurringWeekdays[weekday]}`}>
+            <h2>On {recurringWeekdays[weekday]}</h2>
             {index() === 0 && (
               <p class="course-weekly-period">
-                {dateMonthFormat.format(props.model.start)} –{" "}
-                {fullDateFormat.format(props.model.end).replace(/\s*г\.$/, "")}
+                {dateMonthFormat.format(props.model.start)} – {fullDateFormat.format(props.model.end)}
               </p>
             )}
-            <dl class="course-weekly-slots" aria-label="Обычное время и аудитории">
+            <dl class="course-weekly-slots" aria-label="Usual times and rooms">
               <For each={props.model.slots.filter((slot) => slot.weekday === weekday)}>
                 {(slot) => {
                   const title = createMemo(() => scheduleTitle(slot.title, props.courseTitle));
@@ -230,8 +229,8 @@ function WeeklyCourseSchedule(props: {
                         )}
                       </dt>
                       <dd>
-                        <span class="visually-hidden">Аудитория </span>
-                        {slot.location || "Не указана"}
+                        <span class="visually-hidden">Room </span>
+                        {slot.location || "Not specified"}
                       </dd>
                     </div>
                   );
@@ -242,11 +241,11 @@ function WeeklyCourseSchedule(props: {
         )}
       </For>
       {next()?.start && (
-        <p class={`course-weekly-next${next()!.status === "Идёт сейчас" ? " is-ongoing" : ""}`}>
-          {next()!.status === "Идёт сейчас" ? "Идёт сейчас" : "Ближайшее занятие"} ·{" "}
+        <p class={`course-weekly-next${next()!.status === "In progress" ? " is-ongoing" : ""}`}>
+          {next()!.status === "In progress" ? "In progress" : "Next class"} ·{" "}
           <time datetime={next()!.start!.toISOString()}>
             {dateMonthFormat.format(next()!.start!)},{" "}
-            {next()!.start!.toLocaleTimeString("de-DE", {
+            {next()!.start!.toLocaleTimeString("en-GB", {
               hour: "2-digit",
               minute: "2-digit",
             })}
@@ -254,8 +253,8 @@ function WeeklyCourseSchedule(props: {
         </p>
       )}
       {props.model.exceptions.length > 0 && (
-        <section class="course-weekly-changes" aria-label="Изменения расписания">
-          <h3>Изменения</h3>
+        <section class="course-weekly-changes" aria-label="Schedule changes">
+          <h3>Changes</h3>
           <ol class="course-weekly-exceptions">
             <For each={props.model.exceptions}>
               {({ start, entry, slot }) => {
@@ -277,18 +276,18 @@ function WeeklyCourseSchedule(props: {
                       {time && <span class="course-weekly-exception-time">{time}</span>}
                       {!entry ? (
                         <span class="course-weekly-exception-note">
-                          {slot ? "· нет занятия в расписании" : "Занятий нет в расписании"}
+                          {slot ? "· no class scheduled" : "No classes scheduled"}
                         </span>
                       ) : entry.item.cancelled ? (
-                        <span class="course-weekly-cancelled">· отменено</span>
+                        <span class="course-weekly-cancelled">· cancelled</span>
                       ) : (
                         <>
                           {(changedRoom || !slot) && (
                             <span class="course-weekly-exception-room">
-                              · {room ? `аудитория ${room}` : "аудитория не указана"}
+                              · {room ? `room ${room}` : "no room specified"}
                             </span>
                           )}
-                          {changedTime && <span class="course-weekly-exception-note">вместо {slot.time}</span>}
+                          {changedTime && <span class="course-weekly-exception-note">instead of {slot.time}</span>}
                         </>
                       )}
                       {entry && title() && (!slot || entry.item.title.trim() !== slot.title) && (
@@ -308,7 +307,7 @@ function WeeklyCourseSchedule(props: {
       <details class="course-weekly-all-dates">
         <summary>
           <ChevronRight size={14} aria-hidden="true" />
-          Все даты
+          All dates
         </summary>
         <ScheduleTimeline events={props.events} courseTitle={props.courseTitle} />
       </details>

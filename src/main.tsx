@@ -66,7 +66,7 @@ function fileAppearance(title: string) {
     return { Icon: FileCode, label: extension.toUpperCase(), tone: "code" };
   return {
     Icon: FileText,
-    label: extension && extension.length <= 8 ? extension.toUpperCase() : "Файл",
+    label: extension && extension.length <= 8 ? extension.toUpperCase() : "File",
     tone: "document",
   };
 }
@@ -80,11 +80,7 @@ function folderLink(courseId: string, folderId?: string) {
   return `#${new URLSearchParams({ course: courseId, ...(folderId ? { folder: folderId } : {}) })}`;
 }
 function fileCountLabel(count: number) {
-  const last = count % 10;
-  const lastTwo = count % 100;
-  const word =
-    lastTwo >= 11 && lastTwo <= 14 ? "файлов" : last === 1 ? "файл" : last >= 2 && last <= 4 ? "файла" : "файлов";
-  return `${count} ${word}`;
+  return `${count} ${count === 1 ? "file" : "files"}`;
 }
 function App() {
   const {
@@ -216,13 +212,13 @@ function App() {
           .catch((error) => {
             if (cancelled || version !== generation.current) return;
             if (error instanceof ApiError && error.status === 401) {
-              signedOut("Сессия истекла. Войди в Stud.IP заново.");
+              signedOut("Your session has expired. Sign in to Stud.IP again.");
               return;
             }
             setFolderState({
               courseId,
               data: null,
-              error: error instanceof ApiError ? error.message : "Не удалось загрузить папки. Попробуй ещё раз.",
+              error: error instanceof ApiError ? error.message : "Could not load folders. Try again.",
             });
           });
         onCleanup(() => {
@@ -248,7 +244,7 @@ function App() {
       () => [unreadFiles().size, selectedCourse()?.title],
       () => {
         const unread = unreadFiles().size;
-        document.title = `${unread ? `(${unread}) ` : ""}Stud.GK · ${selectedCourse()?.title || "Курсы"}`;
+        document.title = `${unread ? `(${unread}) ` : ""}Stud.GK · ${selectedCourse()?.title || "Courses"}`;
       },
     ),
   );
@@ -256,8 +252,8 @@ function App() {
     setFileError(null);
     await refreshFeed();
   }
-  async function saveGitlabProject(url: string | null) {
-    if (selectedCourse()) await saveProject(selectedCourse()!.id, url);
+  async function saveGitlabProject(url: string | null, projectId?: string) {
+    if (selectedCourse()) return saveProject(selectedCourse()!.id, url, projectId);
   }
   const allFiles = createMemo(() => (data()?.resources ?? []).filter((r) => r.kind === "file"));
   const courseFiles = createMemo(() =>
@@ -280,12 +276,12 @@ function App() {
   );
   const folders = createMemo(() => (fileView() === "folders" ? (folderListing()?.folders ?? []) : []));
   const files = createMemo(() => (fileView() === "folders" ? (folderListing()?.files ?? []) : courseFiles()));
-  const linkedProject = createMemo(() => {
+  const linkedProjects = createMemo(() => {
     const course = selectedCourse(),
       projects = data()?.gitlabProjects;
     // Read the key even when absent so a later server binding is reactive.
     const project = course ? projects?.[course.id] : undefined;
-    return course && projects && Object.hasOwn(projects, course.id) ? (project ?? null) : null;
+    return course && projects && Object.hasOwn(projects, course.id) ? (project ?? []) : [];
   });
   function changeFileView(view: "all" | "folders") {
     if (view === "folders" && fileView() !== "folders") initialFolderCourse = null;
@@ -306,7 +302,7 @@ function App() {
   );
   const syncing = createMemo(() => busy() || data()?.syncing);
   return (
-    <div class="page">
+    <div class={`page${selectedCourse() ? " page--course" : ""}`}>
       <header class={`header${selectedCourse() ? " header--course" : ""}`}>
         <div class="brand" role="img" aria-label="Stud.GK">
           <svg viewBox="0 0 64 64" fill="currentColor" aria-hidden="true">
@@ -326,13 +322,54 @@ function App() {
           </svg>
           <span aria-hidden="true">tud.GK</span>
         </div>
+        {selectedCourse() && (
+          <div class="course-toolbar">
+            <nav class="course-path" aria-label="Course navigation">
+              <a class="back-to-courses" href="#">
+                <ArrowLeft size={16} /> All courses
+              </a>
+              <ChevronRight class="path-separator" size={16} />
+              <h1 class="course-heading" title={selectedCourse()!.title}>
+                {selectedTab() === "files" && fileView() === "folders" ? (
+                  <a href={folderLink(selectedCourse()!.id)}>{selectedCourse()!.title}</a>
+                ) : (
+                  selectedCourse()!.title
+                )}
+              </h1>
+            </nav>
+            {selectedTab() === "files" && (
+              <div class="file-view-switch" role="group" aria-label="File view">
+                <button
+                  type="button"
+                  aria-pressed={fileView() === "all"}
+                  aria-label="All files"
+                  title="All files"
+                  onClick={() => changeFileView("all")}
+                >
+                  <LayoutGrid size={15} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={fileView() === "folders"}
+                  aria-label="Folders"
+                  title="Folders"
+                  onClick={() => changeFileView("folders")}
+                >
+                  <FolderTree size={15} aria-hidden="true" />
+                </button>
+              </div>
+            )}
+            {selectedTab() === "nextcloud" && <div class="nextcloud-toolbar" ref={setNextcloudToolbar} />}
+            {selectedTab() === "gitlab" && <div class="gitlab-toolbar" ref={setGitlabToolbar} />}
+          </div>
+        )}
         {(phase() === "live" || phase() === "demo") && (
           <div class="account">
             {phase() === "demo" ? (
               <>
-                <span class="demo-badge">Демо</span>
+                <span class="demo-badge">Demo</span>
                 <button class="text-button" onClick={() => signedOut()}>
-                  Войти
+                  Sign in
                 </button>
               </>
             ) : (
@@ -341,8 +378,8 @@ function App() {
                   class="account-button"
                   onClick={() => void logout()}
                   disabled={busy()}
-                  aria-label={`Выйти из аккаунта ${data()?.user?.name || ""}`}
-                  title={`Выйти из аккаунта ${data()?.user?.name || ""}`}
+                  aria-label={`Sign out of ${data()?.user?.name || ""}`}
+                  title={`Sign out of ${data()?.user?.name || ""}`}
                 >
                   <span class="account-name">{userInitials(data()?.user?.name)}</span>
                   <LogOut size={16} stroke-width={1.5} aria-hidden="true" />
@@ -355,55 +392,13 @@ function App() {
       {phase() === "loading" ? (
         <div class="loading">
           <LoaderCircle size={24} class="spin" />
-          Загружаем…
+          Loading…
         </div>
       ) : phase() === "login" ? (
         <Login error={error()} busy={busy()} onLogin={login} onDemo={() => void showDemo()} />
       ) : (
-        <main class="feed-main">
-          {selectedCourse() ? (
-            <div class="course-toolbar">
-              <nav class="course-path" aria-label="Навигация по курсам">
-                <a class="back-to-courses" href="#">
-                  <ArrowLeft size={16} /> Все курсы
-                </a>
-                <ChevronRight class="path-separator" size={16} />
-                <h1 class="course-heading" title={selectedCourse()!.title}>
-                  {selectedTab() === "files" && fileView() === "folders" ? (
-                    <a href={folderLink(selectedCourse()!.id)}>{selectedCourse()!.title}</a>
-                  ) : (
-                    selectedCourse()!.title
-                  )}
-                </h1>
-              </nav>
-              {selectedTab() === "files" && (
-                <div class="file-view-switch" role="group" aria-label="Вид файлов">
-                  <button
-                    type="button"
-                    aria-pressed={fileView() === "all"}
-                    aria-label="Все файлы"
-                    title="Все файлы"
-                    onClick={() => changeFileView("all")}
-                  >
-                    <LayoutGrid size={15} aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={fileView() === "folders"}
-                    aria-label="Папки"
-                    title="Папки"
-                    onClick={() => changeFileView("folders")}
-                  >
-                    <FolderTree size={15} aria-hidden="true" />
-                  </button>
-                </div>
-              )}
-              {selectedTab() === "nextcloud" && <div class="nextcloud-toolbar" ref={setNextcloudToolbar} />}
-              {selectedTab() === "gitlab" && <div class="gitlab-toolbar" ref={setGitlabToolbar} />}
-            </div>
-          ) : (
-            <h1 class="visually-hidden">Курсы</h1>
-          )}
+        <main class={`feed-main${selectedCourse() ? " feed-main--course" : ""}`}>
+          {!selectedCourse() && <h1 class="visually-hidden">Courses</h1>}
           {(syncError() || fileError()) && (
             <div class="feed-error" role="alert">
               {syncError() || fileError()}
@@ -412,12 +407,12 @@ function App() {
           {selectedCourse() && selectedTab() === "files" && partial() && !syncError() && !fileError() && (
             <div class="feed-warning" role="status">
               <TriangleAlert size={13} />
-              Часть файлов недоступна в Stud.IP.
+              Some files are unavailable in Stud.IP.
             </div>
           )}
           {!selectedCourse() && (
             <p id="course-sort-help" class="visually-hidden">
-              Перетащи карточку за ручку, чтобы изменить порядок. На клавиатуре используй стрелки на ручке.
+              Drag a card by its handle to reorder it. With a keyboard, focus the handle and use the arrow keys.
             </p>
           )}
           {courseDrag() && (
@@ -462,7 +457,7 @@ function App() {
                     {(_key) => (
                       <GitlabProject
                         courseId={selectedCourse()!.id}
-                        project={linkedProject()}
+                        projects={linkedProjects()}
                         demo={phase() === "demo"}
                         onSave={saveGitlabProject}
                         toolbarTarget={gitlabToolbar()}
@@ -515,18 +510,22 @@ function App() {
                       selectedCourse() ? (fileView() === "folders" ? "explorer-files" : "file-grid") : "course-grid"
                     }
                     aria-label={
-                      selectedCourse() ? (fileView() === "folders" ? "Папки и файлы курса" : "Файлы курса") : "Курсы"
+                      selectedCourse()
+                        ? fileView() === "folders"
+                          ? "Course folders and files"
+                          : "Course files"
+                        : "Courses"
                     }
                   >
                     {selectedCourse() && fileView() === "folders" && !folderListing() && (
                       <div class="empty" role="status">
                         {folderError() ? <TriangleAlert size={28} /> : <LoaderCircle class="spin" size={28} />}
-                        <h2>{folderError() ? "Не удалось загрузить папки" : "Загружаем папки…"}</h2>
+                        <h2>{folderError() ? "Could not load folders" : "Loading folders…"}</h2>
                         {folderError() && (
                           <>
                             <p>{folderError()}</p>
                             <button class="empty-link" onClick={() => setFolderRevision((value) => value + 1)}>
-                              Повторить
+                              Retry
                             </button>
                           </>
                         )}
@@ -584,8 +583,8 @@ function App() {
                                       <span
                                         class="course-new-count"
                                         role="img"
-                                        aria-label={`Обновлений: ${newCount()}`}
-                                        title={`Обновлений: ${newCount()}`}
+                                        aria-label={`Updates: ${newCount()}`}
+                                        title={`Updates: ${newCount()}`}
                                       >
                                         <BellDot size={14} aria-hidden="true" /> {newCount()}
                                       </span>
@@ -594,8 +593,8 @@ function App() {
                                       <span
                                         class="course-card-warning"
                                         role="img"
-                                        aria-label="Часть файлов недоступна"
-                                        title="Часть файлов недоступна"
+                                        aria-label="Some files are unavailable"
+                                        title="Some files are unavailable"
                                       >
                                         <TriangleAlert size={14} aria-hidden="true" />
                                       </span>
@@ -605,9 +604,9 @@ function App() {
                               </a>
                               <button
                                 class="course-drag-handle"
-                                aria-label={`Изменить порядок: ${course.title}`}
+                                aria-label={`Reorder: ${course.title}`}
                                 aria-describedby="course-sort-help"
-                                title="Перетащить курс"
+                                title="Drag course"
                                 onKeyDown={(event) => {
                                   const direction =
                                     event.key === "ArrowUp" || event.key === "ArrowLeft"
@@ -641,7 +640,7 @@ function App() {
                           const unread = createMemo(() => unreadFiles().get(file.id));
                           const previewLabel = createMemo(
                             () =>
-                              `Открыть ${file.title}${unread() ? (unread()!.action === "added" ? ". Новый файл" : ". Обновлённый файл") : ""}`,
+                              `Open ${file.title}${unread() ? (unread()!.action === "added" ? ". New file" : ". Updated file") : ""}`,
                           );
                           const body = createMemo(() => (
                             <>
@@ -673,7 +672,7 @@ function App() {
                                 <div class="file-meta">
                                   {date() && (
                                     <time datetime={date()}>
-                                      {new Date(date()).toLocaleDateString("ru-RU", {
+                                      {new Date(date()).toLocaleDateString("en-GB", {
                                         day: "numeric",
                                         month: "short",
                                         year: "numeric",
@@ -716,8 +715,8 @@ function App() {
                                   onClick={() =>
                                     setFileError(
                                       phase() === "demo"
-                                        ? "В демо просмотр файлов недоступен."
-                                        : "У файла нет ссылки для просмотра.",
+                                        ? "File preview is unavailable in demo mode."
+                                        : "This file has no preview link.",
                                     )
                                   }
                                 >
@@ -744,36 +743,36 @@ function App() {
                         </span>
                         <h2>
                           {data()?.syncing
-                            ? "Собираем твои курсы"
+                            ? "Loading your courses"
                             : syncError() || !data()?.lastSync
-                              ? "Не удалось проверить курсы"
+                              ? "Could not check courses"
                               : selectedCourse()
                                 ? fileView() === "folders"
                                   ? folders().length
-                                    ? "Выбери вложенную папку"
-                                    : "Папка пуста"
-                                  : "Файлов пока нет"
-                                : "Курсов пока нет"}
+                                    ? "Select a subfolder"
+                                    : "This folder is empty"
+                                  : "No files yet"
+                                : "No courses yet"}
                         </h2>
                         <p>
                           {data()?.syncing ? (
-                            "Это может занять немного времени."
+                            "This may take a moment."
                           ) : syncError() || !data()?.lastSync ? (
                             <button class="empty-link" onClick={() => void refresh()} disabled={syncing()}>
-                              Повторить проверку
+                              Check again
                             </button>
                           ) : selectedCourse() ? (
                             fileView() === "folders" ? (
                               folders().length ? (
-                                "Вложенные папки находятся в списке слева."
+                                "Subfolders are listed on the left."
                               ) : (
-                                "В этой папке пока нет доступных файлов."
+                                "No files are available in this folder yet."
                               )
                             ) : (
-                              "В доступных разделах файлов нет."
+                              "No files in the available sections."
                             )
                           ) : (
-                            "Курсы появятся здесь после проверки Stud.IP."
+                            "Your courses will appear here after checking Stud.IP."
                           )}
                         </p>
                       </div>

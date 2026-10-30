@@ -18,6 +18,6 @@ export async function api<T>(url: string, body?: unknown, signal?: AbortSignal):
   });
   const payload = await response.json();
   if (!response.ok)
-    throw new ApiError(payload.error || "Не удалось выполнить запрос.", response.status);
+    throw new ApiError(payload.error || "Could not complete the request.", response.status);
   return payload;
 }

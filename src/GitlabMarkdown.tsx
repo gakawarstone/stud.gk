@@ -35,7 +35,7 @@ export function GitlabMarkdown(props: { content: string; webUrl: string }) {
           target="_blank"
           rel="noopener noreferrer"
         >
-          {String(node.properties.alt || "Открыть изображение")}
+          {String(node.properties.alt || "Open image")}
         </a>
       );
     if (node.tagName === "code") {

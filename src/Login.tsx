@@ -22,14 +22,14 @@ export function Login(props: {
         <span class="login-symbol">
           <GraduationCap size={29} stroke-width={1.6} />
         </span>
-        <h1>Войти в Stud.IP</h1>
+        <h1>Sign in to Stud.IP</h1>
         <p class="login-description">
           Hochschule Flensburg.
           <br />
-          Тот же логин и пароль, что и в Stud.IP.
+          Use your Stud.IP username and password.
         </p>
         <form onSubmit={submit}>
-          <label for="username">Логин</label>
+          <label for="username">Username</label>
           <input
             id="username"
             name="username"
@@ -38,13 +38,13 @@ export function Login(props: {
             spellcheck={false}
             value={username()}
             onInput={(e) => setUsername(e.target.value)}
-            placeholder="Твой логин университета"
+            placeholder="Your university username"
             maxlength={128}
             disabled={props.busy}
             required
             autofocus
           />
-          <label for="password">Пароль</label>
+          <label for="password">Password</label>
           <input
             id="password"
             name="password"
@@ -52,7 +52,7 @@ export function Login(props: {
             autocomplete="current-password"
             value={password()}
             onInput={(e) => setPassword(e.target.value)}
-            placeholder="Пароль Stud.IP"
+            placeholder="Stud.IP password"
             maxlength={1024}
             disabled={props.busy}
             required
@@ -70,11 +70,11 @@ export function Login(props: {
             {props.busy ? (
               <>
                 <LoaderCircle size={16} class="spin" />
-                Входим…
+                Signing in…
               </>
             ) : (
               <>
-                Войти
+                Sign in
                 <ArrowUpRight size={16} />
               </>
             )}
@@ -83,14 +83,14 @@ export function Login(props: {
         <p class="login-privacy">
           <ShieldCheck size={15} />
           <span>
-            Пароль не сохраняется.
+            Your password is not stored.
             <br />
-            Сессия останется на этом компьютере до 7 дней.
+            Your session stays on this computer for up to 7 days.
           </span>
         </p>
       </section>
       <button class="demo-link" onClick={props.onDemo} disabled={props.busy}>
-        Посмотреть демо
+        Try demo
       </button>
     </div>
   );

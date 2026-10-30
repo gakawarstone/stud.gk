@@ -45,8 +45,8 @@ export function NextcloudSettings(props: { url: string; loading: boolean; onRefr
       <button
         ref={(element) => (button = element)}
         type="button"
-        aria-label="Настройки Nextcloud"
-        title="Настройки Nextcloud"
+        aria-label="Nextcloud settings"
+        title="Nextcloud settings"
         aria-haspopup="menu"
         aria-expanded={open()}
         aria-controls={open() ? menuId : undefined}
@@ -66,7 +66,7 @@ export function NextcloudSettings(props: { url: string; loading: boolean; onRefr
           id={menuId}
           class="nextcloud-settings-menu"
           role="menu"
-          aria-label="Настройки Nextcloud"
+          aria-label="Nextcloud settings"
           onKeyDown={(event) => {
             const items = [...menu!.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)')];
             const current = items.indexOf(document.activeElement as HTMLElement);
@@ -89,7 +89,7 @@ export function NextcloudSettings(props: { url: string; loading: boolean; onRefr
           <button
             type="button"
             role="menuitem"
-            aria-label="Обновить файлы Nextcloud"
+            aria-label="Refresh Nextcloud files"
             disabled={props.loading}
             onClick={() => {
               close();
@@ -97,30 +97,30 @@ export function NextcloudSettings(props: { url: string; loading: boolean; onRefr
             }}
           >
             <RefreshCw size={16} aria-hidden="true" />
-            <span>Обновить файлы</span>
+            <span>Refresh files</span>
           </button>
           <button
             type="button"
             role="menuitem"
-            aria-label="Изменить ссылку Nextcloud"
+            aria-label="Edit Nextcloud link"
             onClick={() => {
               close(false);
               props.onEdit();
             }}
           >
             <Link size={16} aria-hidden="true" />
-            <span>Изменить ссылку</span>
+            <span>Edit link</span>
           </button>
           <a
             role="menuitem"
             href={props.url}
             target="_blank"
             rel="noreferrer"
-            aria-label="Открыть Nextcloud в браузере"
+            aria-label="Open Nextcloud in browser"
             onClick={() => close()}
           >
             <ExternalLink size={16} aria-hidden="true" />
-            <span>Открыть в браузере</span>
+            <span>Open in browser</span>
           </a>
         </div>
       )}

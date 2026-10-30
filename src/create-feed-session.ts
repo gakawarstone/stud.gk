@@ -21,8 +21,8 @@ function notifyNewFiles(feed: Feed, previousSync: string | null) {
         Date.parse(change.occurredAt) > Date.parse(previousSync),
     );
     if (fresh.length)
-      new Notification("Stud.GK · Новые изменения", {
-        body: `${fresh.length} обновлений в твоих курсах.`,
+      new Notification("Stud.GK · New changes", {
+        body: `${fresh.length} ${fresh.length === 1 ? "update" : "updates"} in your courses.`,
         icon: "/favicon.svg",
       });
   } catch {

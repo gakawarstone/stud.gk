@@ -2,10 +2,10 @@ import { CalendarDays, Cloud, FolderClosed, GitFork, Info, Megaphone, Plus, Tras
 import { batch, createEffect, createMemo, createSignal, For, on, onCleanup } from "solid-js";
 import { extraCourseTabs, isExtraCourseTab, type CourseTab, type ExtraCourseTab } from "./course-tabs";
 export const courseTabs = {
-  files: { label: "Dateien", Icon: FolderClosed },
-  news: { label: "Ankündigungen", Icon: Megaphone },
-  schedule: { label: "Termine", Icon: CalendarDays },
-  course: { label: "Kursinfo", Icon: Info },
+  files: { label: "Files", Icon: FolderClosed },
+  news: { label: "Announcements", Icon: Megaphone },
+  schedule: { label: "Schedule", Icon: CalendarDays },
+  course: { label: "Course info", Icon: Info },
   nextcloud: { label: "Nextcloud", Icon: Cloud },
   gitlab: { label: "GitLab", Icon: GitFork },
 };
@@ -116,7 +116,7 @@ export function CourseSidebar(props: {
         ref={(element) => (menu = element)}
         class="course-add-menu"
         role="menu"
-        aria-label={kind === "add" ? "Добавить вкладку" : courseTabs[kind].label}
+        aria-label={kind === "add" ? "Add tab" : courseTabs[kind].label}
         onKeyDown={(event) => {
           const items = [...menu!.querySelectorAll<HTMLButtonElement>("button")];
           const current = items.indexOf(document.activeElement as HTMLButtonElement);
@@ -141,7 +141,7 @@ export function CourseSidebar(props: {
             {(tab) => {
               const { label, Icon } = courseTabs[tab];
               return (
-                <button type="button" role="menuitem" aria-label={`Добавить ${label}`} onClick={() => add(tab)}>
+                <button type="button" role="menuitem" aria-label={`Add ${label}`} onClick={() => add(tab)}>
                   <Icon size={17} stroke-width={1.6} aria-hidden="true" />
                   <span>{label}</span>
                   <Plus size={15} class="course-add-mark" aria-hidden="true" />
@@ -153,18 +153,18 @@ export function CourseSidebar(props: {
           <button
             type="button"
             role="menuitem"
-            aria-label={`Удалить ${courseTabs[kind].label} из панели`}
+            aria-label={`Remove ${courseTabs[kind].label} from sidebar`}
             onClick={() => remove(kind)}
           >
             <Trash2 size={17} stroke-width={1.6} aria-hidden="true" />
-            <span>Удалить из панели</span>
+            <span>Remove from sidebar</span>
           </button>
         )}
       </div>
     );
   }
   return (
-    <nav ref={(element) => (sidebar = element)} class="course-sidebar" aria-label="Вкладки курса">
+    <nav ref={(element) => (sidebar = element)} class="course-sidebar" aria-label="Course tabs">
       <For each={visibleTabs()}>
         {(tab) => {
           const { label, Icon } = courseTabs[tab];
@@ -215,7 +215,7 @@ export function CourseSidebar(props: {
           ref={(element) => (addButton = element)}
           type="button"
           class="course-rail-button"
-          aria-label={openMenu() === "add" ? "Закрыть меню вкладок" : "Добавить вкладку"}
+          aria-label={openMenu() === "add" ? "Close tab menu" : "Add tab"}
           disabled={!availableTabs().length}
           aria-expanded={openMenu() === "add"}
           aria-haspopup="menu"
@@ -224,7 +224,7 @@ export function CourseSidebar(props: {
           {openMenu() === "add" ? <X size={20} aria-hidden="true" /> : <Plus size={20} aria-hidden="true" />}
           {openMenu() !== "add" && (
             <span class="course-rail-tooltip" aria-hidden="true">
-              {availableTabs().length ? "Добавить вкладку" : "Все вкладки добавлены"}
+              {availableTabs().length ? "Add tab" : "All tabs added"}
             </span>
           )}
         </button>

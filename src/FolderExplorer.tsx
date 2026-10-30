@@ -58,7 +58,7 @@ export function FolderExplorer(props: { data: CourseFolders; currentId: string |
                     <button
                       type="button"
                       class="explorer-branch-toggle"
-                      aria-label={`${isExpanded() ? "Свернуть" : "Развернуть"} папку ${folder.title}`}
+                      aria-label={`${isExpanded() ? "Collapse" : "Expand"} folder ${folder.title}`}
                       aria-expanded={isExpanded()}
                       onClick={() =>
                         setExpanded((previous) => {
@@ -78,7 +78,7 @@ export function FolderExplorer(props: { data: CourseFolders; currentId: string |
                     type="button"
                     class="explorer-folder-link"
                     disabled={!folder.readable}
-                    aria-label={folder.readable ? `Открыть папку ${folder.title}` : `${folder.title}. Нет доступа`}
+                    aria-label={folder.readable ? `Open folder ${folder.title}` : `${folder.title}. Access denied`}
                     aria-current={selected() ? "page" : undefined}
                     title={folder.title}
                     onClick={() => {
@@ -102,8 +102,8 @@ export function FolderExplorer(props: { data: CourseFolders; currentId: string |
     );
   }
   return (
-    <nav class="folder-explorer-sidebar" aria-label="Папки курса">
-      {renderLevel(props.data.rootId) || <p class="explorer-no-folders">Вложенных папок нет</p>}
+    <nav class="folder-explorer-sidebar" aria-label="Course folders">
+      {renderLevel(props.data.rootId) || <p class="explorer-no-folders">No subfolders</p>}
     </nav>
   );
 }

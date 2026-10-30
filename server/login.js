@@ -14,7 +14,7 @@ export function validateCredentials(username, password) {
     /[\x00-\x1f\x7f]/.test(username) ||
     /[\x00\r\n]/.test(password)
   ) {
-    throw new StudipError("Введи логин и пароль Stud.IP.", 400);
+    throw new StudipError("Enter your Stud.IP username and password.", 400);
   }
   return { username: username.trim(), password };
 }
@@ -24,7 +24,7 @@ function universityUrl(value, base = START) {
   const url = new URL(value, base);
   if (url.origin !== BASE || url.username || url.password) {
     throw new StudipError(
-      "Stud.IP предлагает внешний способ входа, который пока не поддерживается.",
+      "Stud.IP uses an external sign-in method that is not supported yet.",
       502,
     );
   }
@@ -61,7 +61,7 @@ export async function loginStudip(username, password, fetcher = fetch) {
         });
       } catch {
         throw new StudipError(
-          "Stud.IP сейчас недоступен. Попробуй войти позже.",
+          "Stud.IP is currently unavailable. Try signing in later.",
           503,
         );
       }
@@ -70,7 +70,7 @@ export async function loginStudip(username, password, fetcher = fetch) {
       if ([301, 302, 303, 307, 308].includes(response.status)) {
         const location = response.headers.get("location");
         if (!location)
-          throw new StudipError("Stud.IP вернул некорректное перенаправление.");
+          throw new StudipError("Stud.IP returned an invalid redirect.");
         const next = universityUrl(location, url);
         // Never re-post a password to a different endpoint, even on the university host.
         if (
@@ -79,7 +79,7 @@ export async function loginStudip(username, password, fetcher = fetch) {
           next.pathname !== url.pathname
         ) {
           throw new StudipError(
-            "Stud.IP изменил адрес формы входа. Попробуй позже.",
+            "The Stud.IP sign-in form URL has changed. Try again later.",
           );
         }
         if (
@@ -95,14 +95,14 @@ export async function loginStudip(username, password, fetcher = fetch) {
       }
       if (response.status === 429)
         throw new StudipError(
-          "Stud.IP ограничил попытки входа. Попробуй позже.",
+          "Stud.IP has limited sign-in attempts. Try again later.",
           429,
         );
       if (!response.ok)
-        throw new StudipError("Не удалось открыть форму входа Stud.IP.", 503);
+        throw new StudipError("Could not open the Stud.IP sign-in form.", 503);
       return { html: await response.text(), url };
     }
-    throw new StudipError("Не удалось завершить перенаправления Stud.IP.");
+    throw new StudipError("Could not complete the Stud.IP redirects.");
   }
   const page = await visit(START);
   const $ = load(page.html);
@@ -113,18 +113,18 @@ export async function loginStudip(username, password, fetcher = fetch) {
     !form.find('input[name="loginname"]').length ||
     !form.find('input[name="password"]').length
   ) {
-    throw new StudipError("Форма входа Stud.IP изменилась. Попробуй позже.");
+    throw new StudipError("The Stud.IP sign-in form has changed. Try again later.");
   }
   const action = universityUrl(form.attr("action") || START, page.url);
   if (action.pathname !== "/dispatch.php/start" || action.search)
-    throw new StudipError("Неподдерживаемая форма входа Stud.IP.");
+    throw new StudipError("Unsupported Stud.IP sign-in form.");
   const fields = new URLSearchParams();
   form.find('input[type="hidden"]').each((_, element) => {
     const name = $(element).attr("name");
     if (name) fields.set(name, $(element).attr("value") || "");
   });
   if (!fields.get("security_token") || !fields.get("login_ticket"))
-    throw new StudipError("Не удалось подготовить защищённую форму входа.");
+    throw new StudipError("Could not prepare the secure sign-in form.");
   fields.set("loginname", credentials.username);
   fields.set("password", credentials.password);
   fields.set("Login", "");
@@ -135,7 +135,7 @@ export async function loginStudip(username, password, fetcher = fetch) {
     profile = (await client.get("users/me")).data;
   } catch (error) {
     if (error.status === 401)
-      throw new StudipError("Неверный логин или пароль Stud.IP.", 401);
+      throw new StudipError("Incorrect Stud.IP username or password.", 401);
     throw error;
   }
   if (
@@ -144,7 +144,7 @@ export async function loginStudip(username, password, fetcher = fetch) {
     typeof profile.id !== "string" ||
     !/^[a-zA-Z0-9_-]{1,128}$/.test(profile.id)
   ) {
-    throw new StudipError("Stud.IP не подтвердил вход в аккаунт.");
+    throw new StudipError("Stud.IP did not confirm sign-in.");
   }
   return {
     jar,

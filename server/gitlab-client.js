@@ -8,21 +8,46 @@ export class GitlabError extends Error {
 }
 export function validateGitlabToken(token) {
   if (typeof token !== "string" || !/^[\x21-\x7e]{1,512}$/.test(token))
-    throw new GitlabError("Вставь токен доступа GitLab без пробелов.", 400);
+    throw new GitlabError("Paste a GitLab access token without spaces.", 400);
   return token;
 }
 export function repositoryPath(value = "") {
   if (typeof value !== "string" || value.length > 4096 || /[\x00-\x1f\x7f\\]/.test(value)
     || (value && value.split("/").some((part) => !part || part === "." || part === "..")))
-    throw new GitlabError("Некорректный путь в репозитории.", 400);
+    throw new GitlabError("Invalid repository path.", 400);
   return value;
 }
 function repositoryRef(value) {
   if (value !== undefined && (typeof value !== "string" || !value || value.length > 1024 || /[\x00-\x1f\x7f]/.test(value)))
-    throw new GitlabError("Некорректная ветка репозитория.", 400);
+    throw new GitlabError("Invalid repository branch.", 400);
   return value;
 }
-async function readBody(response, limit = 2 * 1024 * 1024) {
+/** @param {unknown} value */
+function repositoryPage(value = 1) {
+  if (!/^[1-9]\d{0,5}$/.test(String(value)) || !["string", "number"].includes(typeof value))
+    throw new GitlabError("Invalid history page.", 400);
+  return Number(value);
+}
+function commitId(value) {
+  if (typeof value !== "string" || !/^[a-f0-9]{7,64}$/i.test(value))
+    throw new GitlabError("Invalid commit ID.", 400);
+  return value;
+}
+function normalizeCommit(commit, project) {
+  if (!commit || typeof commit.id !== "string" || !/^[a-f0-9]{7,64}$/i.test(commit.id)) return null;
+  return { id: commit.id, shortId: commit.id.slice(0, 8),
+    title: typeof commit.title === "string" ? commit.title : "",
+    author: typeof commit.author_name === "string" ? commit.author_name : "",
+    committedAt: typeof commit.committed_date === "string" && Number.isFinite(Date.parse(commit.committed_date)) ? commit.committed_date : null,
+    webUrl: `${project.href}/-/commit/${encodeURIComponent(commit.id)}` };
+}
+function nextPage(headers, page, length, perPage) {
+  const next = headers.get("x-next-page");
+  if (next === "" || (next === null && length < perPage)) return null;
+  if (next !== null && next !== String(page + 1)) throw new GitlabError("GitLab returned an invalid history page.");
+  return page + 1;
+}
+async function readBody(response, limit = 2 * 1024 * 1024, tooLarge = "This file is too large to preview. You can download it.") {
   const reader = response.body?.getReader();
   if (!reader) return Buffer.alloc(0);
   let length = 0; const chunks = [];
@@ -31,7 +56,7 @@ async function readBody(response, limit = 2 * 1024 * 1024) {
       const { done, value } = await reader.read();
       if (done) return Buffer.concat(chunks);
       length += value.byteLength;
-      if (length > limit) throw new GitlabError("Файл слишком большой для просмотра. Его можно скачать.", 413);
+      if (length > limit) throw new GitlabError(tooLarge, 413);
       chunks.push(value);
     }
   } finally { await reader.cancel().catch(() => {}); }
@@ -42,7 +67,7 @@ export function createGitlabClient(request = publicRequest) {
     const project = new URL(normalizeGitlabProject(value).url);
     if (token) {
       validateGitlabToken(token);
-      if (project.protocol !== "https:") throw new GitlabError("Для подключения токена нужна ссылка GitLab с HTTPS.", 400);
+      if (project.protocol !== "https:") throw new GitlabError("An HTTPS GitLab URL is required to connect a token.", 400);
     }
     const api = `${project.origin}/api/v4/projects/${encodeURIComponent(project.pathname.slice(1))}`;
     async function get(url, json = false, projectRequest = false) {
@@ -50,25 +75,25 @@ export function createGitlabClient(request = publicRequest) {
       try {
         response = await request(new URL(url), { headers: { Accept: json ? "application/json" : "*/*",
           "Accept-Encoding": "identity", ...(token ? { "PRIVATE-TOKEN": token } : {}) }, signal });
-      } catch { throw new GitlabError("Не удалось загрузить данные GitLab. Проверь соединение и попробуй ещё раз."); }
+      } catch { throw new GitlabError("Could not load GitLab data. Check your connection and try again."); }
       if (response.status !== 200) {
         await response.body?.cancel();
         if ([401, 403].includes(response.status) || (projectRequest && response.status === 404))
-          throw new GitlabError(token ? "Нет доступа к проекту. Проверь адрес и права токена GitLab."
-            : "Проект закрыт или не найден. Для закрытого проекта подключи токен GitLab.", 403, token ? "GITLAB_ACCESS_DENIED" : "GITLAB_AUTH_REQUIRED");
-        if (response.status === 404) throw new GitlabError("Файл или папка не найдены в этой ветке.", 404);
-        if (response.status === 429) throw new GitlabError("GitLab ограничил частоту запросов. Попробуй немного позже.", 429);
-        throw new GitlabError("Не удалось получить данные GitLab. Попробуй ещё раз.");
+          throw new GitlabError(token ? "Access to this project denied. Check the URL and GitLab token permissions."
+            : "The project is private or was not found. Connect a GitLab token to access a private project.", 403, token ? "GITLAB_ACCESS_DENIED" : "GITLAB_AUTH_REQUIRED");
+        if (response.status === 404) throw new GitlabError("File, folder, or commit not found in the repository.", 404);
+        if (response.status === 429) throw new GitlabError("GitLab has limited requests. Try again later.", 429);
+        throw new GitlabError("Could not retrieve GitLab data. Try again.");
       }
       if (json && !response.headers.get("content-type")?.includes("application/json")) {
-        await response.body?.cancel(); throw new GitlabError("GitLab не вернул данные проекта. Проверь адрес сервера.");
+        await response.body?.cancel(); throw new GitlabError("GitLab did not return project data. Check the server URL.");
       }
       return response;
     }
     async function json(url, projectRequest = false) {
       const response = await get(url, true, projectRequest);
-      try { return { data: JSON.parse((await readBody(response)).toString("utf8")), headers: response.headers }; }
-      catch (error) { if (error instanceof GitlabError) throw error; throw new GitlabError("GitLab вернул некорректные данные."); }
+      try { return { data: JSON.parse((await readBody(response, 2 * 1024 * 1024, "The GitLab response is too large to preview. Open the project in GitLab.")).toString("utf8")), headers: response.headers }; }
+      catch (error) { if (error instanceof GitlabError) throw error; throw new GitlabError("GitLab returned invalid data."); }
     }
     const rawUrl = (path, ref) => `${api}/repository/files/${encodeURIComponent(path)}/raw?${new URLSearchParams({ ref: ref || "HEAD" })}`;
     const webUrl = (path, ref, kind = "blob") => `${project.href}/-/${kind}/${(ref || "HEAD").split("/").map(encodeURIComponent).join("/")}/${path.split("/").map(encodeURIComponent).join("/")}`;
@@ -81,28 +106,56 @@ export function createGitlabClient(request = publicRequest) {
       const branches = [], seen = new Set();
       for (let page = 1; page <= 50; page++) {
         const { data, headers } = await c.json(`${c.api}/repository/branches?${new URLSearchParams({ per_page: "100", page: String(page) })}`, true);
-        if (!Array.isArray(data)) throw new GitlabError("GitLab вернул некорректный список веток.");
+        if (!Array.isArray(data)) throw new GitlabError("GitLab returned an invalid branch list.");
         for (const item of data) {
           if (!item || typeof item.name !== "string") continue;
           repositoryRef(item.name);
           if (seen.has(item.name)) continue;
           seen.add(item.name);
-          const commit = item.commit;
           branches.push({ name: item.name, default: item.default === true,
-            commit: commit && /^[a-f0-9]{7,64}$/i.test(commit.id) ? {
-              id: commit.id, shortId: commit.id.slice(0, 8),
-              title: typeof commit.title === "string" ? commit.title : "",
-              author: typeof commit.author_name === "string" ? commit.author_name : "",
-              committedAt: typeof commit.committed_date === "string" ? commit.committed_date : null,
-              webUrl: `${c.project.href}/-/commit/${encodeURIComponent(commit.id)}`,
-            } : null });
+            commit: normalizeCommit(item.commit, c.project) });
         }
         const next = headers.get("x-next-page");
         if (next === "" || (!next && data.length < 100)) break;
-        if (next && next !== String(page + 1)) throw new GitlabError("GitLab вернул некорректную страницу веток.");
-        if (page === 50) throw new GitlabError("В репозитории слишком много веток. Открой список в GitLab.", 413);
+        if (next && next !== String(page + 1)) throw new GitlabError("GitLab returned an invalid branch page.");
+        if (page === 50) throw new GitlabError("This repository has too many branches. Open the list in GitLab.", 413);
       }
       return { branches };
+    },
+    /** @param {string} value @param {import('./types.js').GitlabOptions} options */
+    async commits(value, options = {}) {
+      repositoryRef(options.ref);
+      const page = repositoryPage(options.page), perPage = 30;
+      const c = connection(value, options);
+      const query = new URLSearchParams({ ref_name: options.ref || "HEAD", page: String(page), per_page: String(perPage) });
+      const { data, headers } = await c.json(`${c.api}/repository/commits?${query}`, true);
+      if (!Array.isArray(data)) throw new GitlabError("GitLab returned an invalid commit history.");
+      const commits = data.map((item) => normalizeCommit(item, c.project));
+      if (commits.some((item) => !item)) throw new GitlabError("GitLab returned an invalid commit.");
+      return { commits, nextPage: nextPage(headers, page, data.length, perPage) };
+    },
+    /** @param {string} value @param {string} sha @param {import('./types.js').GitlabOptions} options */
+    async commit(value, sha, options = {}) {
+      commitId(sha);
+      const page = repositoryPage(options.page), perPage = 20;
+      const c = connection(value, options);
+      const url = `${c.api}/repository/commits/${encodeURIComponent(sha)}`;
+      const { data: metadata } = await c.json(url);
+      const commit = normalizeCommit(metadata, c.project);
+      if (!commit || !commit.id.toLowerCase().startsWith(sha.toLowerCase())) throw new GitlabError("GitLab returned an invalid commit.");
+      const query = new URLSearchParams({ page: String(page), per_page: String(perPage) });
+      const { data, headers } = await c.json(`${c.api}/repository/commits/${encodeURIComponent(commit.id)}/diff?${query}`);
+      if (!Array.isArray(data)) throw new GitlabError("GitLab returned an invalid commit diff.");
+      const diffs = data.map((item) => {
+        if (!item || typeof item.old_path !== "string" || typeof item.new_path !== "string")
+          throw new GitlabError("GitLab returned an invalid diff file.");
+        return { oldPath: item.old_path, newPath: item.new_path, diff: typeof item.diff === "string" ? item.diff : "",
+          newFile: item.new_file === true, deletedFile: item.deleted_file === true, renamedFile: item.renamed_file === true,
+          collapsed: item.collapsed === true, tooLarge: item.too_large === true,
+          oldMode: typeof item.a_mode === "string" ? item.a_mode : null, newMode: typeof item.b_mode === "string" ? item.b_mode : null };
+      });
+      return { commit: { ...commit, message: typeof metadata.message === "string" ? metadata.message : commit.title },
+        diffs, nextPage: nextPage(headers, page, data.length, perPage) };
     },
     /** @param {string} value @param {string} path @param {import('./types.js').GitlabOptions} options */
     async list(value, path = "", options = {}) {
@@ -116,7 +169,7 @@ export function createGitlabClient(request = publicRequest) {
       const entries = [], seen = new Set();
       for (let page = 1; page <= 50; page++) {
         const { data, headers } = await c.json(`${c.api}/repository/tree?${new URLSearchParams({ path, ref, per_page: "100", page: String(page) })}`);
-        if (!Array.isArray(data)) throw new GitlabError("GitLab вернул некорректный список файлов.");
+        if (!Array.isArray(data)) throw new GitlabError("GitLab returned an invalid file list.");
         for (const entry of data) {
           if (!entry || !["tree", "blob", "commit"].includes(entry.type)) continue;
           const filePath = repositoryPath(entry.path);
@@ -126,15 +179,15 @@ export function createGitlabClient(request = publicRequest) {
         }
         const next = headers.get("x-next-page");
         if (next === "" || (!next && data.length < 100)) break;
-        if (next && next !== String(page + 1)) throw new GitlabError("GitLab вернул некорректную страницу файлов.");
-        if (page === 50) throw new GitlabError("В папке слишком много файлов. Открой нужную подпапку в GitLab.", 413);
+        if (next && next !== String(page + 1)) throw new GitlabError("GitLab returned an invalid file page.");
+        if (page === 50) throw new GitlabError("This folder has too many files. Open the subfolder in GitLab.", 413);
       }
       entries.sort((a, b) => Number(b.directory) - Number(a.directory) || a.name.localeCompare(b.name, undefined, { numeric: true }));
       return { branch: ref, path, entries };
     },
     /** @param {string} value @param {string} path @param {import('./types.js').GitlabOptions} options */
     async file(value, path, options = {}) {
-      if (!repositoryPath(path)) throw new GitlabError("Укажи файл репозитория.", 400);
+      if (!repositoryPath(path)) throw new GitlabError("Specify a repository file.", 400);
       repositoryRef(options.ref);
       const c = connection(value, options);
       const buffer = await readBody(await c.get(c.rawUrl(path, options.ref)));
@@ -144,7 +197,7 @@ export function createGitlabClient(request = publicRequest) {
     },
     /** @param {string} value @param {string} path @param {import('./types.js').GitlabOptions} options */
     async content(value, path, options = {}) {
-      if (!repositoryPath(path)) throw new GitlabError("Укажи файл репозитория.", 400);
+      if (!repositoryPath(path)) throw new GitlabError("Specify a repository file.", 400);
       repositoryRef(options.ref);
       const c = connection(value, options);
       return c.get(c.rawUrl(path, options.ref));
@@ -168,7 +221,7 @@ export function createGitlabClient(request = publicRequest) {
         return { branch, readme: { path, content, webUrl: c.webUrl(path, branch), markdown: /\.(md|markdown|mdown|mkd)$/i.test(path) } };
       } catch (error) {
         if (error instanceof GitlabError) throw error;
-        throw new GitlabError("Не удалось загрузить README. Проверь адрес GitLab.");
+        throw new GitlabError("Could not load the README. Check the GitLab URL.");
       }
     },
   };

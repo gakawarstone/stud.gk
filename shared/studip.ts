@@ -46,7 +46,7 @@ export type Snapshot = {
 export type AccountState = Snapshot & {
   changes: Change[];
   lastSync: string | null;
-  gitlabProjects?: Record<string, GitlabProject>;
+  gitlabProjects?: Record<string, GitlabProject[]>;
 };
 export type Feed = AccountState & {
   authenticated: boolean;

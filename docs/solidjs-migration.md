@@ -8,8 +8,7 @@
 
 Markdown использует remark/GFM и rehype-sanitize без raw HTML. Ссылки допускают
 HTTP, HTTPS и mailto без учётных данных в URL. Иконки используют lucide-solid,
-сборка — vite-plugin-solid. CSS и SVG-логотип сохранены; production CSS совпадает
-с React-базой. Основания выбора:
+сборка — vite-plugin-solid. Стили и SVG-логотип сохранены из master. Основания выбора:
 [Solid](https://docs.solidjs.com/reference/store-utilities/reconcile),
 [Lucide](https://github.com/lucide-icons/lucide/blob/main/docs/guide/installation.md),
 [очистка Markdown](https://github.com/rehypejs/rehype-sanitize).
@@ -18,6 +17,9 @@ HTTP, HTTPS и mailto без учётных данных в URL. Иконки и
 
 React-база — `35411f3`, её дерево совпадает с master после слияния #10.
 Замеры React сделаны до переноса; измеренная версия Solid — `1551af8`.
+Это историческое сравнение до последующего объединения с master. Оно не
+измеряет добавленные позже историю GitLab, несколько проектов, переводы и
+расширенное рабочее пространство.
 [Все исходные значения](benchmarks.json) сохранены без округления.
 
 | Метрика | React | Solid |
@@ -91,3 +93,8 @@ T3 preview проверил DOM и навигацию. Его снимки и к
 а resize не менял фактический viewport, поэтому внешний вид и узкие окна
 проверены через Electron. Реальные университетские и приватные внешние аккаунты
 не использовались.
+
+После объединения с master `c2ac48e` сохранены английский интерфейс, несколько
+GitLab-проектов на курс, история и диффы коммитов, встроенный PDF, постоянные
+токены и ручные релизы 0.x. Строгая проверка типов, build и 120 тестов проходят;
+расширенные smoke-тесты master сохранены.

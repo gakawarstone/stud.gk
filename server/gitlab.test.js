@@ -1,11 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { CookieJar } from "tough-cookie";
 import { createApp } from "./app.js";
 import { normalizeGitlabProject } from "./gitlab.js";
+import { openAccountState } from "./account-state.js";
 import { GitlabError } from "./gitlab-client.js";
 
 test("GitLab links support nested namespaces and self-hosted instances", () => {
@@ -20,7 +21,7 @@ test("GitLab links support nested namespaces and self-hosted instances", () => {
     "https://gitlab.com", "https://gitlab.com/team", "https://gitlab.com/team//project",
     "https://gitlab.com/team/project/-/tree/main", "https://gitlab.com/team/%2fproject",
     `https://gitlab.com/team/${"a".repeat(2048)}`]) {
-    assert.throws(() => normalizeGitlabProject(value), /ссылку на проект GitLab/);
+    assert.throws(() => normalizeGitlabProject(value), /GitLab project URL/);
   }
 });
 
@@ -42,6 +43,16 @@ test("course project links are private, persist across sync and restart, and can
       getGitlabBranches: async (_, { token }) => {
         if (!token) throw new GitlabError("Private project", 403, "GITLAB_AUTH_REQUIRED");
         return { branches: [{ name: "main", default: true, commit: null }, { name: "feature/kotlin", default: false, commit: null }] };
+      },
+      getGitlabCommits: async (url, { token, ref, page }) => {
+        gitlabRequests.push({ url, token, ref, page });
+        if (!token) throw new GitlabError("Private project", 403, "GITLAB_AUTH_REQUIRED");
+        return { commits: [{ id: "a".repeat(40), title: "Course update" }], nextPage: 3 };
+      },
+      getGitlabCommit: async (url, sha, { token, page }) => {
+        gitlabRequests.push({ url, token, sha, page });
+        if (!token) throw new GitlabError("Private project", 403, "GITLAB_AUTH_REQUIRED");
+        return { commit: { id: sha }, diffs: [{ newPath: "README.md", diff: "@@ -1 +1 @@\n-old\n+new\n" }], nextPage: null };
       },
       getGitlabTree: async (_, folder, { token }) => {
         if (!token) throw new GitlabError("Private project", 403, "GITLAB_AUTH_REQUIRED");
@@ -101,10 +112,12 @@ test("course project links are private, persist across sync and restart, and can
   assert.equal((await request(route, null, { url })).status, 401);
   assert.equal((await request("/api/courses/alice-course/gitlab", bob, { url })).status, 404);
   assert.equal((await request(route, alice, { url }, "https://other.example")).status, 403);
-  assert.deepEqual(await request(route, alice, { url: `${url}.git/` }), {
-    status: 200, data: { project: { url } }, cookies: [],
-  });
-  assert.deepEqual((await request("/api/state", alice)).data.gitlabProjects, { shared: { url } });
+  const added = await request(route, alice, { url: `${url}.git/` });
+  assert.equal(added.status, 200);
+  const firstId = added.data.project.id;
+  assert.equal(typeof firstId, "string");
+  assert.deepEqual(added.data, { project: { id: firstId, url }, projects: [{ id: firstId, url }] });
+  assert.deepEqual((await request("/api/state", alice)).data.gitlabProjects, { shared: [{ id: firstId, url }] });
 
   const readmeRoute = `${route}/readme`, tokenRoute = `${route}/token`;
   assert.equal((await request(tokenRoute)).status, 401);
@@ -113,6 +126,11 @@ test("course project links are private, persist across sync and restart, and can
   assert.equal((await request(readmeRoute)).status, 401);
   assert.equal((await request(readmeRoute, bob)).status, 404);
   assert.equal((await request(readmeRoute, alice)).data.code, "GITLAB_AUTH_REQUIRED");
+  for (const suffix of ["/commits?ref=feature%2Fcourse&page=2", `/commit?sha=${"a".repeat(40)}&page=2`]) {
+    assert.equal((await request(route + suffix)).status, 401);
+    assert.equal((await request(route + suffix, bob)).status, 404);
+    assert.equal((await request(route + suffix, alice)).data.code, "GITLAB_AUTH_REQUIRED");
+  }
   assert.equal((await request(tokenRoute, alice, { token: "test" }, "https://other.example")).status, 403);
   assert.equal((await request(tokenRoute, alice, { token: "bad token" })).status, 400);
   const secret = "private-gitlab-test-token";
@@ -128,6 +146,14 @@ test("course project links are private, persist across sync and restart, and can
   assert.equal(readme.data.readme.content, "# Private README");
   assert.equal(readme.data.hasToken, true);
   assert.equal(gitlabRequests.at(-1).token, secret);
+  const history = await request(`${route}/commits?ref=feature%2Fcourse&page=2`, alice);
+  assert.equal(history.status, 200);
+  assert.equal(history.data.nextPage, 3);
+  assert.deepEqual(gitlabRequests.at(-1), { url, token: secret, ref: "feature/course", page: "2" });
+  const diff = await request(`${route}/commit?sha=${"a".repeat(40)}&page=2`, alice);
+  assert.equal(diff.status, 200);
+  assert.match(diff.data.diffs[0].diff, /\+new/);
+  assert.deepEqual(gitlabRequests.at(-1), { url, token: secret, sha: "a".repeat(40), page: "2" });
   assert.equal((await request(`${route}/tree?path=src`, alice)).data.entries[0].name, "index.ts");
   assert.equal((await request(`${route}/file?path=src%2Findex.ts&ref=main`, alice)).data.content, "export const answer = 42;");
   assert.equal((await request(`${route}/tree`, bob)).status, 404);
@@ -147,6 +173,7 @@ test("course project links are private, persist across sync and restart, and can
   await html.arrayBuffer();
   assert.ok(!JSON.stringify((await request("/api/state", alice)).data).includes(secret));
   assert.ok(!(await readFile(path.join(directory, "sessions.enc"), "utf8")).includes(secret));
+  assert.ok(!(await readFile(path.join(directory, "gitlab-tokens.enc"), "utf8")).includes(secret));
   assert.ok(!(await readFile(path.join(directory, "state.json"), "utf8")).includes(secret));
 
   // A newly linked project in another course uses the same server's token.
@@ -179,7 +206,53 @@ test("course project links are private, persist across sync and restart, and can
   assert.equal((await request("/api/demo")).data.gitlabProjects, undefined);
   for (const body of [{}, { url: "javascript:alert(1)" }, { url: { bad: true } }])
     assert.equal((await request(route, alice, body)).status, 400);
-  assert.deepEqual((await request("/api/state", alice)).data.gitlabProjects, { shared: { url } });
+  assert.deepEqual((await request("/api/state", alice)).data.gitlabProjects, { shared: [{ id: firstId, url }] });
+
+  // Multiple projects in one course route reads and tokens independently.
+  const collection = `${route}/projects`;
+  const otherUrl = "https://code.university.example/class/exercises";
+  const other = await request(`${collection}/`, alice, { url: otherUrl });
+  assert.equal(other.status, 200);
+  const otherId = other.data.project.id;
+  const scoped = `${collection}/${otherId}`;
+  const firstScoped = `${collection}/${firstId}`;
+  assert.notEqual(firstId, otherId);
+  assert.deepEqual(other.data.projects, [{ id: firstId, url }, { id: otherId, url: otherUrl }]);
+  assert.equal((await request(collection, alice, { url: `${otherUrl}.git/?share=1` })).status, 409);
+  assert.equal((await request(scoped, alice, { url })).status, 409);
+  assert.equal((await request(collection, alice, { url: null })).status, 400);
+  assert.equal((await request(`${collection}/unknown`, alice, { url })).status, 404);
+  assert.equal((await request(scoped, bob, { url: null })).status, 404);
+  assert.equal((await request(scoped, null, { url: null })).status, 401);
+  assert.equal((await request(`${scoped}/token`, alice)).data.connected, false);
+  assert.equal((await request(`${scoped}/readme`, alice)).status, 403);
+  assert.deepEqual(gitlabRequests.at(-1), { url: otherUrl, token: undefined });
+  const otherSecret = "second-host-test-token";
+  assert.equal((await request(`${scoped}/token`, alice, { token: otherSecret })).status, 200);
+  for (const suffix of ["readme", "branches", "commits?ref=main&page=2", `commit?sha=${"a".repeat(40)}`,
+    "tree?path=src", "file?path=src%2Findex.ts", "content?path=image.png"]) {
+    const response = await fetch(`${base}${scoped}/${suffix}`, { headers: { Cookie: alice } });
+    assert.equal(response.status, 200, `Scoped project supports ${suffix}`);
+    await response.arrayBuffer();
+    assert.equal((await request(`${scoped}/${suffix}`, bob)).status, 404);
+    assert.equal((await request(`${collection}/unknown/${suffix}`, alice)).status, 404);
+  }
+  await request(`${scoped}/readme`, alice);
+  assert.deepEqual(gitlabRequests.at(-1), { url: otherUrl, token: otherSecret });
+  await request(`${firstScoped}/readme`, alice);
+  assert.deepEqual(gitlabRequests.at(-1), { url, token: secret });
+  const editedUrl = "https://code.university.example/class/solutions";
+  const edited = await request(scoped, alice, { url: editedUrl });
+  assert.deepEqual(edited.data.projects, [{ id: firstId, url }, { id: otherId, url: editedUrl }]);
+  await request("/api/sync", alice, {});
+  await stop();
+  await start();
+  assert.deepEqual((await request("/api/state", alice)).data.gitlabProjects.shared, edited.data.projects);
+  await request(`${scoped}/readme`, alice);
+  assert.deepEqual(gitlabRequests.at(-1), { url: editedUrl, token: otherSecret });
+  assert.deepEqual((await request(scoped, alice, { url: null })).data.projects, [{ id: firstId, url }]);
+  assert.equal((await request(`${scoped}/tree`, alice)).status, 404);
+  assert.equal((await request(`${firstScoped}/readme`, alice)).status, 200);
 
   // Saving during a Stud.IP fetch must survive the incoming snapshot.
   pendingSnapshot = new Promise((resolve) => { releaseSnapshot = resolve; });
@@ -194,7 +267,7 @@ test("course project links are private, persist across sync and restart, and can
   pendingSnapshot = null;
   assert.equal((await syncing).status, 200);
   const state = (await request("/api/state", alice)).data;
-  assert.deepEqual(state.gitlabProjects, { shared: { url: replacement } });
+  assert.deepEqual(state.gitlabProjects, { shared: [{ id: firstId, url: replacement }] });
   assert.deepEqual(state.changes, []);
   assert.equal((await request(readmeRoute, alice)).status, 403);
   assert.equal(gitlabRequests.at(-1).token, undefined, "A token is never forwarded to another GitLab host");
@@ -202,15 +275,32 @@ test("course project links are private, persist across sync and restart, and can
 
   await stop();
   await start();
-  assert.deepEqual((await request("/api/state", alice)).data.gitlabProjects, { shared: { url: replacement } });
+  assert.deepEqual((await request("/api/state", alice)).data.gitlabProjects, { shared: [{ id: firstId, url: replacement }] });
   assert.deepEqual((await request("/api/state", bob)).data.gitlabProjects, {});
   await request(route, alice, { url });
-  assert.equal((await request(readmeRoute, alice)).status, 200, "Encrypted session restores its token after restart");
+  assert.equal((await request(readmeRoute, alice)).status, 200, "Encrypted account store restores its token after restart");
   assert.deepEqual((await request(tokenRoute, alice, { token: null })).data, { connected: false });
   assert.equal((await request(readmeRoute, alice)).status, 403);
-  assert.deepEqual((await request(route, alice, { url: null })).data, { project: null });
+  assert.deepEqual((await request(route, alice, { url: null })).data, { project: null, projects: [] });
   assert.deepEqual((await request("/api/state", alice)).data.gitlabProjects, {});
   await stop();
   await start();
   assert.deepEqual((await request("/api/state", alice)).data.gitlabProjects, {});
+});
+
+
+test("saved single GitLab links migrate to project lists and keep their ID after saving", async (t) => {
+  const directory = await mkdtemp(path.join(tmpdir(), "stud-gk-gitlab-migration-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const url = "https://gitlab.example/class/materials";
+  await writeFile(path.join(directory, "state.json"), JSON.stringify({ accounts: {
+    alice: { courses: [], resources: [], changes: [], lastSync: null, gitlabProjects: { course: { url } } },
+  } }));
+  const instance = await openAccountState(directory);
+  assert.deepEqual(instance.state.accounts.alice.gitlabProjects, { course: [{ id: "legacy", url }] });
+  await instance.save();
+  await instance.close();
+  const restored = await openAccountState(directory);
+  assert.deepEqual(restored.state.accounts.alice.gitlabProjects, { course: [{ id: "legacy", url }] });
+  await restored.close();
 });

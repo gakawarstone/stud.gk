@@ -24,8 +24,9 @@ export function GitlabFileViewer(props: {
   const downloadUrl = createMemo(() => `${contentUrl()}&download=1`);
   return (
     <>
-      {/\.pdf$/i.test(props.entry.name) && !props.demo && !(props.embedded ?? false) ? (
+      {/\.pdf$/i.test(props.entry.name) ? (
         <PdfViewer
+          embedded={props.embedded}
           title={props.entry.name}
           contentUrl={contentUrl()}
           downloadUrl={downloadUrl()}
@@ -66,15 +67,13 @@ function FileDialog(props: {
   const [source, setSource] = createSignal(false);
   const markdown = createMemo(() => /\.(md|markdown|mdown|mkd)$/i.test(props.entry.name));
   const media = createMemo(() =>
-    /\.pdf$/i.test(props.entry.name)
-      ? "pdf"
-      : /\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(props.entry.name)
-        ? "image"
-        : /\.(mp4|webm|ogv|mov)$/i.test(props.entry.name)
-          ? "video"
-          : /\.(mp3|wav|ogg|m4a|flac)$/i.test(props.entry.name)
-            ? "audio"
-            : null,
+    /\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(props.entry.name)
+      ? "image"
+      : /\.(mp4|webm|ogv|mov)$/i.test(props.entry.name)
+        ? "video"
+        : /\.(mp3|wav|ogg|m4a|flac)$/i.test(props.entry.name)
+          ? "audio"
+          : null,
   );
   const webUrl = createMemo(
     () =>
@@ -133,7 +132,7 @@ function FileDialog(props: {
               if (!controller.signal.aborted) setFile(value);
             })
             .catch((error) => {
-              if (!controller.signal.aborted) setError(error.message || "Не удалось открыть файл.");
+              if (!controller.signal.aborted) setError(error.message || "Could not open the file.");
             });
         onCleanup(() => controller.abort());
       },
@@ -147,11 +146,11 @@ function FileDialog(props: {
         {props.entry.path}
       </h2>
       {markdown() && (
-        <div class="file-view-switch" role="group" aria-label="Вид Markdown">
+        <div class="file-view-switch" role="group" aria-label="Markdown view">
           <button
             type="button"
-            aria-label="Просмотр Markdown"
-            title="Просмотр Markdown"
+            aria-label="Preview Markdown"
+            title="Preview Markdown"
             aria-pressed={!source()}
             onClick={() => setSource(false)}
           >
@@ -159,8 +158,8 @@ function FileDialog(props: {
           </button>
           <button
             type="button"
-            aria-label="Исходный код"
-            title="Исходный код"
+            aria-label="Source code"
+            title="Source code"
             aria-pressed={source()}
             onClick={() => setSource(true)}
           >
@@ -169,7 +168,7 @@ function FileDialog(props: {
         </div>
       )}
       {!props.demo && !props.entry.submodule && (
-        <a href={props.downloadUrl} aria-label={`Скачать ${props.entry.name}`} title="Скачать">
+        <a href={props.downloadUrl} aria-label={`Download ${props.entry.name}`} title="Download">
           <Download size={18} />
         </a>
       )}
@@ -177,60 +176,49 @@ function FileDialog(props: {
         href={webUrl()}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="Открыть файл в GitLab"
-        title="Открыть в GitLab"
+        aria-label="Open file in GitLab"
+        title="Open in GitLab"
       >
         <ExternalLink size={17} />
       </a>
-      <button type="button" aria-label="Закрыть просмотр" title="Закрыть" onClick={props.onClose}>
+      <button type="button" aria-label="Close preview" title="Close" onClick={props.onClose}>
         <X size={21} />
       </button>
     </header>
   ));
   const body = createMemo(() => (
-    <div
-      class="gitlab-viewer-body"
-      tabindex={props.embedded ? 0 : undefined}
-      role="region"
-      aria-label="Содержимое файла"
-    >
+    <div class="gitlab-viewer-body" tabindex={props.embedded ? 0 : undefined} role="region" aria-label="File content">
       {error() ? (
         <p class="gitlab-viewer-status" role="alert">
           {error()}
         </p>
       ) : props.entry.submodule ? (
-        <p class="gitlab-viewer-status">Это подмодуль. Его можно открыть в GitLab.</p>
+        <p class="gitlab-viewer-status">This is a submodule. You can open it in GitLab.</p>
       ) : media() ? (
-        media() === "pdf" ? (
-          <iframe class="gitlab-pdf-frame" src={props.contentUrl} title={props.entry.name} />
-        ) : media() === "image" ? (
-          <img
-            src={props.contentUrl}
-            alt={props.entry.name}
-            onError={() => setError("Не удалось загрузить изображение.")}
-          />
+        media() === "image" ? (
+          <img src={props.contentUrl} alt={props.entry.name} onError={() => setError("Could not load the image.")} />
         ) : media() === "video" ? (
           <video
             controls
             src={props.contentUrl}
             aria-label={props.entry.name}
-            onError={() => setError("Не удалось воспроизвести видео. Файл можно скачать.")}
+            onError={() => setError("Could not play the video. You can download the file.")}
           />
         ) : (
           <audio
             controls
             src={props.contentUrl}
             aria-label={props.entry.name}
-            onError={() => setError("Не удалось воспроизвести аудио. Файл можно скачать.")}
+            onError={() => setError("Could not play the audio. You can download the file.")}
           />
         )
       ) : !file() ? (
         <p class="gitlab-viewer-status" role="status">
           <LoaderCircle size={18} class="spin" />
-          Загружаем файл…
+          Loading file…
         </p>
       ) : file()!.binary ? (
-        <p class="gitlab-viewer-status">Бинарный файл. Скачай его для просмотра на компьютере.</p>
+        <p class="gitlab-viewer-status">Binary file. Download it to view it on your computer.</p>
       ) : markdown() && !source() ? (
         <GitlabMarkdown content={content() || ""} webUrl={file()!.webUrl} />
       ) : (

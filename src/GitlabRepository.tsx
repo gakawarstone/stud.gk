@@ -1,5 +1,8 @@
+import { demoCommits, GitlabHistory } from "./GitlabHistory";
+import { GitlabCommitViewer } from "./GitlabCommitViewer";
+import type { GitlabCommit } from "./gitlab-api";
 import { ChevronRight, Folder, FolderOpen, LoaderCircle } from "lucide-solid";
-import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, type JSX } from "solid-js";
+import { batch, createEffect, createMemo, createSignal, For, on, onCleanup, Show, type JSX } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { GitlabBranchPicker } from "./GitlabBranchPicker";
 import { GitlabCommitSummary } from "./GitlabCommitSummary";
@@ -27,6 +30,8 @@ export function GitlabRepository(props: {
   const [branchesLoading, setBranchesLoading] = createSignal(true);
   const [branchesError, setBranchesError] = createSignal<string | null>(null);
   const [branchesRetry, setBranchesRetry] = createSignal(0);
+  const [view, setView] = createSignal<"files" | "history">("files");
+  const [selectedCommit, setSelectedCommit] = createSignal<GitlabCommit | null>(null);
   createEffect(
     on(
       () => [props.endpoint, props.projectUrl, props.revision, props.demo, props.onAuthRequired, branchesRetry()],
@@ -40,7 +45,7 @@ export function GitlabRepository(props: {
               branches: ["main", "develop"].map((name) => ({
                 name,
                 default: name === "main",
-                commit: null,
+                commit: demoCommits(props.projectUrl, name)[0],
               })),
             })
           : gitlabApi<{
@@ -52,7 +57,7 @@ export function GitlabRepository(props: {
           })
           .catch((error) => {
             if (!controller.signal.aborted) {
-              setBranchesError(error.message || "Не удалось загрузить ветки.");
+              setBranchesError(error.message || "Could not load branches.");
               if (error instanceof GitlabApiError && error.code === "GITLAB_AUTH_REQUIRED") props.onAuthRequired();
             }
           })
@@ -130,7 +135,7 @@ export function GitlabRepository(props: {
             cache[path] = {
               entries: [],
               loading: false,
-              error: error instanceof Error ? error.message : "Не удалось загрузить папку.",
+              error: error instanceof Error ? error.message : "Could not load the folder.",
             };
             setFolders({ ...cache });
             if (error instanceof GitlabApiError && error.code === "GITLAB_AUTH_REQUIRED") props.onAuthRequired();
@@ -233,19 +238,19 @@ export function GitlabRepository(props: {
             loadFolder(path);
           }}
         >
-          Повторить
+          Retry
         </button>
       </li>
     ) : !state() || state().loading ? (
       <li role="none" class="gitlab-tree-status" style={{ "padding-left": `${depth * 14 + 6}px` }}>
         <span role="status">
           <LoaderCircle size={13} class="spin" aria-hidden="true" />
-          Загрузка…
+          Loading…
         </span>
       </li>
     ) : !state().entries.length ? (
       <li role="none" class="gitlab-tree-status" style={{ "padding-left": `${depth * 14 + 6}px` }}>
-        Папка пуста
+        This folder is empty
       </li>
     ) : null;
   }
@@ -295,75 +300,151 @@ export function GitlabRepository(props: {
   const activeBranch = createMemo(
     () => requestedBranch() || branch() || branches().find((item) => item.default)?.name || "",
   );
-  const commit = createMemo(() => branches().find((item) => item.name === activeBranch())?.commit);
+  const commit = createMemo(() => branches().find((item) => item.name === activeBranch())?.commit ?? null);
+  const displayedCommit = createMemo(() => (view() === "history" ? selectedCommit() : null) || commit());
+  function toggleHistory() {
+    batch(() => {
+      if (view() === "history") setView("files");
+      else {
+        setSelectedCommit((previous) => previous || commit());
+        setView("history");
+      }
+    });
+  }
   return (
     <div class="gitlab-browser">
-      <aside class="gitlab-repo-sidebar" aria-label="Репозиторий GitLab">
-        <div class="gitlab-sidebar-header">
+      <header class="gitlab-repo-header">
+        <div class="gitlab-repo-toolbar">
           <GitlabBranchPicker
             branches={branches()}
             value={activeBranch()}
             loading={branchesLoading()}
-            onChange={(next) => {
-              setSelected(null);
-              setFolders({});
-              setFocused(null);
-              const empty = new Set<string>();
-
-              setExpanded(empty);
-              branchRef = next;
-              setBranch(next);
-              setRequestedBranch(next);
-            }}
+            onChange={(next) =>
+              batch(() => {
+                setSelected(null);
+                setSelectedCommit(null);
+                setFolders({});
+                setFocused(null);
+                setExpanded(new Set<string>());
+                branchRef = next;
+                setBranch(next);
+                setRequestedBranch(next);
+              })
+            }
           />
           {branchesError() && (
             <button
               class="gitlab-branches-error"
-              title={branchesError() || undefined}
+              title={branchesError()!}
               onClick={() => setBranchesRetry((value) => value + 1)}
             >
-              Повторить загрузку веток
+              Retry loading branches
             </button>
           )}
         </div>
-        <nav class="gitlab-tree-pane" aria-label="Файлы репозитория">
-          <ul ref={(element) => (tree = element)} class="gitlab-tree" role="tree" aria-label="Файлы GitLab">
-            {children("", 0)}
-          </ul>
-        </nav>
-        <Show when={commit()} keyed>
-          {(value) => <GitlabCommitSummary commit={value} />}
-        </Show>
-      </aside>
-      <div class="gitlab-preview-pane">
-        <Show
-          when={selected()}
-          keyed
-          fallback={
-            <div class="gitlab-preview-empty">
-              <span>Выбери файл в дереве</span>
-            </div>
-          }
-        >
-          {(entry) => (
-            <Show when={`${activeBranch()}:${entry.path}:${props.revision}`} keyed>
+        <GitlabCommitSummary
+          commit={displayedCommit()}
+          loading={branchesLoading()}
+          historyOpen={view() === "history"}
+          historyDisabled={!activeBranch()}
+          onToggleHistory={toggleHistory}
+          onOpen={() => {
+            const current = displayedCommit();
+            if (current)
+              batch(() => {
+                setView("history");
+                setSelectedCommit(current);
+              });
+          }}
+        />
+      </header>
+      <aside class="gitlab-repo-sidebar" aria-label="GitLab repository">
+        {view() === "history" ? (
+          activeBranch() ? (
+            <Show when={`${activeBranch()}:${props.revision}`} keyed>
               {(_key) => (
-                <GitlabFileViewer
-                  entry={entry}
+                <GitlabHistory
                   endpoint={props.endpoint}
+                  branch={activeBranch()}
                   projectUrl={props.projectUrl}
-                  branch={branch()}
                   demo={props.demo}
-                  embedded
-                  onClose={() => {
-                    setSelected(null);
-                    focusPath(entry.path);
-                  }}
+                  selected={selectedCommit()?.id ?? null}
+                  onSelect={setSelectedCommit}
+                  onAuthRequired={props.onAuthRequired}
                 />
               )}
             </Show>
+          ) : (
+            <div class="gitlab-history-pane">
+              <p class="gitlab-history-status">
+                {branchesLoading() ? "Loading branches…" : "No branch available to view history."}
+              </p>
+            </div>
+          )
+        ) : (
+          <nav class="gitlab-tree-pane" aria-label="Repository files">
+            <ul ref={(element) => (tree = element)} class="gitlab-tree" role="tree" aria-label="GitLab files">
+              {children("", 0)}
+            </ul>
+          </nav>
+        )}
+      </aside>
+      <div class={`gitlab-preview-pane${view() === "files" ? " gitlab-preview-file" : ""}`}>
+        <div class="gitlab-preview-content">
+          {view() === "history" ? (
+            <Show
+              when={selectedCommit()}
+              keyed
+              fallback={
+                <div class="gitlab-preview-empty">
+                  <span>Select a commit from the history</span>
+                </div>
+              }
+            >
+              {(current) => (
+                <Show when={`${activeBranch()}:${current.id}:${props.revision}`} keyed>
+                  {(_key) => (
+                    <GitlabCommitViewer
+                      commit={current}
+                      endpoint={props.endpoint}
+                      demo={props.demo}
+                      onAuthRequired={props.onAuthRequired}
+                    />
+                  )}
+                </Show>
+              )}
+            </Show>
+          ) : (
+            <Show
+              when={selected()}
+              keyed
+              fallback={
+                <div class="gitlab-preview-empty">
+                  <span>Select a file from the tree</span>
+                </div>
+              }
+            >
+              {(entry) => (
+                <Show when={`${activeBranch()}:${entry.path}:${props.revision}`} keyed>
+                  {(_key) => (
+                    <GitlabFileViewer
+                      entry={entry}
+                      endpoint={props.endpoint}
+                      projectUrl={props.projectUrl}
+                      branch={branch()}
+                      demo={props.demo}
+                      embedded
+                      onClose={() => {
+                        setSelected(null);
+                        focusPath(entry.path);
+                      }}
+                    />
+                  )}
+                </Show>
+              )}
+            </Show>
           )}
-        </Show>
+        </div>
       </div>
     </div>
   );

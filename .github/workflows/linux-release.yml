@@ -1,12 +1,20 @@
 name: Linux desktop release
+run-name: Release Stud.GK ${{ inputs.version }}
 
 on:
-  push:
-    branches: ["master"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version without v, for example 0.0.1"
+        required: true
+        type: string
 
 permissions:
   contents: write
+
+concurrency:
+  group: linux-release
+  cancel-in-progress: false
 
 jobs:
   linux:
@@ -18,23 +26,31 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      - name: Validate release version
+        id: release
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ ! "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Use a version like 0.0.1, without v or a suffix."
+            exit 1
+          fi
+          tag="v$RELEASE_VERSION"
+          existing_tag="$(git ls-remote --tags origin "refs/tags/$tag")"
+          if [ -n "$existing_tag" ]; then
+            echo "::error::Tag $tag already exists. Choose a new release version."
+            exit 1
+          fi
+          npm version "$RELEASE_VERSION" --no-git-tag-version --allow-same-version --ignore-scripts
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
       - name: Install build and test dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libarchive-tools libfuse2t64 xvfb
           npm ci
-      - name: Set release version
-        id: release
-        run: |
-          base_version="$(node -p 'require("./package.json").version')"
-          version="${base_version}-build.${GITHUB_RUN_NUMBER}"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=v$version" >> "$GITHUB_OUTPUT"
       - run: npm test
       - name: Build AppImage
-        env:
-          RELEASE_VERSION: ${{ steps.release.outputs.version }}
-        run: npm run dist:linux -- --config.extraMetadata.version="$RELEASE_VERSION"
+        run: npm run dist:linux
       - name: Smoke test packaged desktop app
         env:
           CAMPUS_SMOKE_ENTRY: ${{ github.workspace }}/release/linux-unpacked/resources/app.asar/electron/main.cjs
@@ -43,7 +59,7 @@ jobs:
         run: xvfb-run -a node scripts/appimage-smoke.cjs release/Stud.GK-*.AppImage
       - uses: actions/upload-artifact@v4
         with:
-          name: stud-gk-linux-x64
+          name: stud-gk-${{ inputs.version }}-linux-x64
           if-no-files-found: error
           path: |
             release/Stud.GK-*.AppImage
@@ -52,13 +68,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
-          if ! gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
-            gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --title "Stud.GK $RELEASE_TAG" --generate-notes --draft
-          fi
-          gh release upload "$RELEASE_TAG" release/Stud.GK-*.AppImage --clobber
-          # An older build must not replace the latest release after a newer push.
-          latest=false
-          if [ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/master" --jq '.object.sha')" = "$GITHUB_SHA" ]; then
-            latest=true
-          fi
-          gh release edit "$RELEASE_TAG" --draft=false --latest="$latest"
+          gh release create "$RELEASE_TAG" release/Stud.GK-*.AppImage \
+            --target "$GITHUB_SHA" \
+            --title "Stud.GK $RELEASE_TAG" \
+            --generate-notes \
+            --latest

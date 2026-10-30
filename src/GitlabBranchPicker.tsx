@@ -75,7 +75,7 @@ export function GitlabBranchPicker(props: {
         ref={(element) => (trigger = element)}
         class="gitlab-branch-trigger"
         type="button"
-        aria-label={`Ветка GitLab: ${props.value || "нет веток"}`}
+        aria-label={`GitLab branch: ${props.value || "no branches"}`}
         aria-haspopup="dialog"
         aria-expanded={open()}
         aria-controls={open() ? id : undefined}
@@ -92,24 +92,24 @@ export function GitlabBranchPicker(props: {
           }
         }}
       >
-        <GitBranch size={15} aria-hidden="true" />
-        <span>{props.value || (props.loading ? "Загрузка…" : "Нет веток")}</span>
+        <GitBranch size={16} aria-hidden="true" />
+        <span>{props.value || (props.loading ? "Loading…" : "No branches")}</span>
         <ChevronDown size={13} aria-hidden="true" />
       </button>
       {open() && (
-        <div id={id} class="gitlab-branch-popover" role="dialog" aria-label="Сменить ветку" onKeyDown={navigate}>
+        <div id={id} class="gitlab-branch-popover" role="dialog" aria-label="Switch branch" onKeyDown={navigate}>
           <label class="gitlab-branch-search">
             <Search size={15} aria-hidden="true" />
             <input
               ref={(element) => (search = element)}
               value={query()}
               onInput={(event) => setQuery(event.target.value)}
-              aria-label="Найти ветку"
-              placeholder="Найти ветку…"
+              aria-label="Find branch"
+              placeholder="Find branch…"
               autocomplete="off"
             />
           </label>
-          <div class="gitlab-branch-options" role="listbox" aria-label="Ветки GitLab">
+          <div class="gitlab-branch-options" role="listbox" aria-label="GitLab branches">
             <For each={matches()}>
               {(branch) => (
                 <button
@@ -128,7 +128,7 @@ export function GitlabBranchPicker(props: {
                 </button>
               )}
             </For>
-            {!matches().length && <p role="status">Ветки не найдены</p>}
+            {!matches().length && <p role="status">No branches found</p>}
           </div>
         </div>
       )}

@@ -197,7 +197,7 @@ function pdfFixture() {
       "[...document.querySelector('.pdf-page canvas').getContext('2d').getImageData(1,1,1,1).data].slice(0,3)",
     );
   const themed = await pixel();
-  await evaluate(window, "document.querySelector('.pdf-viewer [title*=\"цвета\"]').click()");
+  await evaluate(window, "document.querySelector('.pdf-viewer [title*=\"colors\"]').click()");
   await waitFor(
     window,
     "document.querySelector('.pdf-viewer').dataset.themed === 'false' && !!document.querySelector('.pdf-page canvas')",
@@ -210,7 +210,7 @@ function pdfFixture() {
   const fullscreenPoint = await evaluate(
     window,
     `(() => {
-    const rect=document.querySelector('.pdf-viewer [title="На весь экран"]').getBoundingClientRect();
+    const rect=document.querySelector('.pdf-viewer [title="Enter fullscreen"]').getBoundingClientRect();
     return {x:Math.round(rect.x+rect.width/2),y:Math.round(rect.y+rect.height/2)};
   })()`,
   );
@@ -230,7 +230,7 @@ function pdfFixture() {
   await evaluate(window, "document.exitFullscreen()");
   await waitFor(window, "!document.fullscreenElement");
   const width = await evaluate(window, "document.querySelector('.pdf-page').getBoundingClientRect().width");
-  await evaluate(window, "document.querySelector('[aria-label=\"Увеличить масштаб\"]').click()");
+  await evaluate(window, "document.querySelector('[aria-label=\"Zoom in\"]').click()");
   await waitFor(window, `document.querySelector('.pdf-page').getBoundingClientRect().width > ${width}`);
   await evaluate(
     window,
@@ -264,7 +264,7 @@ function pdfFixture() {
   assert.equal(await evaluate(window, "document.querySelector('.file-card')===originalFile"), true);
   await evaluate(window, "document.querySelector('.file-card button').click()");
   await waitFor(window, "!!document.querySelector('.pdf-page canvas') && !document.querySelector('.file-card.unread')");
-  await evaluate(window, "document.querySelector('.pdf-viewer [aria-label=\"Закрыть просмотр\"]').click()");
+  await evaluate(window, "document.querySelector('.pdf-viewer [aria-label=\"Close preview\"]').click()");
   await waitFor(window, "!document.querySelector('.pdf-viewer')");
   filename = "Renamed.txt";
   updatedAt = "2026-10-03T12:00:00Z";

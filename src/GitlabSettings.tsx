@@ -53,8 +53,8 @@ export function GitlabSettings(props: {
       <button
         ref={(element) => (button = element)}
         type="button"
-        aria-label="Настройки GitLab"
-        title="Настройки GitLab"
+        aria-label="GitLab settings"
+        title="GitLab settings"
         aria-haspopup="menu"
         aria-expanded={open()}
         aria-controls={open() ? id : undefined}
@@ -74,7 +74,7 @@ export function GitlabSettings(props: {
           id={id}
           class="gitlab-settings-menu"
           role="menu"
-          aria-label="Настройки GitLab"
+          aria-label="GitLab settings"
           onKeyDown={(event) => {
             const items = [...menu!.querySelectorAll<HTMLElement>('[role="menuitem"]')];
             const current = items.indexOf(document.activeElement as HTMLElement);
@@ -96,25 +96,25 @@ export function GitlabSettings(props: {
         >
           <button role="menuitem" type="button" onClick={() => action(props.onRefresh)}>
             <RefreshCw size={16} />
-            <span>Обновить файлы</span>
+            <span>Refresh files</span>
           </button>
           {props.onAccess && (
             <button role="menuitem" type="button" onClick={() => action(props.onAccess!)}>
               <KeyRound size={16} />
-              <span>Доступ GitLab</span>
+              <span>GitLab access</span>
             </button>
           )}
           <button role="menuitem" type="button" onClick={() => action(props.onEdit)}>
             <Link size={16} />
-            <span>Изменить ссылку</span>
+            <span>Edit link</span>
           </button>
           <a role="menuitem" href={props.url} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>
             <ExternalLink size={16} />
-            <span>Открыть в браузере</span>
+            <span>Open in browser</span>
           </a>
           <button role="menuitem" type="button" onClick={() => action(props.onUnlink)}>
             <Unlink size={16} />
-            <span>Отвязать проект</span>
+            <span>Unlink project</span>
           </button>
         </div>
       )}

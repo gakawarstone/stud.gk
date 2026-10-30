@@ -13,12 +13,12 @@ type Listing = {
 };
 function sizeLabel(size: number) {
   return size >= 1024 ** 3
-    ? `${(size / 1024 ** 3).toFixed(1)} ГБ`
+    ? `${(size / 1024 ** 3).toFixed(1)} GB`
     : size >= 1024 ** 2
-      ? `${(size / 1024 ** 2).toFixed(1)} МБ`
+      ? `${(size / 1024 ** 2).toFixed(1)} MB`
       : size >= 1024
-        ? `${Math.round(size / 1024)} КБ`
-        : `${size} Б`;
+        ? `${Math.round(size / 1024)} KB`
+        : `${size} B`;
 }
 export function NextcloudSection(props: { storageKey: string; toolbarTarget: HTMLElement | null }) {
   const [savedUrl, setSavedUrl] = createSignal(
@@ -65,7 +65,7 @@ export function NextcloudSection(props: { storageKey: string; toolbarTarget: HTM
         })
           .then(async (response) => {
             const data = await response.json();
-            if (!response.ok) throw new Error(data.error || "Не удалось получить файлы Nextcloud.");
+            if (!response.ok) throw new Error(data.error || "Could not retrieve Nextcloud files.");
             if (!controller.signal.aborted) setListing(data);
           })
           .catch((error) => {
@@ -106,7 +106,7 @@ export function NextcloudSection(props: { storageKey: string; toolbarTarget: HTM
             event.preventDefault();
             const url = nextcloudUrl(input());
             if (!url) {
-              setError("Введи полную публичную ссылку Nextcloud с https:// или http://.");
+              setError("Enter a complete public Nextcloud URL starting with https:// or http://.");
               return;
             }
             try {
@@ -119,11 +119,11 @@ export function NextcloudSection(props: { storageKey: string; toolbarTarget: HTM
               setEditing(false);
               setRevision((value) => value + 1);
             } catch {
-              setError("Не удалось сохранить ссылку. Проверь, разрешено ли локальное хранилище.");
+              setError("Could not save the link. Check that local storage is enabled.");
             }
           }}
         >
-          <label for="nextcloud-url">Ссылка на общую папку или файл Nextcloud</label>
+          <label for="nextcloud-url">Nextcloud shared folder or file URL</label>
           <input
             ref={(element) => (urlInput = element)}
             id="nextcloud-url"
@@ -142,7 +142,7 @@ export function NextcloudSection(props: { storageKey: string; toolbarTarget: HTM
             }}
           />
           <p id="nextcloud-help" class="course-section-notice">
-            Вставь публичную ссылку без пароля. Файлы появятся здесь.
+            Paste a public link without a password. Files will appear here.
           </p>
           {error() && (
             <p id="nextcloud-error" class="nextcloud-error" role="alert">
@@ -151,7 +151,7 @@ export function NextcloudSection(props: { storageKey: string; toolbarTarget: HTM
           )}
           <div class="nextcloud-actions">
             <button class="nextcloud-save" type="submit">
-              Сохранить ссылку
+              Save link
             </button>
             {savedUrl() && (
               <button
@@ -162,7 +162,7 @@ export function NextcloudSection(props: { storageKey: string; toolbarTarget: HTM
                   setError(null);
                 }}
               >
-                Отмена
+                Cancel
               </button>
             )}
           </div>
@@ -171,9 +171,9 @@ export function NextcloudSection(props: { storageKey: string; toolbarTarget: HTM
       {savedUrl() && (
         <>
           {path() && (
-            <nav class="nextcloud-breadcrumbs" aria-label="Папка Nextcloud">
+            <nav class="nextcloud-breadcrumbs" aria-label="Nextcloud folder">
               <button type="button" onClick={() => setPath("")}>
-                Все файлы
+                All files
               </button>
               {path()
                 .split("/")
@@ -194,19 +194,19 @@ export function NextcloudSection(props: { storageKey: string; toolbarTarget: HTM
           )}
           {loading() && (
             <p class="nextcloud-loading" role="status">
-              <LoaderCircle size={18} class="spin" /> Загружаем файлы…
+              <LoaderCircle size={18} class="spin" /> Loading files…
             </p>
           )}
           {loadError() && (
             <div class="nextcloud-load-error" role="alert">
               <p>{loadError()}</p>
               <button class="nextcloud-save" type="button" onClick={() => setRevision((value) => value + 1)}>
-                Повторить
+                Retry
               </button>
             </div>
           )}
           {listing() && (
-            <div class="file-grid nextcloud-files" aria-label="Файлы Nextcloud">
+            <div class="file-grid nextcloud-files" aria-label="Nextcloud files">
               <For each={listing()!.entries}>
                 {(file) => {
                   const kind = nextcloudFileKind(file);
@@ -224,7 +224,7 @@ export function NextcloudSection(props: { storageKey: string; toolbarTarget: HTM
                       <button
                         type="button"
                         class="file-card-link"
-                        aria-label={`${file.directory ? "Открыть папку" : "Открыть"} ${file.name}`}
+                        aria-label={`${file.directory ? "Open folder" : "Open"} ${file.name}`}
                         aria-haspopup={file.directory ? undefined : "dialog"}
                         onClick={() => (file.directory ? setPath(file.path) : setViewed(file))}
                       >
@@ -235,11 +235,11 @@ export function NextcloudSection(props: { storageKey: string; toolbarTarget: HTM
                             <Icon size={42} stroke-width={1.4} />
                             <span class="file-type">
                               {file.directory
-                                ? "Папка"
+                                ? "Folder"
                                 : kind === "video"
-                                  ? "Видео"
+                                  ? "Video"
                                   : kind === "audio"
-                                    ? "Аудио"
+                                    ? "Audio"
                                     : file.name.split(".").pop()?.toUpperCase()}
                             </span>
                           </div>
@@ -250,7 +250,7 @@ export function NextcloudSection(props: { storageKey: string; toolbarTarget: HTM
                             {!file.directory && <span>{sizeLabel(file.size)}</span>}
                             {file.modified && (
                               <time datetime={file.modified}>
-                                {new Date(file.modified).toLocaleDateString("ru-RU")}
+                                {new Date(file.modified).toLocaleDateString("en-GB")}
                               </time>
                             )}
                           </div>
@@ -260,7 +260,7 @@ export function NextcloudSection(props: { storageKey: string; toolbarTarget: HTM
                         <a
                           class="nextcloud-download"
                           href={fileUrl(file, "download")}
-                          aria-label={`Скачать ${file.name}`}
+                          aria-label={`Download ${file.name}`}
                         >
                           <Download size={17} />
                         </a>
@@ -269,7 +269,7 @@ export function NextcloudSection(props: { storageKey: string; toolbarTarget: HTM
                   );
                 }}
               </For>
-              {!listing()!.entries.length && <p class="course-section-notice">В этой папке пока нет файлов.</p>}
+              {!listing()!.entries.length && <p class="course-section-notice">No files in this folder yet.</p>}
             </div>
           )}
         </>

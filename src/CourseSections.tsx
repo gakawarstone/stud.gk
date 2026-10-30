@@ -13,7 +13,7 @@ function ResourceDate(props: { value: string | number | null | undefined }) {
     <>
       {parsed() ? (
         <time datetime={parsed()!.toISOString()}>
-          {parsed()!.toLocaleDateString("de-DE", {
+          {parsed()!.toLocaleDateString("en-GB", {
             day: "2-digit",
             month: "2-digit",
             year: "numeric",
@@ -27,7 +27,7 @@ function NewsPost(props: { item: CourseResource; onRead: (id: string) => void })
   const [expanded, setExpanded] = createSignal(false);
   let heading: HTMLDivElement | null = null;
   const id = createUniqueId();
-  const text = createMemo(() => props.item.description || "Текст объявления отсутствует.");
+  const text = createMemo(() => props.item.description || "No announcement text.");
   const isLong = createMemo(() => text().length > 420);
   const parts = createMemo(() => newsParts(text(), expanded()));
   createEffect(
@@ -76,7 +76,7 @@ function NewsPost(props: { item: CourseResource; onRead: (id: string) => void })
           aria-controls={`${id}-body`}
           onClick={() => setExpanded((value) => !value)}
         >
-          {expanded() ? "Weniger anzeigen" : "Weiterlesen"}
+          {expanded() ? "Show less" : "Read more"}
           <ChevronDown size={14} aria-hidden="true" />
         </button>
       )}
@@ -106,20 +106,20 @@ export function CourseSections(props: {
       {props.tab === "course" && <h2 class="course-section-title">{courseTabs[props.tab].label}</h2>}
       {props.unavailable && (
         <p class="course-section-notice" role="status">
-          Нет доступа к этому разделу в Stud.IP.
+          You do not have access to this section in Stud.IP.
         </p>
       )}
       {props.tab === "news" &&
         (news().length ? (
           <For each={news()}>{(item) => <NewsPost item={item} onRead={props.onRead} />}</For>
         ) : (
-          !props.unavailable && <p class="course-section-notice">Объявлений пока нет.</p>
+          !props.unavailable && <p class="course-section-notice">No announcements yet.</p>
         ))}
       {props.tab === "schedule" &&
         (items().length ? (
           <CourseSchedule items={items()} courseTitle={props.course.title} />
         ) : (
-          !props.unavailable && <p class="course-section-notice">Занятий пока нет.</p>
+          !props.unavailable && <p class="course-section-notice">No classes yet.</p>
         ))}
       {props.tab === "course" && (
         <div class="course-info">
@@ -136,7 +136,7 @@ export function CourseSections(props: {
           )}
           {props.course.url && (
             <a class="course-original-link" href={props.course.url} target="_blank" rel="noreferrer">
-              Открыть в Stud.IP ↗
+              Open in Stud.IP ↗
             </a>
           )}
         </div>

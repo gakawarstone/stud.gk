@@ -80,7 +80,7 @@ function MediaViewer(props: {
           const response = await fetch(props.contentUrl, {
             signal: controller.signal,
           });
-          if (!response.ok || !response.body) throw new Error("Не удалось загрузить файл.");
+          if (!response.ok || !response.body) throw new Error("Could not load the file.");
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
           let result = "",
@@ -91,7 +91,7 @@ function MediaViewer(props: {
             length += value.length;
             if (length > 2 * 1024 * 1024) {
               await reader.cancel();
-              throw new Error("Файл слишком большой для просмотра текста. Его можно скачать.");
+              throw new Error("This file is too large to preview as text. You can download it.");
             }
             result += decoder.decode(value, { stream: true });
           }
@@ -103,7 +103,7 @@ function MediaViewer(props: {
       },
     ),
   );
-  const mediaError = () => setError("Не удалось воспроизвести файл. Попробуй скачать и открыть его на компьютере.");
+  const mediaError = () => setError("Could not play the file. Try downloading it and opening it on your computer.");
   return (
     <dialog
       ref={(element) => (dialog = element)}
@@ -113,10 +113,10 @@ function MediaViewer(props: {
     >
       <header class="nextcloud-viewer-toolbar">
         <h2 id="nextcloud-viewer-title">{props.file.name}</h2>
-        <a href={props.downloadUrl} aria-label={`Скачать ${props.file.name}`}>
+        <a href={props.downloadUrl} aria-label={`Download ${props.file.name}`}>
           <Download size={19} />
         </a>
-        <button type="button" aria-label="Закрыть просмотр" onClick={props.onClose}>
+        <button type="button" aria-label="Close preview" onClick={props.onClose}>
           <X size={21} />
         </button>
       </header>
@@ -144,16 +144,12 @@ function MediaViewer(props: {
               />
             )}
             {props.kind === "image" && (
-              <img
-                src={props.contentUrl}
-                alt={props.file.name}
-                onError={() => setError("Не удалось загрузить изображение.")}
-              />
+              <img src={props.contentUrl} alt={props.file.name} onError={() => setError("Could not load the image.")} />
             )}
-            {props.kind === "text" && (text() === null ? <p role="status">Загружаем файл…</p> : <pre>{text()}</pre>)}
+            {props.kind === "text" && (text() === null ? <p role="status">Loading file…</p> : <pre>{text()}</pre>)}
             {props.kind === "other" && (
               <p>
-                Этот формат можно <a href={props.downloadUrl}>скачать и открыть на компьютере</a>.
+                You can <a href={props.downloadUrl}>download this file and open it on your computer</a>.
               </p>
             )}
           </>

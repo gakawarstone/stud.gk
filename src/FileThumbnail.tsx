@@ -69,7 +69,7 @@ export function FileThumbnail(props: { url: string; version: string; kind: "pdf"
           ) : (
             <FileText size={28} stroke-width={1.4} />
           )}
-          <span>Превью недоступно</span>
+          <span>Preview unavailable</span>
         </span>
       ) : visible() && (props.kind === "image" || src()) ? (
         <Show when={key()} keyed>
@@ -85,7 +85,7 @@ export function FileThumbnail(props: { url: string; version: string; kind: "pdf"
           )}
         </Show>
       ) : (
-        <LoaderCircle class="thumbnail-loading spin" size={20} aria-label="Загружаем превью" />
+        <LoaderCircle class="thumbnail-loading spin" size={20} aria-label="Loading preview" />
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 // Shared with the project form; keep this module free of Node-only imports.
 export function normalizeGitlabProject(value) {
-  const message = "Вставь ссылку на проект GitLab, например https://gitlab.com/group/project.";
+  const message = "Paste a GitLab project URL, for example https://gitlab.com/group/project.";
   if (typeof value !== "string" || value.length > 2048) throw new Error(message);
   let url;
   try {
@@ -17,4 +17,10 @@ export function normalizeGitlabProject(value) {
   url.search = "";
   url.hash = "";
   return { url: url.href };
+}
+
+// Upgrade the original single-project value without changing its URL.
+export function gitlabProjectList(value) {
+  if (Array.isArray(value)) return value;
+  return value?.url ? [{ id: "legacy", url: value.url }] : [];
 }

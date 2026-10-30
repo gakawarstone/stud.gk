@@ -24,8 +24,8 @@ async function openTabContextMenu(window, tab) {
   })()`);
   window.webContents.sendInputEvent({ type: "mouseDown", button: "right", clickCount: 1, ...point });
   window.webContents.sendInputEvent({ type: "mouseUp", button: "right", clickCount: 1, ...point });
-  const label = { news: "Ankündigungen", schedule: "Termine", course: "Kursinfo", nextcloud: "Nextcloud" }[tab];
-  await waitFor(window, `document.querySelector('button[aria-label="Удалить ${label} из панели"]') !== null`);
+  const label = { news: "Announcements", schedule: "Schedule", course: "Course info", nextcloud: "Nextcloud" }[tab];
+  await waitFor(window, `document.querySelector('button[aria-label="Remove ${label} from sidebar"]') !== null`);
 }
 
 async function saveNextcloudLink(window, url) {
@@ -39,7 +39,7 @@ async function saveNextcloudLink(window, url) {
 
 
 async function openNextcloudSettings(window) {
-  await window.webContents.executeJavaScript(`if (!document.querySelector('.nextcloud-settings-menu')) document.querySelector('button[aria-label="Настройки Nextcloud"]').click()`);
+  await window.webContents.executeJavaScript(`if (!document.querySelector('.nextcloud-settings-menu')) document.querySelector('button[aria-label="Nextcloud settings"]').click()`);
   await waitFor(window, `document.querySelector('.nextcloud-settings-menu') !== null`);
 }
 
@@ -52,7 +52,7 @@ async function nextcloudAction(window, label, setup = "") {
 
 async function nextcloudShareUrl(window) {
   await openNextcloudSettings(window);
-  const url = await window.webContents.executeJavaScript(`document.querySelector('a[aria-label="Открыть Nextcloud в браузере"]').href`);
+  const url = await window.webContents.executeJavaScript(`document.querySelector('a[aria-label="Open Nextcloud in browser"]').href`);
   await window.webContents.executeJavaScript(`document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}))`);
   await waitFor(window, `document.querySelector('.nextcloud-settings-menu') === null`);
   return url;
@@ -69,6 +69,8 @@ async function nextcloudShareUrl(window) {
   window.webContents.on("render-process-gone", (_, details) => failures.push(details.reason));
   await waitFor(window, `document.querySelector('.demo-link') !== null`);
   assert.equal(await window.webContents.executeJavaScript("typeof require"), "undefined");
+  assert.equal(await window.webContents.executeJavaScript("document.documentElement.lang"), "en");
+  assert.equal(await window.webContents.executeJavaScript("document.querySelector('.login-card h1').textContent"), "Sign in to Stud.IP");
   const preferences = window.webContents.getLastWebPreferences();
   assert.equal(preferences.sandbox, true);
   assert.equal(preferences.contextIsolation, true);
@@ -86,49 +88,50 @@ async function nextcloudShareUrl(window) {
   await waitFor(window, `document.querySelectorAll('a[href^="#course="]').length > 0`);
   const courseCount = await window.webContents.executeJavaScript(`document.querySelectorAll('a[href^="#course="]').length`);
   assert.equal(courseCount, demo.courses.length);
+  assert.deepEqual(await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.course-file-count'), count => count.getAttribute('aria-label')).sort()`), ["0 files", "1 file", "2 files", "2 files"]);
   const persisted = await window.webContents.executeJavaScript(`localStorage.getItem('campus-smoke-origin')`);
   if (process.env.CAMPUS_SMOKE_RESTART === "1") assert.equal(persisted, runtime.url);
   await window.webContents.executeJavaScript(`Object.keys(localStorage).filter(key => key.startsWith('stud-gk-course-tabs:')).forEach(key => localStorage.removeItem(key)); localStorage.setItem('campus-smoke-origin', location.origin); document.querySelector('a[href^="#course="]').click()`);
   await waitFor(window, `document.querySelector('.back-to-courses') !== null`);
-  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-sidebar [aria-current="page"]').getAttribute('aria-label')`), "Dateien");
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-sidebar [aria-current="page"]').getAttribute('aria-label')`), "Files");
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('[data-course-tab]').length`), 1);
   // The folder mode uses real hierarchy data and survives a renderer reload.
   await window.webContents.executeJavaScript(`document.querySelectorAll('.file-view-switch button')[1].click()`);
   await waitFor(window, `document.querySelector('.folder-explorer-sidebar') !== null`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Открыть папку Übungen"]').click()`);
-  await waitFor(window, `document.querySelector('button[aria-label="Открыть папку Projekt"]') !== null`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Свернуть папку Übungen"]').click()`);
-  await waitFor(window, `document.querySelector('button[aria-label="Открыть папку Projekt"]') === null`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Развернуть папку Übungen"]').click()`);
-  await waitFor(window, `document.querySelector('button[aria-label="Открыть папку Projekt"]') !== null`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Открыть папку Projekt"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Open folder Exercises"]').click()`);
+  await waitFor(window, `document.querySelector('button[aria-label="Open folder Project"]') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Collapse folder Exercises"]').click()`);
+  await waitFor(window, `document.querySelector('button[aria-label="Open folder Project"]') === null`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Expand folder Exercises"]').click()`);
+  await waitFor(window, `document.querySelector('button[aria-label="Open folder Project"]') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Open folder Project"]').click()`);
   await waitFor(window, `document.querySelectorAll('.file-card').length === 1`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.explorer-file-icon').length`), 1);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.file-preview').length`), 0);
-  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Открыть папку Vorlesungen"]') !== null`));
-  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.folder-explorer-sidebar [aria-current="page"]').textContent`), "Projekt");
+  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Open folder Lectures"]') !== null`));
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.folder-explorer-sidebar [aria-current="page"]').textContent`), "Project");
   window.webContents.reload();
   await waitFor(window, `document.querySelector('.demo-link') !== null`);
   await window.webContents.executeJavaScript(`document.querySelector('.demo-link').click()`);
-  await waitFor(window, `document.querySelectorAll('.file-card').length === 1 && document.querySelector('.folder-explorer-sidebar [aria-current="page"]')?.textContent === 'Projekt'`);
+  await waitFor(window, `document.querySelectorAll('.file-card').length === 1 && document.querySelector('.folder-explorer-sidebar [aria-current="page"]')?.textContent === 'Project'`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.file-view-switch button')[1].getAttribute('aria-pressed')`), "true");
   await window.webContents.executeJavaScript(`document.querySelectorAll('.file-view-switch button')[0].click()`);
   await waitFor(window, `document.querySelectorAll('.file-card').length === 2`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.folder-explorer-sidebar')`), null);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.file-preview').length`), 2);
   // Course tabs retain their settings and use the same snapshot as the files.
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add tab"]').click()`);
   await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Ankündigungen"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add Announcements"]').click()`);
   await waitFor(window, `document.querySelector('.course-section-news') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-section-title')`), null);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.file-view-switch')`), null);
-  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-section-notice').textContent`), "Объявлений пока нет.");
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-section-notice').textContent`), "No announcements yet.");
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add tab"]').click()`);
   await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
-  assert.deepEqual(await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('[role="menu"] button'), button => button.getAttribute('aria-label'))`), ["Добавить Termine", "Добавить Kursinfo", "Добавить Nextcloud", "Добавить GitLab"]);
+  assert.deepEqual(await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('[role="menu"] button'), button => button.getAttribute('aria-label'))`), ["Add Schedule", "Add Course info", "Add Nextcloud", "Add GitLab"]);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('[role="menuitemcheckbox"]')`), null);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Kursinfo"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add Course info"]').click()`);
   await waitFor(window, `document.querySelector('.course-info') !== null`);
   assert.ok(await window.webContents.executeJavaScript(`document.querySelector('.course-info').textContent.includes(${JSON.stringify(demo.courses[0].description)})`));
   assert.equal(await window.webContents.executeJavaScript(`new URLSearchParams(location.hash.slice(1)).get('tab')`), "course");
@@ -141,10 +144,10 @@ async function nextcloudShareUrl(window) {
   await window.webContents.executeJavaScript(`document.querySelector('.demo-link').click()`);
   await waitFor(window, `document.querySelector('.course-info') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('[data-course-tab]').length`), 3);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add tab"]').click()`);
   await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('[role="menu"] button').length`), 3);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Termine"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add Schedule"]').click()`);
   await waitFor(window, `document.querySelectorAll('[data-course-tab]').length === 4 && document.querySelector('[data-course-tab="schedule"]').getAttribute('aria-current') === 'page'`);
   // Mock share data in the renderer; the API's real WebDAV and streaming behavior
   // is covered by server/nextcloud.test.js without a network-dependent smoke test.
@@ -174,15 +177,15 @@ async function nextcloudShareUrl(window) {
   })()`);
   window.webContents.on('did-finish-load', installNextcloudFixture);
   await installNextcloudFixture();
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add tab"]').click()`);
   await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Nextcloud"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add Nextcloud"]').click()`);
   await waitFor(window, `document.querySelector('#nextcloud-url') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('#nextcloud-url').value`), "");
-  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').disabled`), false);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add tab"]').disabled`), false);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add tab"]').click()`);
   await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
-  assert.deepEqual(await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('[role="menu"] button'), button => button.getAttribute('aria-label'))`), ["Добавить GitLab"]);
+  assert.deepEqual(await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('[role="menu"] button'), button => button.getAttribute('aria-label'))`), ["Add GitLab"]);
   await window.webContents.executeJavaScript(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
   await saveNextcloudLink(window, "javascript:alert(1)");
   await waitFor(window, `document.querySelector('.nextcloud-error') !== null`);
@@ -193,38 +196,38 @@ async function nextcloudShareUrl(window) {
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.nextcloud-tools > button').length`), 1);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.nextcloud-tools > a').length`), 0);
   await openNextcloudSettings(window);
-  assert.equal(await window.webContents.executeJavaScript(`document.activeElement.getAttribute('aria-label')`), "Обновить файлы Nextcloud");
+  assert.equal(await window.webContents.executeJavaScript(`document.activeElement.getAttribute('aria-label')`), "Refresh Nextcloud files");
   await window.webContents.executeJavaScript(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowDown', bubbles:true}))`);
-  assert.equal(await window.webContents.executeJavaScript(`document.activeElement.getAttribute('aria-label')`), "Изменить ссылку Nextcloud");
+  assert.equal(await window.webContents.executeJavaScript(`document.activeElement.getAttribute('aria-label')`), "Edit Nextcloud link");
   if (process.env.CAMPUS_SMOKE_NEXTCLOUD_MENU_SCREENSHOT) await writeFile(process.env.CAMPUS_SMOKE_NEXTCLOUD_MENU_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
   await window.webContents.executeJavaScript(`document.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true}))`);
   await waitFor(window, `document.querySelector('.nextcloud-settings-menu') === null`);
-  assert.equal(await window.webContents.executeJavaScript(`document.activeElement.getAttribute('aria-label')`), "Настройки Nextcloud");
+  assert.equal(await window.webContents.executeJavaScript(`document.activeElement.getAttribute('aria-label')`), "Nextcloud settings");
   await openNextcloudSettings(window);
   await window.webContents.executeJavaScript(`document.body.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true}))`);
   await waitFor(window, `document.querySelector('.nextcloud-settings-menu') === null`);
   await waitFor(window, `document.querySelector('.thumbnail-preview.video img')?.naturalWidth > 0`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.thumbnail-preview.video img').naturalWidth`), 160);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.thumbnail-preview.video img').naturalHeight`), 90);
-  await nextcloudAction(window, "Обновить файлы Nextcloud", "window.nextcloudThumbnailBroken = true; window.nextcloudFixtureVersion = 'broken';");
+  await nextcloudAction(window, "Refresh Nextcloud files", "window.nextcloudThumbnailBroken = true; window.nextcloudFixtureVersion = 'broken';");
   await waitFor(window, `document.querySelector('.thumbnail-preview.video .thumbnail-fallback') !== null`);
-  await nextcloudAction(window, "Обновить файлы Nextcloud", "window.nextcloudThumbnailBroken = false; window.nextcloudFixtureVersion = 'repaired';");
+  await nextcloudAction(window, "Refresh Nextcloud files", "window.nextcloudThumbnailBroken = false; window.nextcloudFixtureVersion = 'repaired';");
   await waitFor(window, `document.querySelector('.thumbnail-preview.video img')?.naturalWidth > 0`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Открыть папку Lectures"]').click()`);
-  await waitFor(window, `document.querySelector('button[aria-label="Открыть notes.txt"]') !== null`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Открыть notes.txt"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Open folder Lectures"]').click()`);
+  await waitFor(window, `document.querySelector('button[aria-label="Open notes.txt"]') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Open notes.txt"]').click()`);
   await waitFor(window, `document.querySelector('.nextcloud-viewer pre') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.nextcloud-viewer pre').textContent`), '<script>text, never executable</script>');
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Закрыть просмотр"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Close preview"]').click()`);
   await waitFor(window, `document.querySelector('dialog') === null`);
   await window.webContents.executeJavaScript(`document.querySelector('.nextcloud-breadcrumbs > button').click()`);
   await waitFor(window, `document.querySelectorAll('.nextcloud-file').length === 2`);
-  await nextcloudAction(window, "Обновить файлы Nextcloud", 'window.nextcloudFixtureError = true;');
+  await nextcloudAction(window, "Refresh Nextcloud files", 'window.nextcloudFixtureError = true;');
   await waitFor(window, `document.querySelector('.nextcloud-load-error') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.nextcloud-file').length`), 0);
   await window.webContents.executeJavaScript(`window.nextcloudFixtureError = false; document.querySelector('.nextcloud-load-error button').click()`);
   await waitFor(window, `document.querySelectorAll('.nextcloud-file').length === 2`);
-  await nextcloudAction(window, "Изменить ссылку Nextcloud");
+  await nextcloudAction(window, "Edit Nextcloud link");
   const editedUrl = `${shareUrl}#files`;
   await saveNextcloudLink(window, editedUrl);
   await waitFor(window, `document.querySelectorAll('.nextcloud-file').length === 2`);
@@ -232,7 +235,7 @@ async function nextcloudShareUrl(window) {
   const originalOpenExternal = shell.openExternal;
   shell.openExternal = async (url) => { externalUrls.push(url); };
   try {
-    await nextcloudAction(window, "Открыть Nextcloud в браузере");
+    await nextcloudAction(window, "Open Nextcloud in browser");
     for (let attempt = 0; attempt < 100 && !externalUrls.length; attempt++) await new Promise((resolve) => setTimeout(resolve, 20));
     assert.deepEqual(externalUrls, [editedUrl]);
     assert.equal(BrowserWindow.getAllWindows().length, 1);
@@ -247,7 +250,7 @@ async function nextcloudShareUrl(window) {
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.nextcloud-file').length`), 0);
   await window.webContents.executeJavaScript(`location.hash = ${JSON.stringify(`#course=${demo.courses[0].id}&tab=nextcloud`)}`);
   await waitFor(window, `document.querySelectorAll('.nextcloud-file').length === 2`);
-  await nextcloudAction(window, "Изменить ссылку Nextcloud");
+  await nextcloudAction(window, "Edit Nextcloud link");
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('#nextcloud-url').value`), editedUrl);
   window.setSize(480, 700);
   assert.ok(await window.webContents.executeJavaScript(`document.querySelector('#nextcloud-url').getBoundingClientRect().right <= innerWidth`));
@@ -258,15 +261,15 @@ async function nextcloudShareUrl(window) {
   await waitFor(window, `document.querySelector('.nextcloud-settings-menu') === null`);
   window.setSize(1280, 850);
   await openTabContextMenu(window, "nextcloud");
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Удалить Nextcloud из панели"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Remove Nextcloud from sidebar"]').click()`);
   await waitFor(window, `document.querySelector('[data-course-tab="nextcloud"]') === null && document.querySelector('.file-grid') !== null`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add tab"]').click()`);
   await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Nextcloud"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add Nextcloud"]').click()`);
   await waitFor(window, `document.querySelectorAll('.nextcloud-file').length === 2`);
   assert.equal(await nextcloudShareUrl(window), editedUrl);
   await openTabContextMenu(window, "nextcloud");
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Удалить Nextcloud из панели"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Remove Nextcloud from sidebar"]').click()`);
   await waitFor(window, `document.querySelector('[data-course-tab="nextcloud"]') === null`);
   window.webContents.off('did-finish-load', installNextcloudFixture);
   await window.webContents.executeJavaScript(`document.querySelector('[data-course-tab="schedule"]').click()`);
@@ -280,24 +283,24 @@ async function nextcloudShareUrl(window) {
   })`), "schedule");
   window.webContents.sendInputEvent({ type: "keyDown", keyCode: "F10", modifiers: ["shift"] });
   window.webContents.sendInputEvent({ type: "keyUp", keyCode: "F10", modifiers: ["shift"] });
-  await waitFor(window, `document.querySelector('button[aria-label="Удалить Termine из панели"]') !== null`);
+  await waitFor(window, `document.querySelector('button[aria-label="Remove Schedule from sidebar"]') !== null`);
   await window.webContents.executeJavaScript(`document.querySelector('[data-course-tab="files"]').click()`);
   await waitFor(window, `document.querySelector('.file-grid') !== null && document.querySelector('[role="menu"]') === null`);
   await openTabContextMenu(window, "schedule");
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Удалить Termine из панели"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Remove Schedule from sidebar"]').click()`);
   await waitFor(window, `document.querySelector('[data-course-tab="schedule"]') === null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-sidebar [aria-current="page"]').dataset.courseTab`), "files");
-  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').disabled`), false);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add tab"]').disabled`), false);
   await window.webContents.executeJavaScript(`document.querySelector('[data-course-tab="files"]').click()`);
   await waitFor(window, `document.querySelector('.file-grid') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.file-card').length`), 2);
   const news = demo.resources.find((item) => item.kind === "news");
   await window.webContents.executeJavaScript(`location.hash = ${JSON.stringify(`#course=${news.courseId}`)}`);
   await waitFor(window, `document.querySelectorAll('[data-course-tab]').length === 1`);
-  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-sidebar [aria-current="page"]').getAttribute('aria-label')`), "Dateien");
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-sidebar [aria-current="page"]').getAttribute('aria-label')`), "Files");
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add tab"]').click()`);
   await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Ankündigungen"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add Announcements"]').click()`);
   await waitFor(window, `document.querySelector('.course-news h3') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news h3').textContent`), news.title);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news').tagName`), "ARTICLE");
@@ -312,34 +315,34 @@ async function nextcloudShareUrl(window) {
   await window.webContents.executeJavaScript(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
   await waitFor(window, `document.querySelector('[role="menu"]') === null`);
   assert.equal(await window.webContents.executeJavaScript(`document.activeElement.dataset.courseTab`), "news");
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add tab"]').click()`);
   await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
   assert.ok(await window.webContents.executeJavaScript(`document.querySelector('[role="menu"]').getBoundingClientRect().right <= innerWidth`));
   await window.webContents.executeJavaScript(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
   await waitFor(window, `document.querySelector('[role="menu"]') === null`);
-  assert.equal(await window.webContents.executeJavaScript(`document.activeElement.getAttribute('aria-label')`), "Добавить вкладку");
+  assert.equal(await window.webContents.executeJavaScript(`document.activeElement.getAttribute('aria-label')`), "Add tab");
   window.setSize(1280, 850);
   if (process.env.CAMPUS_SMOKE_SIDEBAR_SCREENSHOT) {
     await writeFile(process.env.CAMPUS_SMOKE_SIDEBAR_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
   }
   await openTabContextMenu(window, "news");
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Удалить Ankündigungen из панели"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Remove Announcements from sidebar"]').click()`);
   await waitFor(window, `document.querySelectorAll('[data-course-tab]').length === 1 && document.querySelector('.file-grid') !== null`);
   window.webContents.reload();
   await waitFor(window, `document.querySelector('.demo-link') !== null`);
   await window.webContents.executeJavaScript(`document.querySelector('.demo-link').click()`);
   await waitFor(window, `document.querySelectorAll('[data-course-tab]').length === 1 && document.querySelector('.file-grid') !== null`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add tab"]').click()`);
   await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
-  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Ankündigungen"]') !== null`));
+  assert.ok(await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add Announcements"]') !== null`));
   await window.webContents.executeJavaScript(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
   await waitFor(window, `document.querySelector('[role="menu"]') === null`);
   const event = demo.resources.find((item) => item.kind === "schedule");
   await window.webContents.executeJavaScript(`location.hash = ${JSON.stringify(`#course=${event.courseId}`)}`);
   await waitFor(window, `document.querySelector('.course-heading').textContent === ${JSON.stringify(demo.courses.find((course) => course.id === event.courseId).title)}`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add tab"]').click()`);
   await waitFor(window, `document.querySelector('[role="menu"]') !== null`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Termine"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add Schedule"]').click()`);
   await waitFor(window, `document.querySelector('.course-timeline-event') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.course-timeline-event').length`), 1);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-timeline-title').textContent`), event.title);
@@ -393,9 +396,9 @@ async function nextcloudShareUrl(window) {
   await waitFor(window, `document.querySelector('.demo-badge') !== null`);
   await window.webContents.executeJavaScript(`location.hash = ${JSON.stringify(`#course=${news.courseId}`)}`);
   await waitFor(window, `document.querySelector('.course-sidebar') !== null`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить вкладку"]').click()`);
-  await waitFor(window, `document.querySelector('button[aria-label="Добавить Ankündigungen"]') !== null`);
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Добавить Ankündigungen"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add tab"]').click()`);
+  await waitFor(window, `document.querySelector('button[aria-label="Add Announcements"]') !== null`);
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="Add Announcements"]').click()`);
   await waitFor(window, `document.querySelectorAll('.course-news').length === 9`);
   // Give IntersectionObserver a rendered frame before scrolling the first post
   // away. DOM presence alone does not mean its visibility callback has run.
@@ -406,8 +409,10 @@ async function nextcloudShareUrl(window) {
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news a').href`), "https://example.org/Kurs_(WS26)");
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news a').rel`), "noopener noreferrer");
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.course-news a').length`), 8, "Hidden links must not be focusable");
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news-more').textContent`), "Read more");
   await window.webContents.executeJavaScript(`document.querySelector('.course-news-more').click()`);
   await waitFor(window, `document.querySelector('.course-news-more').getAttribute('aria-expanded') === 'true'`);
+  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news-more').textContent`), "Show less");
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.course-news .course-resource-body').textContent`), longNews);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('.course-news a').length`), 9);
   window.focus();
@@ -417,7 +422,7 @@ async function nextcloudShareUrl(window) {
   window.webContents.sendInputEvent({ type: "char", keyCode: "\r" });
   window.webContents.sendInputEvent({ type: "keyUp", keyCode: "Return" });
   await waitFor(window, `document.querySelector('.course-news-more').getAttribute('aria-expanded') === 'false'`);
-  assert.equal(await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.course-news')).at(-1).querySelector('.course-resource-body').textContent`), "Текст объявления отсутствует.");
+  assert.equal(await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.course-news')).at(-1).querySelector('.course-resource-body').textContent`), "No announcement text.");
   await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.course-news')).at(-1).scrollIntoView()`);
   await waitFor(window, `document.querySelector('.course-rail-dot') === null`);
   for (const width of [480, 1280]) {
