@@ -32,6 +32,8 @@ jobs:
         run: xvfb-run -a npm run test:desktop -- --no-sandbox --ozone-platform=x11
       - name: Check GitLab integration
         run: xvfb-run -a npm run test:gitlab -- --no-sandbox --ozone-platform=x11
+      - name: Check opening local projects in IDEA
+        run: xvfb-run -a npm run test:idea -- --no-sandbox --ozone-platform=x11
       - name: Check session expiry and slow polling
         run: xvfb-run -a npm run test:session -- --no-sandbox --ozone-platform=x11
       - name: Check reactive lists and PDF viewer

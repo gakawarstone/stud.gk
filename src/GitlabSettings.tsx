@@ -1,4 +1,4 @@
-import { ExternalLink, KeyRound, Link, RefreshCw, Settings, Unlink } from "lucide-solid";
+import { ExternalLink, FolderOpen, KeyRound, Link, RefreshCw, Settings, Unlink } from "lucide-solid";
 import { createEffect, createSignal, createUniqueId, on, onCleanup } from "solid-js";
 export function GitlabSettings(props: {
   url: string;
@@ -6,6 +6,7 @@ export function GitlabSettings(props: {
   onEdit: () => void;
   onAccess?: () => void;
   onUnlink: () => void;
+  onIdeaPath?: () => void;
 }) {
   const [open, setOpen] = createSignal(false);
   let root: HTMLDivElement | null = null,
@@ -108,6 +109,9 @@ export function GitlabSettings(props: {
             <Link size={16} />
             <span>Edit link</span>
           </button>
+          {props.onIdeaPath && <button role="menuitem" type="button" onClick={() => action(props.onIdeaPath!)}>
+            <FolderOpen size={16} /><span>Local IDEA project…</span>
+          </button>}
           <a role="menuitem" href={props.url} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>
             <ExternalLink size={16} />
             <span>Open in browser</span>
