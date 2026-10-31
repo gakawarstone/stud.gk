@@ -121,12 +121,10 @@
 .gitlab-commit-sha { display: flex; align-items: center; padding: 4px 8px; color: var(--subtext); font: 11px ui-monospace, monospace; }
 .gitlab-copy-sha { display: grid; place-items: center; width: 29px; border-left: 1px solid var(--surface1); color: var(--subtext); }
 .gitlab-commit-sha:hover, .gitlab-copy-sha:hover { color: var(--text); background: var(--surface0); }
-.gitlab-history-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 9px; border: 1px solid var(--surface1); border-radius: 5px; color: var(--subtext); font-size: 11px; }
-.gitlab-history-toggle:hover, .gitlab-history-toggle[aria-pressed="true"] { color: var(--mauve); background: var(--surface0); }
-.gitlab-idea-open { display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 4px 9px; border: 1px solid var(--mauve); border-radius: 5px; color: var(--mauve); font-size: 11px; white-space: nowrap; }
-.gitlab-idea-open:hover { background: var(--surface0); color: var(--text); }
+.gitlab-history-toggle, .gitlab-idea-open { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; padding: 4px 9px; border: 1px solid var(--surface1); border-radius: 5px; color: var(--subtext); font-size: 11px; line-height: 1; white-space: nowrap; }
+.gitlab-history-toggle > svg, .gitlab-idea-open > svg { flex-shrink: 0; }
+.gitlab-history-toggle:hover, .gitlab-history-toggle[aria-pressed="true"], .gitlab-idea-open:hover { color: var(--mauve); background: var(--surface0); }
 .gitlab-idea-open:disabled { opacity: .6; cursor: wait; }
-.idea-mark { display: grid; place-items: center; width: 15px; height: 15px; border-radius: 2px; color: var(--base); background: var(--mauve); font: bold 9px/1 ui-monospace, monospace; }
 .idea-project-dialog { width: min(540px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 0; border: 1px solid var(--surface1); border-radius: 12px; background: var(--base); color: var(--text); box-shadow: 0 24px 80px #11111b80; color-scheme: dark; }
 .idea-project-dialog::backdrop { background: #11111baa; }
 .idea-project-dialog header { display: flex; align-items: center; gap: 12px; padding: 20px 24px; border-bottom: 1px solid var(--surface0); }
