@@ -464,6 +464,15 @@ export function PdfViewer(
             </div>
           </nav>
           <div class="pdf-viewer-actions">
+            <button
+              class="pdf-viewer-action"
+              onClick={() => setThemed((value) => !value)}
+              aria-label="Catppuccin colors"
+              aria-pressed={themed()}
+              title={themed() ? "Show original colors" : "Apply Catppuccin colors"}
+            >
+              <Palette size={18} />
+            </button>
             {!props.detached && (
               <button
                 class="pdf-viewer-action"
@@ -474,15 +483,6 @@ export function PdfViewer(
                 <ExternalLink size={18} />
               </button>
             )}
-            <button
-              class="pdf-viewer-action"
-              onClick={() => setThemed((value) => !value)}
-              aria-label="Catppuccin colors"
-              aria-pressed={themed()}
-              title={themed() ? "Show original colors" : "Apply Catppuccin colors"}
-            >
-              <Palette size={18} />
-            </button>
             <a class="pdf-viewer-action" href={saveUrl()} aria-label="Download PDF" title="Download PDF">
               <Download size={18} />
             </a>
