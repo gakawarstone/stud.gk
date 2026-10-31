@@ -55,6 +55,8 @@ jobs:
         env:
           CAMPUS_SMOKE_ENTRY: ${{ github.workspace }}/release/linux-unpacked/resources/app.asar/electron/main.cjs
         run: xvfb-run -a npm run test:desktop -- --no-sandbox
+      - name: Launch AppImage executable
+        run: xvfb-run -a node scripts/appimage-smoke.cjs release/Stud.GK-*.AppImage
       - uses: actions/upload-artifact@v4
         with:
           name: stud-gk-${{ inputs.version }}-linux-x64

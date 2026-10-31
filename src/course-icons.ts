@@ -10,7 +10,7 @@ import {
   PanelsTopLeft,
   ShieldCheck,
   Terminal,
-} from "lucide-react";
+} from "lucide-solid";
 
 export function courseIcon(title: string) {
   const subject = title.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase();

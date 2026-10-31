@@ -1,103 +1,193 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
-import { ChevronRight, Folder, FolderOpen, LoaderCircle } from "lucide-react";
-import { GitlabBranchPicker } from "./GitlabBranchPicker";
-import { GitlabCommitSummary } from "./GitlabCommitSummary";
-import { RepositoryFileIcon } from "./RepositoryFileIcon";
-import { GitlabFileViewer } from "./GitlabFileViewer";
 import { demoCommits, GitlabHistory } from "./GitlabHistory";
 import { GitlabCommitViewer } from "./GitlabCommitViewer";
-import { GitlabApiError, gitlabApi, type GitlabEntry, type GitlabListing, type GitlabBranch, type GitlabCommit } from "./gitlab-api";
-
-type FolderState = { entries: GitlabEntry[]; loading: boolean; error: string | null };
-
-export function GitlabRepository({ endpoint, projectUrl, revision, demo, onAuthRequired }: {
-  endpoint: string; projectUrl: string; revision: number; demo: boolean; onAuthRequired: () => void;
+import type { GitlabCommit } from "./gitlab-api";
+import { ChevronRight, Folder, FolderOpen, LoaderCircle } from "lucide-solid";
+import { batch, createEffect, createMemo, createSignal, For, on, onCleanup, Show, type JSX } from "solid-js";
+import { Dynamic } from "solid-js/web";
+import { GitlabBranchPicker } from "./GitlabBranchPicker";
+import { GitlabCommitSummary } from "./GitlabCommitSummary";
+import { GitlabFileViewer } from "./GitlabFileViewer";
+import { RepositoryFileIcon } from "./RepositoryFileIcon";
+import { gitlabApi, GitlabApiError, type GitlabBranch, type GitlabEntry, type GitlabListing } from "./gitlab-api";
+type FolderState = {
+  entries: GitlabEntry[];
+  loading: boolean;
+  error: string | null;
+};
+export function GitlabRepository(props: {
+  endpoint: string;
+  projectUrl: string;
+  revision: number;
+  demo: boolean;
+  onAuthRequired: () => void;
 }) {
-  const [folders, setFolders] = useState<Record<string, FolderState>>({});
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-  const expandedRef = useRef(expanded);
-  const [branch, setBranch] = useState<string | null>(null);
-  const branchRef = useRef<string | null>(null);
-  const [requestedBranch, setRequestedBranch] = useState<string | null>(null);
-  const [branches, setBranches] = useState<GitlabBranch[]>([]);
-  const [branchesLoading, setBranchesLoading] = useState(true);
-  const [branchesError, setBranchesError] = useState<string | null>(null);
-  const [branchesRetry, setBranchesRetry] = useState(0);
-  const [view, setView] = useState<"files" | "history">("files");
-  const [selectedCommit, setSelectedCommit] = useState<GitlabCommit | null>(null);
-  useEffect(() => {
-    const controller = new AbortController();
-    setBranchesLoading(true); setBranchesError(null); setBranches([]);
-    const request = demo ? Promise.resolve({ branches: ["main", "develop"].map((name) => ({ name, default: name === "main", commit: demoCommits(projectUrl, name)[0] })) })
-      : gitlabApi<{ branches: GitlabBranch[] }>(`${endpoint}/branches`, controller.signal);
-    void request.then((value) => { if (!controller.signal.aborted) setBranches(value.branches); })
-      .catch((error) => { if (!controller.signal.aborted) {
-        setBranchesError(error.message || "Could not load branches.");
-        if (error instanceof GitlabApiError && error.code === "GITLAB_AUTH_REQUIRED") onAuthRequired();
-      } }).finally(() => { if (!controller.signal.aborted) setBranchesLoading(false); });
-    return () => controller.abort();
-  }, [endpoint, projectUrl, revision, demo, onAuthRequired, branchesRetry]);
-  const [selected, setSelected] = useState<GitlabEntry | null>(null);
-  const [focused, setFocused] = useState<string | null>(null);
-  const tree = useRef<HTMLUListElement>(null);
-  const loadFolder = useRef<(path: string) => void>(() => {});
-
-  useEffect(() => {
-    let cancelled = false;
-    let currentBranch: string | null = requestedBranch || branchRef.current;
-    const cache: Record<string, FolderState> = Object.create(null);
-    const requests = new Map<string, AbortController>();
-    setFolders({});
-    async function load(path: string) {
-      if (cancelled || cache[path]?.loading || (cache[path] && !cache[path].error)) return;
-      const controller = new AbortController(); requests.set(path, controller);
-      cache[path] = { entries: [], loading: true, error: null }; setFolders({ ...cache });
-      try {
-        const value = demo ? { branch: currentBranch || "main", path, entries: path
-          ? [{ path: `${path}/index.ts`, name: "index.ts", directory: false }]
-          : [{ path: "src", name: "src", directory: true }, { path: "README.md", name: "README.md", directory: false }, { path: "package.json", name: "package.json", directory: false }] }
-          : await gitlabApi<GitlabListing>(`${endpoint}/tree?${new URLSearchParams({ path, ...(currentBranch ? { ref: currentBranch } : {}) })}`, controller.signal);
-        if (cancelled) return;
-        currentBranch = value.branch; branchRef.current = value.branch; setBranch(value.branch);
-        cache[path] = { entries: value.entries, loading: false, error: null }; setFolders({ ...cache });
-        if (!path) setFocused(value.entries[0]?.path ?? null);
-        for (const entry of value.entries)
-          if (entry.directory && expandedRef.current.has(entry.path)) void load(entry.path);
-      } catch (error) {
-        if (cancelled || controller.signal.aborted) return;
-        cache[path] = { entries: [], loading: false, error: error instanceof Error ? error.message : "Could not load the folder." };
-        setFolders({ ...cache });
-        if (error instanceof GitlabApiError && error.code === "GITLAB_AUTH_REQUIRED") onAuthRequired();
-      } finally { requests.delete(path); }
-    }
-    loadFolder.current = (path) => { void load(path); };
-    void load("");
-    return () => { cancelled = true; requests.forEach((controller) => controller.abort()); };
-  }, [endpoint, projectUrl, revision, demo, onAuthRequired, requestedBranch]);
-
+  const [folders, setFolders] = createSignal<Record<string, FolderState>>({});
+  const [expanded, setExpanded] = createSignal<Set<string>>(new Set());
+  const [branch, setBranch] = createSignal<string | null>(null);
+  let branchRef: string | null = null;
+  const [requestedBranch, setRequestedBranch] = createSignal<string | null>(null);
+  const [branches, setBranches] = createSignal<GitlabBranch[]>([]);
+  const [branchesLoading, setBranchesLoading] = createSignal(true);
+  const [branchesError, setBranchesError] = createSignal<string | null>(null);
+  const [branchesRetry, setBranchesRetry] = createSignal(0);
+  const [view, setView] = createSignal<"files" | "history">("files");
+  const [selectedCommit, setSelectedCommit] = createSignal<GitlabCommit | null>(null);
+  createEffect(
+    on(
+      () => [props.endpoint, props.projectUrl, props.revision, props.demo, props.onAuthRequired, branchesRetry()],
+      () => {
+        const controller = new AbortController();
+        setBranchesLoading(true);
+        setBranchesError(null);
+        setBranches([]);
+        const request = props.demo
+          ? Promise.resolve({
+              branches: ["main", "develop"].map((name) => ({
+                name,
+                default: name === "main",
+                commit: demoCommits(props.projectUrl, name)[0],
+              })),
+            })
+          : gitlabApi<{
+              branches: GitlabBranch[];
+            }>(`${props.endpoint}/branches`, controller.signal);
+        void request
+          .then((value) => {
+            if (!controller.signal.aborted) setBranches(value.branches);
+          })
+          .catch((error) => {
+            if (!controller.signal.aborted) {
+              setBranchesError(error.message || "Could not load branches.");
+              if (error instanceof GitlabApiError && error.code === "GITLAB_AUTH_REQUIRED") props.onAuthRequired();
+            }
+          })
+          .finally(() => {
+            if (!controller.signal.aborted) setBranchesLoading(false);
+          });
+        onCleanup(() => controller.abort());
+      },
+    ),
+  );
+  const [selected, setSelected] = createSignal<GitlabEntry | null>(null);
+  const [focused, setFocused] = createSignal<string | null>(null);
+  let tree: HTMLUListElement | null = null;
+  let loadFolder: (path: string) => void = () => {};
+  createEffect(
+    on(
+      () => [props.endpoint, props.projectUrl, props.revision, props.demo, props.onAuthRequired, requestedBranch()],
+      () => {
+        let cancelled = false;
+        let currentBranch: string | null = requestedBranch() || branchRef;
+        const cache: Record<string, FolderState> = Object.create(null);
+        const requests = new Map<string, AbortController>();
+        setFolders({});
+        async function load(path: string) {
+          if (cancelled || cache[path]?.loading || (cache[path] && !cache[path].error)) return;
+          const controller = new AbortController();
+          requests.set(path, controller);
+          cache[path] = { entries: [], loading: true, error: null };
+          setFolders({ ...cache });
+          try {
+            const value = props.demo
+              ? {
+                  branch: currentBranch || "main",
+                  path,
+                  entries: path
+                    ? [
+                        {
+                          path: `${path}/index.ts`,
+                          name: "index.ts",
+                          directory: false,
+                        },
+                      ]
+                    : [
+                        { path: "src", name: "src", directory: true },
+                        {
+                          path: "README.md",
+                          name: "README.md",
+                          directory: false,
+                        },
+                        {
+                          path: "package.json",
+                          name: "package.json",
+                          directory: false,
+                        },
+                      ],
+                }
+              : await gitlabApi<GitlabListing>(
+                  `${props.endpoint}/tree?${new URLSearchParams({ path, ...(currentBranch ? { ref: currentBranch } : {}) })}`,
+                  controller.signal,
+                );
+            if (cancelled) return;
+            currentBranch = value.branch;
+            branchRef = value.branch;
+            setBranch(value.branch);
+            cache[path] = {
+              entries: value.entries,
+              loading: false,
+              error: null,
+            };
+            setFolders({ ...cache });
+            if (!path) setFocused(value.entries[0]?.path ?? null);
+            for (const entry of value.entries) if (entry.directory && expanded().has(entry.path)) void load(entry.path);
+          } catch (error) {
+            if (cancelled || controller.signal.aborted) return;
+            cache[path] = {
+              entries: [],
+              loading: false,
+              error: error instanceof Error ? error.message : "Could not load the folder.",
+            };
+            setFolders({ ...cache });
+            if (error instanceof GitlabApiError && error.code === "GITLAB_AUTH_REQUIRED") props.onAuthRequired();
+          } finally {
+            requests.delete(path);
+          }
+        }
+        loadFolder = (path) => {
+          void load(path);
+        };
+        void load("");
+        onCleanup(() => {
+          cancelled = true;
+          requests.forEach((controller) => controller.abort());
+        });
+      },
+    ),
+  );
   function focusPath(path: string) {
-    let target = tree.current?.querySelector<HTMLElement>(`[data-entry-path="${CSS.escape(path)}"]`);
+    let target = tree?.querySelector<HTMLElement>(`[data-entry-path="${CSS.escape(path)}"]`);
     let parent = path;
     while (!target && parent.includes("/")) {
       parent = parent.slice(0, parent.lastIndexOf("/"));
-      target = tree.current?.querySelector<HTMLElement>(`[data-entry-path="${CSS.escape(parent)}"]`);
+      target = tree?.querySelector<HTMLElement>(`[data-entry-path="${CSS.escape(parent)}"]`);
     }
-    target ??= tree.current?.querySelector<HTMLElement>('[role="treeitem"]');
+    target ??= tree?.querySelector<HTMLElement>('[role="treeitem"]');
     setFocused(target?.dataset.entryPath ?? path);
     target?.focus({ preventScroll: true });
   }
-  function toggle(entry: GitlabEntry, open = !expanded.has(entry.path)) {
-    const next = new Set(expandedRef.current);
-    if (open) { next.add(entry.path); loadFolder.current(entry.path); } else next.delete(entry.path);
-    expandedRef.current = next; setExpanded(next); focusPath(entry.path);
+  function toggle(entry: GitlabEntry, open = !expanded().has(entry.path)) {
+    const next = new Set(expanded());
+    if (open) {
+      next.add(entry.path);
+      loadFolder(entry.path);
+    } else next.delete(entry.path);
+
+    setExpanded(next);
+    focusPath(entry.path);
   }
   function activate(entry: GitlabEntry) {
     focusPath(entry.path);
-    if (entry.directory) toggle(entry); else setSelected(entry);
+    if (entry.directory) toggle(entry);
+    else setSelected(entry);
   }
-  function keyboard(event: KeyboardEvent<HTMLLIElement>, entry: GitlabEntry) {
+  function keyboard(
+    event: KeyboardEvent & {
+      currentTarget: HTMLLIElement;
+    },
+    entry: GitlabEntry,
+  ) {
     if (event.target !== event.currentTarget) return;
-    const rows = [...(tree.current?.querySelectorAll<HTMLElement>('[role="treeitem"]') ?? [])];
+    const rows = [...(tree?.querySelectorAll<HTMLElement>('[role="treeitem"]') ?? [])];
     const index = rows.indexOf(event.currentTarget);
     let target: HTMLElement | undefined | null;
     if (event.key === "ArrowDown") target = rows[Math.min(rows.length - 1, index + 1)];
@@ -106,83 +196,256 @@ export function GitlabRepository({ endpoint, projectUrl, revision, demo, onAuthR
     else if (event.key === "End") target = rows[rows.length - 1];
     else if (event.key === "ArrowRight" && entry.directory) {
       event.preventDefault();
-      if (!expanded.has(entry.path)) toggle(entry, true);
+      if (!expanded().has(entry.path)) toggle(entry, true);
       else target = event.currentTarget.querySelector<HTMLElement>('[role="group"] [role="treeitem"]');
     } else if (event.key === "ArrowLeft") {
       event.preventDefault();
-      if (entry.directory && expanded.has(entry.path)) toggle(entry, false);
+      if (entry.directory && expanded().has(entry.path)) toggle(entry, false);
       else target = event.currentTarget.parentElement?.closest<HTMLElement>('[role="treeitem"]');
-    } else if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(entry); }
-    else if (event.key === "Escape" && selected) { event.preventDefault(); setSelected(null); }
-    if (target) { event.preventDefault(); focusPath(target.dataset.entryPath!); target.scrollIntoView({ block: "nearest" }); }
+    } else if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      activate(entry);
+    } else if (event.key === "Escape" && selected()) {
+      event.preventDefault();
+      setSelected(null);
+    }
+    if (target) {
+      event.preventDefault();
+      focusPath(target.dataset.entryPath!);
+      target.scrollIntoView({ block: "nearest" });
+    }
   }
-  function click(event: MouseEvent<HTMLLIElement>, entry: GitlabEntry) {
-    if ((event.target as Element).closest('[role="treeitem"]') === event.currentTarget) { event.stopPropagation(); activate(entry); }
+  function click(
+    event: MouseEvent & {
+      currentTarget: HTMLLIElement;
+    },
+    entry: GitlabEntry,
+  ) {
+    if ((event.target as Element).closest('[role="treeitem"]') === event.currentTarget) {
+      event.stopPropagation();
+      activate(entry);
+    }
   }
   function status(path: string, depth: number) {
-    const state = folders[path];
-    return state?.error ? <li role="none" className="gitlab-tree-status" style={{ paddingLeft: depth * 14 + 6 }}>
-      <p role="alert">{state.error}</p><button className="text-button" onClick={(event) => { event.stopPropagation(); loadFolder.current(path); }}>Retry</button>
-    </li> : !state || state.loading ? <li role="none" className="gitlab-tree-status" style={{ paddingLeft: depth * 14 + 6 }}>
-      <span role="status"><LoaderCircle size={13} className="spin" aria-hidden="true" />Loading…</span>
-    </li> : !state.entries.length ? <li role="none" className="gitlab-tree-status" style={{ paddingLeft: depth * 14 + 6 }}>This folder is empty</li> : null;
+    const state = createMemo(() => folders()[path]);
+    return state()?.error ? (
+      <li role="none" class="gitlab-tree-status" style={{ "padding-left": `${depth * 14 + 6}px` }}>
+        <p role="alert">{state().error}</p>
+        <button
+          class="text-button"
+          onClick={(event) => {
+            event.stopPropagation();
+            loadFolder(path);
+          }}
+        >
+          Retry
+        </button>
+      </li>
+    ) : !state() || state().loading ? (
+      <li role="none" class="gitlab-tree-status" style={{ "padding-left": `${depth * 14 + 6}px` }}>
+        <span role="status">
+          <LoaderCircle size={13} class="spin" aria-hidden="true" />
+          Loading…
+        </span>
+      </li>
+    ) : !state().entries.length ? (
+      <li role="none" class="gitlab-tree-status" style={{ "padding-left": `${depth * 14 + 6}px` }}>
+        This folder is empty
+      </li>
+    ) : null;
   }
-  function children(path: string, depth: number): React.ReactNode {
-    const state = folders[path];
-    if (!state || state.loading || state.error || !state.entries.length) return status(path, depth);
-    return state.entries.map((entry) => {
-      const open = expanded.has(entry.path);
-      const Icon = open ? FolderOpen : Folder;
-      return <li key={entry.path} role="treeitem" data-entry-path={entry.path} tabIndex={focused === entry.path ? 0 : -1}
-        aria-label={entry.name} aria-level={depth + 1} aria-expanded={entry.directory ? open : undefined}
-        aria-selected={!entry.directory ? selected?.path === entry.path : undefined}
-        onFocus={(event) => { if (event.target === event.currentTarget) setFocused(entry.path); }}
-        onClick={(event) => click(event, entry)} onKeyDown={(event) => keyboard(event, entry)}>
-        <div className="gitlab-tree-row" style={{ paddingLeft: depth * 14 + 6 }} title={entry.path}>
-          {entry.directory ? <ChevronRight className={open ? "expanded" : undefined} size={13} aria-hidden="true" /> : <span className="gitlab-tree-spacer" />}
-          {entry.directory ? <Icon size={15} strokeWidth={1.6} aria-hidden="true" /> : <RepositoryFileIcon name={entry.name} />}<span className="gitlab-tree-name">{entry.name}</span>
-        </div>
-        {entry.directory && open && <ul role="group">{children(entry.path, depth + 1)}</ul>}
-      </li>;
+  function children(path: string, depth: number): JSX.Element {
+    const state = createMemo(() => folders()[path]);
+    if (!state() || state().loading || state().error || !state().entries.length) return status(path, depth);
+    return (
+      <For each={state().entries}>
+        {(entry) => {
+          const open = createMemo(() => expanded().has(entry.path));
+          const Icon = createMemo(() => (open() ? FolderOpen : Folder));
+          return (
+            <li
+              role="treeitem"
+              data-entry-path={entry.path}
+              tabindex={focused() === entry.path ? 0 : -1}
+              aria-label={entry.name}
+              aria-level={depth + 1}
+              aria-expanded={entry.directory ? open() : undefined}
+              aria-selected={!entry.directory ? selected()?.path === entry.path : undefined}
+              onFocus={(event) => {
+                if (event.target === event.currentTarget) setFocused(entry.path);
+              }}
+              onClick={(event) => click(event, entry)}
+              onKeyDown={(event) => keyboard(event, entry)}
+            >
+              <div class="gitlab-tree-row" style={{ "padding-left": `${depth * 14 + 6}px` }} title={entry.path}>
+                {entry.directory ? (
+                  <ChevronRight class={open() ? "expanded" : undefined} size={13} aria-hidden="true" />
+                ) : (
+                  <span class="gitlab-tree-spacer" />
+                )}
+                {entry.directory ? (
+                  <Dynamic component={Icon()} size={15} stroke-width={1.6} aria-hidden="true" />
+                ) : (
+                  <RepositoryFileIcon name={entry.name} />
+                )}
+                <span class="gitlab-tree-name">{entry.name}</span>
+              </div>
+              {entry.directory && open() && <ul role="group">{children(entry.path, depth + 1)}</ul>}
+            </li>
+          );
+        }}
+      </For>
+    );
+  }
+  const activeBranch = createMemo(
+    () => requestedBranch() || branch() || branches().find((item) => item.default)?.name || "",
+  );
+  const commit = createMemo(() => branches().find((item) => item.name === activeBranch())?.commit ?? null);
+  const displayedCommit = createMemo(() => (view() === "history" ? selectedCommit() : null) || commit());
+  function toggleHistory() {
+    batch(() => {
+      if (view() === "history") setView("files");
+      else {
+        setSelectedCommit((previous) => previous || commit());
+        setView("history");
+      }
     });
   }
-  const activeBranch = requestedBranch || branch || branches.find((item) => item.default)?.name || "";
-  const commit = branches.find((item) => item.name === activeBranch)?.commit;
-  const displayedCommit = (view === "history" ? selectedCommit : null) || commit || null;
-  function toggleHistory() {
-    if (view === "history") setView("files");
-    else { setSelectedCommit((previous) => previous || commit || null); setView("history"); }
-  }
-  return <div className="gitlab-browser">
-      <header className="gitlab-repo-header">
-        <div className="gitlab-repo-toolbar">
-          <GitlabBranchPicker branches={branches} value={activeBranch} loading={branchesLoading} onChange={(next) => {
-            setSelected(null); setSelectedCommit(null); setFolders({}); setFocused(null);
-            const empty = new Set<string>(); expandedRef.current = empty; setExpanded(empty);
-            branchRef.current = next; setBranch(next); setRequestedBranch(next);
-          }} />
-          {branchesError && <button className="gitlab-branches-error" title={branchesError} onClick={() => setBranchesRetry((value) => value + 1)}>Retry loading branches</button>}
+  return (
+    <div class="gitlab-browser">
+      <header class="gitlab-repo-header">
+        <div class="gitlab-repo-toolbar">
+          <GitlabBranchPicker
+            branches={branches()}
+            value={activeBranch()}
+            loading={branchesLoading()}
+            onChange={(next) =>
+              batch(() => {
+                setSelected(null);
+                setSelectedCommit(null);
+                setFolders({});
+                setFocused(null);
+                setExpanded(new Set<string>());
+                branchRef = next;
+                setBranch(next);
+                setRequestedBranch(next);
+              })
+            }
+          />
+          {branchesError() && (
+            <button
+              class="gitlab-branches-error"
+              title={branchesError()!}
+              onClick={() => setBranchesRetry((value) => value + 1)}
+            >
+              Retry loading branches
+            </button>
+          )}
         </div>
-        <GitlabCommitSummary key={displayedCommit?.id || activeBranch} commit={displayedCommit} loading={branchesLoading}
-          historyOpen={view === "history"} historyDisabled={!activeBranch} onToggleHistory={toggleHistory}
-          onOpen={() => { if (displayedCommit) { setView("history"); setSelectedCommit(displayedCommit); } }} />
+        <GitlabCommitSummary
+          commit={displayedCommit()}
+          loading={branchesLoading()}
+          historyOpen={view() === "history"}
+          historyDisabled={!activeBranch()}
+          onToggleHistory={toggleHistory}
+          onOpen={() => {
+            const current = displayedCommit();
+            if (current)
+              batch(() => {
+                setView("history");
+                setSelectedCommit(current);
+              });
+          }}
+        />
       </header>
-      <aside className="gitlab-repo-sidebar" aria-label="GitLab repository">
-        {view === "history" ? activeBranch ? <GitlabHistory key={`${activeBranch}:${revision}`} endpoint={endpoint} branch={activeBranch} projectUrl={projectUrl}
-          demo={demo} selected={selectedCommit?.id ?? null} onSelect={setSelectedCommit} onAuthRequired={onAuthRequired} />
-          : <div className="gitlab-history-pane"><p className="gitlab-history-status">{branchesLoading ? "Loading branches…" : "No branch available to view history."}</p></div>
-          : <nav className="gitlab-tree-pane" aria-label="Repository files">
-          <ul ref={tree} className="gitlab-tree" role="tree" aria-label="GitLab files">{children("", 0)}</ul>
-        </nav>}
+      <aside class="gitlab-repo-sidebar" aria-label="GitLab repository">
+        {view() === "history" ? (
+          activeBranch() ? (
+            <Show when={`${activeBranch()}:${props.revision}`} keyed>
+              {(_key) => (
+                <GitlabHistory
+                  endpoint={props.endpoint}
+                  branch={activeBranch()}
+                  projectUrl={props.projectUrl}
+                  demo={props.demo}
+                  selected={selectedCommit()?.id ?? null}
+                  onSelect={setSelectedCommit}
+                  onAuthRequired={props.onAuthRequired}
+                />
+              )}
+            </Show>
+          ) : (
+            <div class="gitlab-history-pane">
+              <p class="gitlab-history-status">
+                {branchesLoading() ? "Loading branches…" : "No branch available to view history."}
+              </p>
+            </div>
+          )
+        ) : (
+          <nav class="gitlab-tree-pane" aria-label="Repository files">
+            <ul ref={(element) => (tree = element)} class="gitlab-tree" role="tree" aria-label="GitLab files">
+              {children("", 0)}
+            </ul>
+          </nav>
+        )}
       </aside>
-      <div className={`gitlab-preview-pane${view === "files" ? " gitlab-preview-file" : ""}`}>
-        <div className="gitlab-preview-content">
-        {view === "history" ? selectedCommit ? <GitlabCommitViewer key={`${activeBranch}:${selectedCommit.id}:${revision}`} commit={selectedCommit} endpoint={endpoint}
-          demo={demo} onAuthRequired={onAuthRequired} /> : <div className="gitlab-preview-empty"><span>Select a commit from the history</span></div>
-          : selected ? <GitlabFileViewer key={`${activeBranch}:${selected.path}:${revision}`} entry={selected} endpoint={endpoint} projectUrl={projectUrl}
-          branch={branch} demo={demo} embedded onClose={() => { const path = selected.path; setSelected(null); focusPath(path); }} />
-          : <div className="gitlab-preview-empty"><span>Select a file from the tree</span></div>}
+      <div class={`gitlab-preview-pane${view() === "files" ? " gitlab-preview-file" : ""}`}>
+        <div class="gitlab-preview-content">
+          {view() === "history" ? (
+            <Show
+              when={selectedCommit()}
+              keyed
+              fallback={
+                <div class="gitlab-preview-empty">
+                  <span>Select a commit from the history</span>
+                </div>
+              }
+            >
+              {(current) => (
+                <Show when={`${activeBranch()}:${current.id}:${props.revision}`} keyed>
+                  {(_key) => (
+                    <GitlabCommitViewer
+                      commit={current}
+                      endpoint={props.endpoint}
+                      demo={props.demo}
+                      onAuthRequired={props.onAuthRequired}
+                    />
+                  )}
+                </Show>
+              )}
+            </Show>
+          ) : (
+            <Show
+              when={selected()}
+              keyed
+              fallback={
+                <div class="gitlab-preview-empty">
+                  <span>Select a file from the tree</span>
+                </div>
+              }
+            >
+              {(entry) => (
+                <Show when={`${activeBranch()}:${entry.path}:${props.revision}`} keyed>
+                  {(_key) => (
+                    <GitlabFileViewer
+                      entry={entry}
+                      endpoint={props.endpoint}
+                      projectUrl={props.projectUrl}
+                      branch={branch()}
+                      demo={props.demo}
+                      embedded
+                      onClose={() => {
+                        setSelected(null);
+                        focusPath(entry.path);
+                      }}
+                    />
+                  )}
+                </Show>
+              )}
+            </Show>
+          )}
         </div>
       </div>
-    </div>;
+    </div>
+  );
 }

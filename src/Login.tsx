@@ -1,81 +1,75 @@
-import { useState, type FormEvent } from "react";
-import { ArrowUpRight, GraduationCap, LoaderCircle, ShieldCheck } from "lucide-react";
-
-export function Login({
-  error,
-  busy,
-  onLogin,
-  onDemo,
-}: {
+import { ArrowUpRight, GraduationCap, LoaderCircle, ShieldCheck } from "lucide-solid";
+import { createSignal } from "solid-js";
+export function Login(props: {
   error: string | null;
   busy: boolean;
   onLogin: (username: string, password: string) => Promise<void>;
   onDemo: () => void;
 }) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  async function submit(event: FormEvent) {
+  const [username, setUsername] = createSignal("");
+  const [password, setPassword] = createSignal("");
+  async function submit(event: SubmitEvent) {
     event.preventDefault();
     try {
-      await onLogin(username, password);
+      await props.onLogin(username(), password());
     } finally {
       setPassword("");
     }
   }
   return (
-    <div className="login-wrap">
-      <section className="login-card">
-        <span className="login-symbol">
-          <GraduationCap size={29} strokeWidth={1.6} />
+    <div class="login-wrap">
+      <section class="login-card">
+        <span class="login-symbol">
+          <GraduationCap size={29} stroke-width={1.6} />
         </span>
         <h1>Sign in to Stud.IP</h1>
-        <p className="login-description">
+        <p class="login-description">
           Hochschule Flensburg.
           <br />
           Use your Stud.IP username and password.
         </p>
         <form onSubmit={submit}>
-          <label htmlFor="username">Username</label>
+          <label for="username">Username</label>
           <input
             id="username"
             name="username"
-            autoComplete="username"
-            autoCapitalize="none"
-            spellCheck={false}
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            autocomplete="username"
+            autocapitalize="none"
+            spellcheck={false}
+            value={username()}
+            onInput={(e) => setUsername(e.target.value)}
             placeholder="Your university username"
-            maxLength={128}
-            disabled={busy}
+            maxlength={128}
+            disabled={props.busy}
             required
-            autoFocus
+            autofocus
           />
-          <label htmlFor="password">Password</label>
+          <label for="password">Password</label>
           <input
             id="password"
             name="password"
             type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            autocomplete="current-password"
+            value={password()}
+            onInput={(e) => setPassword(e.target.value)}
             placeholder="Stud.IP password"
-            maxLength={1024}
-            disabled={busy}
+            maxlength={1024}
+            disabled={props.busy}
             required
           />
-          {error && (
-            <p className="form-error" role="alert">
-              {error}
+          {props.error && (
+            <p class="form-error" role="alert">
+              {props.error}
             </p>
           )}
           <button
-            className="primary-button login-submit"
+            class="primary-button login-submit"
             type="submit"
-            disabled={busy || !username.trim() || !password}
+            disabled={props.busy || !username().trim() || !password()}
           >
-            {busy ? (
+            {props.busy ? (
               <>
-                <LoaderCircle size={16} className="spin" />
+                <LoaderCircle size={16} class="spin" />
                 Signing in…
               </>
             ) : (
@@ -86,7 +80,7 @@ export function Login({
             )}
           </button>
         </form>
-        <p className="login-privacy">
+        <p class="login-privacy">
           <ShieldCheck size={15} />
           <span>
             Your password is not stored.
@@ -95,7 +89,7 @@ export function Login({
           </span>
         </p>
       </section>
-      <button className="demo-link" onClick={onDemo} disabled={busy}>
+      <button class="demo-link" onClick={props.onDemo} disabled={props.busy}>
         Try demo
       </button>
     </div>

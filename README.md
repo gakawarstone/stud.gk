@@ -189,6 +189,8 @@ The sign-in form has been checked against the current Hochschule Flensburg insta
 
 ## Checks
 
+[SolidJS migration measurements](docs/solidjs-migration.md).
+
 The GitLab interface check uses a separate temporary profile and a mock API without accessing private projects. After `npm run build`, run `xvfb-run -a npm run test:gitlab -- --no-sandbox --ozone-platform=x11`. It checks adding several projects to one course, duplicate links, switching projects, editing and unlinking the selected project, persistence after reload, token isolation between servers, the folder tree, branch switching, paginated history and diffs, retries after errors, line numbers, renames, binary and large files, highlighting, Markdown, scrolling, and a narrow window. GitLab PDFs use the shared reader, with checks for retries, text selection, page navigation, zoom, colors, download links, fullscreen mode, narrow layouts, and returning focus to the tree.
 
 ```sh
@@ -198,15 +200,16 @@ npm run build
 
 The build includes `npm run typecheck`, which runs strict TypeScript checks for the interface and checks server JavaScript through `checkJs`. Shared types for API state, courses, materials, and folders are in `shared/studip.ts`. The server currently uses non-strict mode so annotations can be added gradually.
 
-Every PR targeting `master` runs tests, type checks, a build, and three interface checks under Xvfb. After building locally, you can run them with:
+Every PR targeting `master` runs tests, type checks, a build, and four interface checks under Xvfb. After building locally, you can run them with:
 
 ```sh
 xvfb-run -a npm run test:desktop -- --no-sandbox --ozone-platform=x11
 xvfb-run -a npm run test:gitlab -- --no-sandbox --ozone-platform=x11
 xvfb-run -a npm run test:session -- --no-sandbox --ozone-platform=x11
+xvfb-run -a npm run test:ui -- --no-sandbox --ozone-platform=x11
 ```
 
-The last check uses mock API responses and controlled timers. It checks slow polling, a late response after sign-out, session expiry, and switching to demo mode. These checks do not need real credentials.
+The `test:session` check uses mock API responses and controlled timers. It checks slow polling, a late response after sign-out, session expiry, and switching to demo mode. These checks do not need real credentials.
 
 Tests cover form sign-in with CSRF, redirects and cookies, incorrect passwords, account isolation, session ID rotation, recovery after a restart, sign-out, expiry, encryption, sign-in rate limits, and change detection. Download checks cover account permissions, binary streaming, byte ranges, cancellation, and read marks. Cache checks cover file reuse, recovery after a restart, account separation, version and permission changes, eviction of old files, and cleanup of incomplete transfers. PDF color checks cover light and dark pages, mixed backgrounds, syntax colors, text antialiasing, and high pixel density.
 

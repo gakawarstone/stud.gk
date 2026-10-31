@@ -1,32 +1,22 @@
-import { useEffect, useRef, useState } from "react";
-import { FileText, Film, LoaderCircle } from "lucide-react";
+import { FileText, Film, LoaderCircle } from "lucide-solid";
+import { createEffect, createMemo, createSignal, on, onCleanup, onMount, Show } from "solid-js";
 import { PdfFileIcon } from "./PdfFileIcon";
-
 const cache = new Map<string, string>();
 export function clearThumbnailCache() {
   cache.clear();
 }
-
-export function FileThumbnail({
-  url,
-  version,
-  kind,
-}: {
-  url: string;
-  version: string;
-  kind: "pdf" | "image" | "video";
-}) {
-  const key = `${url}:${version}`;
-  const container = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-  const [result, setResult] = useState<{ key: string; src: string } | null>(
-    null,
-  );
-  const [failedKey, setFailedKey] = useState<string | null>(null);
-  const src = cache.get(key) || (result?.key === key ? result.src : null);
-  const failed = failedKey === key;
-
-  useEffect(() => {
+export function FileThumbnail(props: { url: string; version: string; kind: "pdf" | "image" | "video" }) {
+  const key = createMemo(() => `${props.url}:${props.version}`);
+  let container: HTMLDivElement | null = null;
+  const [visible, setVisible] = createSignal(false);
+  const [result, setResult] = createSignal<{
+    key: string;
+    src: string;
+  } | null>(null);
+  const [failedKey, setFailedKey] = createSignal<string | null>(null);
+  const src = createMemo(() => cache.get(key()) || (result()?.key === key() ? result()!.src : null));
+  const failed = createMemo(() => failedKey() === key());
+  onMount(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -36,53 +26,66 @@ export function FileThumbnail({
       },
       { rootMargin: "120px" },
     );
-    if (container.current) observer.observe(container.current);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!visible || src || failed || kind === "image") return;
-    const controller = new AbortController();
-    const thumbnail = kind === "video"
-      ? import("./video-thumbnails").then(({ renderVideoThumbnail }) => renderVideoThumbnail(url, controller.signal))
-      : import("./pdf-thumbnails").then(({ renderPdfThumbnail }) => renderPdfThumbnail(url, controller.signal));
-    void thumbnail
-      .then((image) => {
-        if (controller.signal.aborted) return;
-        // Keep only small rendered images in memory, never the original documents.
-        if (cache.size >= 100) cache.delete(cache.keys().next().value!);
-        cache.set(key, image);
-        setResult({ key, src: image });
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setFailedKey(key);
-      });
-    return () => controller.abort();
-  }, [visible, key, src, failed, kind, url]);
-
+    if (container) observer.observe(container);
+    onCleanup(() => observer.disconnect());
+  });
+  createEffect(
+    on(
+      () => [visible(), key(), src(), failed(), props.kind, props.url],
+      () => {
+        if (!visible() || src() || failed() || props.kind === "image") return;
+        const controller = new AbortController();
+        const thumbnail =
+          props.kind === "video"
+            ? import("./video-thumbnails").then(({ renderVideoThumbnail }) =>
+                renderVideoThumbnail(props.url, controller.signal),
+              )
+            : import("./pdf-thumbnails").then(({ renderPdfThumbnail }) =>
+                renderPdfThumbnail(props.url, controller.signal),
+              );
+        void thumbnail
+          .then((image) => {
+            if (controller.signal.aborted) return;
+            // Keep only small rendered images in memory, never the original documents.
+            if (cache.size >= 100) cache.delete(cache.keys().next().value!);
+            cache.set(key(), image);
+            setResult({ key: key(), src: image });
+          })
+          .catch(() => {
+            if (!controller.signal.aborted) setFailedKey(key());
+          });
+        onCleanup(() => controller.abort());
+      },
+    ),
+  );
   return (
-    <div className={`file-preview thumbnail-preview ${kind}`} ref={container}>
-      {failed ? (
-        <span className="thumbnail-fallback">
-          {kind === "pdf" ? <PdfFileIcon size={28} /> : kind === "video" ? <Film size={28} strokeWidth={1.4} /> : <FileText size={28} strokeWidth={1.4} />}
+    <div class={`file-preview thumbnail-preview ${props.kind}`} ref={(element) => (container = element)}>
+      {failed() ? (
+        <span class="thumbnail-fallback">
+          {props.kind === "pdf" ? (
+            <PdfFileIcon size={28} />
+          ) : props.kind === "video" ? (
+            <Film size={28} stroke-width={1.4} />
+          ) : (
+            <FileText size={28} stroke-width={1.4} />
+          )}
           <span>Preview unavailable</span>
         </span>
-      ) : visible && (kind === "image" || src) ? (
-        <img
-          key={key}
-          className="file-thumbnail"
-          src={kind === "image" ? url : src!}
-          alt=""
-          loading="lazy"
-          draggable={false}
-          onError={() => setFailedKey(key)}
-        />
+      ) : visible() && (props.kind === "image" || src()) ? (
+        <Show when={key()} keyed>
+          {(_key) => (
+            <img
+              class="file-thumbnail"
+              src={props.kind === "image" ? props.url : src()!}
+              alt=""
+              loading="lazy"
+              draggable={false}
+              onError={() => setFailedKey(key())}
+            />
+          )}
+        </Show>
       ) : (
-        <LoaderCircle
-          className="thumbnail-loading spin"
-          size={20}
-          aria-label="Loading preview"
-        />
+        <LoaderCircle class="thumbnail-loading spin" size={20} aria-label="Loading preview" />
       )}
     </div>
   );

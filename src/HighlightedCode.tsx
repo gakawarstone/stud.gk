@@ -1,17 +1,36 @@
-import { useEffect, useState } from "react";
-
-export function HighlightedCode({ content, language }: { content: string; language: string }) {
-  const [html, setHtml] = useState<{ content: string; language: string; value: string } | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    void import("./code-highlight").then(({ highlightCode }) => {
-      const value = highlightCode(content, language);
-      if (!cancelled) setHtml(value === null ? null : { content, language, value });
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [content, language]);
+import { createEffect, createSignal, on, onCleanup } from "solid-js";
+export function HighlightedCode(props: { content: string; language: string }) {
+  const [html, setHtml] = createSignal<{
+    content: string;
+    language: string;
+    value: string;
+  } | null>(null);
+  createEffect(
+    on(
+      () => [props.content, props.language],
+      () => {
+        let cancelled = false;
+        void import("./code-highlight")
+          .then(({ highlightCode }) => {
+            const value = highlightCode(props.content, props.language);
+            if (!cancelled)
+              setHtml(value === null ? null : { content: props.content, language: props.language, value });
+          })
+          .catch(() => {});
+        onCleanup(() => {
+          cancelled = true;
+        });
+      },
+    ),
+  );
   // highlight.js escapes source text before adding its own token spans.
-  return html?.content === content && html.language === language
-    ? <code className="gitlab-code hljs" dangerouslySetInnerHTML={{ __html: html.value }} />
-    : <code className="gitlab-code">{content}</code>;
+  return (
+    <>
+      {html()?.content === props.content && html()!.language === props.language ? (
+        <code class="gitlab-code hljs" innerHTML={html()!.value} />
+      ) : (
+        <code class="gitlab-code">{props.content}</code>
+      )}
+    </>
+  );
 }

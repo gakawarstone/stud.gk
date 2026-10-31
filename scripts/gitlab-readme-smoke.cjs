@@ -1,4 +1,5 @@
 const { app, BrowserWindow } = require("electron");
+app.on("window-all-closed", () => {});
 const assert = require("node:assert/strict");
 const { mkdtemp, readFile, writeFile, rm } = require("node:fs/promises");
 const { tmpdir } = require("node:os");
@@ -130,6 +131,7 @@ async function wheelOverDiff(window, deltaX, deltaY) {
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } });
   if (process.env.CAMPUS_SMOKE_PDF_SCREENSHOT || process.env.CAMPUS_SMOKE_SCREENSHOT || process.env.CAMPUS_SMOKE_CODE_SCREENSHOT
     || process.env.CAMPUS_SMOKE_HISTORY_SCREENSHOT || process.env.CAMPUS_SMOKE_KOTLIN_DIFF_SCREENSHOT) window.showInactive();
+  const rendererErrors = require("./renderer-errors.cjs")(window);
   await window.loadURL(runtime.url);
   await waitFor(window, `document.querySelector('#username') !== null`);
   await fill(window, "#username", "fixture");
@@ -163,6 +165,11 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   await window.webContents.executeJavaScript(`document.querySelector('.gitlab-token-form').requestSubmit()`);
   await waitFor(window, `document.querySelector('[role="treeitem"][data-entry-path="README.md"]') !== null`);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelectorAll('[role="treeitem"]').length`), 3);
+  assert.ok(await window.webContents.executeJavaScript(`(() => {
+    const picker = document.querySelector('.gitlab-project-trigger').getBoundingClientRect();
+    const settings = document.querySelector('button[aria-label="GitLab settings"]').getBoundingClientRect();
+    return picker.right <= settings.left;
+  })()`), "The project picker stays before settings in the course toolbar");
 
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-files, .gitlab-panel, .gitlab-readme-preview')`), null);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('.gitlab-preview-empty').textContent`), "Select a file from the tree");
@@ -574,6 +581,7 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   await waitFor(window, `document.querySelector('.demo-link') !== null`);
   await window.webContents.executeJavaScript(`document.querySelector('.demo-link').click()`);
   await waitFor(window, `Number(document.querySelector('.gitlab-project-picker')?.dataset.projectCount) === 2`);
+  assert.deepEqual(rendererErrors, [], "No uncaught renderer exceptions");
   console.log(JSON.stringify({ result: "passed", root, checks: "embedded PDF rendering, retry, theme, pages, zoom, fullscreen, narrow controls, Escape focus, nested tree, folder cache/refresh, keyboard selection, inline highlighted code, compact commit strip, SHA copy, history toggle, date-grouped compact history, syntax-highlighted TypeScript and Kotlin diffs, hidden scrollbars, native wheel scrolling through long and wide diffs, commit history and diff pagination, diff retry, line numbers, rename/binary/large patches, branch changes, narrow layout, safe diff text, Markdown, multiple projects per course, duplicate rejection, compact header picker, keyboard project switching, selected project editing and unlinking, cross-server auth isolation, reload persistence, demo storage migration, shared token, encrypted account tokens" }));
   window.destroy();
   await runtime.close();
