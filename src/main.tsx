@@ -14,6 +14,7 @@ import {
   LayoutGrid,
   LoaderCircle,
   LogOut,
+  Search,
   TriangleAlert,
 } from "lucide-solid";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
@@ -22,6 +23,7 @@ import type { Change, Material } from "../shared/studip";
 import { CourseSections } from "./CourseSections";
 import { CourseSidebar } from "./CourseSidebar";
 import { FileThumbnail } from "./FileThumbnail";
+import { FileSearch } from "./FileSearch";
 import { FolderExplorer } from "./FolderExplorer";
 import { GitlabProject } from "./GitlabProject";
 import { Login } from "./Login";
@@ -105,6 +107,7 @@ function App() {
   const [selectedCourseId, setSelectedCourseId] = createSignal(courseFromHash());
   const [selectedTab, setSelectedTab] = createSignal(courseTabFromHash());
   const [selectedFolderId, setSelectedFolderId] = createSignal(folderFromHash());
+  const [fileQuery, setFileQuery] = createSignal("");
   const [fileView, setFileView] = createSignal<"all" | "folders">(
     (() => {
       if (folderFromHash()) return "folders";
@@ -116,6 +119,12 @@ function App() {
     })(),
   );
   const [folderRevision, setFolderRevision] = createSignal(0);
+  createEffect(
+    on(
+      () => [selectedCourseId(), selectedTab(), selectedFolderId(), fileView(), phase()],
+      () => setFileQuery(""),
+    ),
+  );
   let initialFolderCourse: (string | null) | null = null;
   const [folderState, setFolderState] = createSignal<{
     courseId: string;
@@ -276,6 +285,10 @@ function App() {
   );
   const folders = createMemo(() => (fileView() === "folders" ? (folderListing()?.folders ?? []) : []));
   const files = createMemo(() => (fileView() === "folders" ? (folderListing()?.files ?? []) : courseFiles()));
+  const normalizedFileQuery = createMemo(() => fileQuery().trim().toLocaleLowerCase());
+  const matchingFiles = createMemo(() =>
+    files().filter((file) => file.title.toLocaleLowerCase().includes(normalizedFileQuery())),
+  );
   const linkedProjects = createMemo(() => {
     const course = selectedCourse(),
       projects = data()?.gitlabProjects;
@@ -338,25 +351,34 @@ function App() {
               </h1>
             </nav>
             {selectedTab() === "files" && (
-              <div class="file-view-switch" role="group" aria-label="File view">
-                <button
-                  type="button"
-                  aria-pressed={fileView() === "all"}
-                  aria-label="All files"
-                  title="All files"
-                  onClick={() => changeFileView("all")}
-                >
-                  <LayoutGrid size={15} aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={fileView() === "folders"}
-                  aria-label="Folders"
-                  title="Folders"
-                  onClick={() => changeFileView("folders")}
-                >
-                  <FolderTree size={15} aria-hidden="true" />
-                </button>
+              <div class="course-file-tools">
+                <FileSearch
+                  query={fileQuery()}
+                  onQuery={setFileQuery}
+                  count={matchingFiles().length}
+                  total={files().length}
+                  inFolder={fileView() === "folders"}
+                />
+                <div class="file-view-switch" role="group" aria-label="File view">
+                  <button
+                    type="button"
+                    aria-pressed={fileView() === "all"}
+                    aria-label="All files"
+                    title="All files"
+                    onClick={() => changeFileView("all")}
+                  >
+                    <LayoutGrid size={15} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={fileView() === "folders"}
+                    aria-label="Folders"
+                    title="Folders"
+                    onClick={() => changeFileView("folders")}
+                  >
+                    <FolderTree size={15} aria-hidden="true" />
+                  </button>
+                </div>
               </div>
             )}
             {selectedTab() === "nextcloud" && <div class="nextcloud-toolbar" ref={setNextcloudToolbar} />}
@@ -633,7 +655,7 @@ function App() {
                       </For>
                     )}
                     {selectedCourse() && (
-                      <For each={files()}>
+                      <For each={matchingFiles()}>
                         {(file) => {
                           const appearance = createMemo(() => fileAppearance(file.title));
                           const date = createMemo(() => materialDate(file));
@@ -729,7 +751,7 @@ function App() {
                       </For>
                     )}
                     {(selectedCourse()
-                      ? !files().length && (fileView() === "all" || Boolean(folderListing()))
+                      ? !matchingFiles().length && (fileView() === "all" || Boolean(folderListing()))
                       : !orderedCourses().length) && (
                       <div class="empty">
                         <span>
@@ -737,6 +759,8 @@ function App() {
                             <LoaderCircle class="spin" size={28} />
                           ) : syncError() || !data()?.lastSync ? (
                             <TriangleAlert size={28} />
+                          ) : normalizedFileQuery() ? (
+                            <Search size={28} />
                           ) : (
                             <FileText size={28} />
                           )}
@@ -747,11 +771,13 @@ function App() {
                             : syncError() || !data()?.lastSync
                               ? "Could not check courses"
                               : selectedCourse()
-                                ? fileView() === "folders"
-                                  ? folders().length
-                                    ? "Select a subfolder"
-                                    : "This folder is empty"
-                                  : "No files yet"
+                                ? normalizedFileQuery()
+                                  ? "No matching files"
+                                  : fileView() === "folders"
+                                    ? folders().length
+                                      ? "Select a subfolder"
+                                      : "This folder is empty"
+                                    : "No files yet"
                                 : "No courses yet"}
                         </h2>
                         <p>
@@ -762,7 +788,15 @@ function App() {
                               Check again
                             </button>
                           ) : selectedCourse() ? (
-                            fileView() === "folders" ? (
+                            normalizedFileQuery() ? (
+                              <>
+                                Try a different filename or{" "}
+                                <button class="empty-link file-search-reset" onClick={() => setFileQuery("")}>
+                                  clear the search
+                                </button>
+                                .
+                              </>
+                            ) : fileView() === "folders" ? (
                               folders().length ? (
                                 "Subfolders are listed on the left."
                               ) : (

@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.server.json",
     "test:session": "env -u ELECTRON_RUN_AS_NODE electron scripts/session-smoke.cjs",
     "test:ui": "env -u ELECTRON_RUN_AS_NODE electron scripts/solid-ui-smoke.cjs",
+    "test:search": "env -u ELECTRON_RUN_AS_NODE electron scripts/file-search-smoke.cjs",
     "benchmark:ui": "env -u ELECTRON_RUN_AS_NODE electron scripts/ui-benchmark.cjs"
   },
   "keywords": [],
