@@ -346,6 +346,70 @@ input::placeholder {
   min-width: 240px;
   margin-bottom: 0;
 }
+.course-file-tools {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 12px;
+  min-width: 0;
+}
+.file-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: clamp(190px, 24vw, 320px);
+  min-height: 34px;
+  padding: 5px 8px 5px 10px;
+  border: 1px solid var(--surface0);
+  border-radius: 8px;
+  background: var(--mantle);
+  color: var(--muted);
+}
+.file-search:focus-within {
+  border-color: var(--mauve);
+  color: var(--mauve);
+}
+.file-search > svg { flex-shrink: 0; }
+.file-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+}
+.file-search input:focus-visible { outline: none; }
+.file-search input::placeholder { color: var(--muted); }
+.file-search input::-webkit-search-cancel-button { display: none; }
+.file-search-count {
+  flex-shrink: 0;
+  color: var(--subtext);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.file-search kbd {
+  flex-shrink: 0;
+  padding: 2px 4px;
+  border: 1px solid var(--surface0);
+  border-radius: 4px;
+  color: var(--muted);
+  font: inherit;
+  font-size: 9px;
+}
+.file-search button {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 4px;
+  color: var(--subtext);
+}
+.file-search button:hover { background: var(--surface0); color: var(--text); }
+.file-search-reset { padding: 0; }
 .file-view-switch {
   display: inline-flex;
   flex-shrink: 0;
@@ -792,6 +856,10 @@ input::placeholder {
   }
   .header--course .account { margin-left: auto; }
   .header--course .course-toolbar { order: 1; flex-basis: 100%; }
+  .header--course .course-toolbar:has(.course-file-tools) { flex-wrap: wrap; gap: 8px; }
+  .header--course .course-toolbar:has(.course-file-tools) .course-path { flex-basis: 100%; }
+  .course-file-tools { width: 100%; }
+  .file-search { flex: 1; width: auto; }
   .header--course .course-path { gap: 6px; }
   .feed-main.feed-main--course { padding: 0 12px 12px; }
   .course-content { overflow: visible; }

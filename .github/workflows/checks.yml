@@ -38,3 +38,5 @@ jobs:
         run: xvfb-run -a npm run test:session -- --no-sandbox --ozone-platform=x11
       - name: Check reactive lists and PDF viewer
         run: xvfb-run -a npm run test:ui -- --no-sandbox --ozone-platform=x11
+      - name: Check course file search
+        run: xvfb-run -a --server-args='-screen 0 1920x1200x24' npm run test:search -- --no-sandbox --ozone-platform=x11

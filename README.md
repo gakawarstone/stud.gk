@@ -120,7 +120,9 @@ Opening a course shows its files in a grid with first-page PDF thumbnails, image
 
 PDFs open in the application's fullscreen viewer with a Catppuccin Mocha palette. Light and dark pages adapt to Mocha backgrounds, text, and accents. Code block backgrounds remain distinct from the page. Syntax colors retain distinct hues, and comments remain readable against the new background. Text antialiasing accounts for the original paper color. The palette button restores the document's original colors. Downloads always contain the original PDF.
 
-Pages form a continuous scroll, and the current page number updates as you scroll. You can select text, zoom, jump to a page number, and download the file. Selecting the zoom percentage fits the document to the available width. The expand button enables fullscreen mode. Pages near the visible area render as you scroll. The close button or Escape returns you to the cards. Other formats open in a separate tab. There are no filters or separate updates tab. Files are sorted from newest to oldest by modification date, falling back to creation date. Files without dates appear last. "All courses" returns to the home page. Browser back and forward buttons work too. You can copy the selected course's URL from the address bar.
+Pages form a continuous scroll, and the current page number updates as you scroll. You can select text, zoom, jump to a page number, and download the file. Selecting the zoom percentage fits the document to the available width. The expand button enables fullscreen mode. Pages near the visible area render as you scroll. The close button or Escape returns you to the cards. Other formats open in a separate tab. Files are sorted from newest to oldest by modification date, falling back to creation date. Files without dates appear last. "All courses" returns to the home page. Browser back and forward buttons work too. You can copy the selected course's URL from the address bar.
+
+The file search in the course header filters filenames as you type, ignoring case and surrounding spaces. Press Ctrl+F or Cmd+F to focus it and select the current query. Escape or the clear button restores the full list. In folder view, search applies to the current folder. Changing courses, folders, views, or tabs clears the query. The result count shows how many files match.
 
 After the first sign-in, the server saves a baseline for courses in the current semester. Existing materials are not reported as new. It then checks files, announcements, schedules, and basic course information every five minutes. The browser retrieves data every thirty seconds. If a check fails and the list is empty, you can retry it.
 
@@ -204,13 +206,14 @@ npm run build
 
 The build includes `npm run typecheck`, which runs strict TypeScript checks for the interface and checks server JavaScript through `checkJs`. Shared types for API state, courses, materials, and folders are in `shared/studip.ts`. The server currently uses non-strict mode so annotations can be added gradually.
 
-Every PR targeting `master` runs tests, type checks, a build, and four interface checks under Xvfb. After building locally, you can run them with:
+Every PR targeting `master` runs tests, type checks, a build, and five interface checks under Xvfb. After building locally, you can run them with:
 
 ```sh
 xvfb-run -a npm run test:desktop -- --no-sandbox --ozone-platform=x11
 xvfb-run -a npm run test:gitlab -- --no-sandbox --ozone-platform=x11
 xvfb-run -a npm run test:session -- --no-sandbox --ozone-platform=x11
 xvfb-run -a npm run test:ui -- --no-sandbox --ozone-platform=x11
+xvfb-run -a --server-args='-screen 0 1920x1200x24' npm run test:search -- --no-sandbox --ozone-platform=x11
 ```
 
 The `test:session` check uses mock API responses and controlled timers. It checks slow polling, a late response after sign-out, session expiry, and switching to demo mode. These checks do not need real credentials.
