@@ -4,7 +4,8 @@
   "directories": { "output": "release", "buildResources": "build" },
   "asar": true,
   "files": [
-    "electron/main.cjs",
+    "electron/*.cjs",
+    "!electron/*.test.cjs",
     "server/**/*.js",
     "!server/**/*.test.js",
     "dist/**/*",

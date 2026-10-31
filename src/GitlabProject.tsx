@@ -6,6 +6,7 @@ import { GitlabConnection } from "./GitlabConnection";
 import { GitlabRepository } from "./GitlabRepository";
 import { GitlabProjectPicker } from "./GitlabProjectPicker";
 import { GitlabSettings } from "./GitlabSettings";
+import { createIdeaProject, IdeaProjectDialog } from "./IdeaProject";
 import "./gitlab.css";
 
 function ProjectForm(props: { initialUrl?: string; onSave: (url: string) => Promise<void>; onCancel?: () => void }) {
@@ -162,6 +163,7 @@ function ProjectView(props: {
   onSave: (url: string | null) => Promise<void>;
   toolbarTarget?: HTMLElement | null;
 }) {
+  const idea = createIdeaProject(props.project.url);
   const [editing, setEditing] = createSignal(false),
     [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
@@ -204,6 +206,7 @@ function ProjectView(props: {
       onUnlink={() => {
         if (!busy()) void unlink();
       }}
+      onIdeaPath={window.studGkDesktop ? idea.configure : undefined}
     />
   );
   return (
@@ -249,6 +252,9 @@ function ProjectView(props: {
             revision={revision()}
             demo={props.demo}
             onAuthRequired={requireAuth}
+            onOpenInIdea={window.studGkDesktop ? idea.open : undefined}
+            ideaBusy={idea.busy()}
+            ideaPath={idea.path()}
           />
         </>
       )}
@@ -257,6 +263,8 @@ function ProjectView(props: {
           {error()}
         </p>
       )}
+      {idea.configuring() && <IdeaProjectDialog projectUrl={props.project.url} idea={idea} />}
+      {idea.status() && <p class="idea-feedback" role="status">{idea.status()}</p>}
     </div>
   );
 }

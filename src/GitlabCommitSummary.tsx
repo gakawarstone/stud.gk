@@ -1,4 +1,4 @@
-import { Check, Copy, History } from "lucide-solid";
+import { Check, Copy, ExternalLink, History, LoaderCircle } from "lucide-solid";
 import { createEffect, createMemo, createSignal, on, onCleanup, onMount, Show } from "solid-js";
 import type { GitlabCommit } from "./gitlab-api";
 
@@ -24,6 +24,9 @@ export function GitlabCommitSummary(props: {
   historyOpen: boolean;
   historyDisabled: boolean;
   loading: boolean;
+  onOpenInIdea?: () => void;
+  ideaBusy?: boolean;
+  ideaPath?: string;
 }) {
   const [now, setNow] = createSignal(Date.now());
   const [copyStatus, setCopyStatus] = createSignal<"idle" | "copied" | "error">("idle");
@@ -56,6 +59,18 @@ export function GitlabCommitSummary(props: {
       History
     </button>
   );
+  const ideaButton = () => props.onOpenInIdea && (
+    <button
+      type="button"
+      class="gitlab-idea-open"
+      onClick={() => props.onOpenInIdea?.()}
+      disabled={props.ideaBusy}
+      title={props.ideaPath ? `Open ${props.ideaPath} in IntelliJ IDEA` : "Set up your local project folder"}
+    >
+      {props.ideaBusy ? <LoaderCircle size={14} class="spin" aria-hidden="true" /> : <ExternalLink size={14} aria-hidden="true" />}
+      <span>Open in IDEA</span>
+    </button>
+  );
   async function copySha() {
     const commit = props.commit;
     if (!commit) return;
@@ -73,7 +88,7 @@ export function GitlabCommitSummary(props: {
       fallback={
         <div class="gitlab-commit-bar gitlab-commit-bar-empty">
           <span>{props.loading ? "Loading commit…" : "Latest commit unavailable"}</span>
-          {historyButton()}
+          <div class="gitlab-commit-actions">{historyButton()}{ideaButton()}</div>
         </div>
       }
     >
@@ -142,6 +157,7 @@ export function GitlabCommitSummary(props: {
                 </button>
               </div>
               {historyButton()}
+              {ideaButton()}
               <span class="visually-hidden" role="status">
                 {copyStatus() === "copied" ? "SHA copied" : copyStatus() === "error" ? "Could not copy SHA" : ""}
               </span>

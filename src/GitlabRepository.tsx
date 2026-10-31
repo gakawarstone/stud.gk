@@ -20,6 +20,9 @@ export function GitlabRepository(props: {
   revision: number;
   demo: boolean;
   onAuthRequired: () => void;
+  onOpenInIdea?: () => void;
+  ideaBusy?: boolean;
+  ideaPath?: string;
 }) {
   const [folders, setFolders] = createSignal<Record<string, FolderState>>({});
   const [expanded, setExpanded] = createSignal<Set<string>>(new Set());
@@ -343,6 +346,9 @@ export function GitlabRepository(props: {
           )}
         </div>
         <GitlabCommitSummary
+          onOpenInIdea={props.onOpenInIdea}
+          ideaBusy={props.ideaBusy}
+          ideaPath={props.ideaPath}
           commit={displayedCommit()}
           loading={branchesLoading()}
           historyOpen={view() === "history"}

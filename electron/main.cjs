@@ -1,4 +1,5 @@
-const { app, BrowserWindow, dialog, Menu, session, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, session, shell } = require("electron");
+const { registerIdeaIpc } = require("./idea.cjs");
 const { readFile, writeFile } = require("node:fs/promises");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
@@ -40,6 +41,7 @@ function createWindow(url, parent) {
     autoHideMenuBar: true,
     ...(parent ? { parent } : {}),
     webPreferences: {
+      preload: path.join(__dirname, "preload.cjs"),
       session: desktopSession,
       nodeIntegration: false,
       contextIsolation: true,
@@ -118,6 +120,7 @@ async function start() {
     { label: "Edit", submenu: [{ role: "undo" }, { role: "redo" }, { type: "separator" }, { role: "cut" }, { role: "copy" }, { role: "paste" }, { role: "selectAll" }] },
     { label: "View", submenu: [{ role: "reload" }, { role: "toggleDevTools" }, { type: "separator" }, { role: "resetZoom" }, { role: "zoomIn" }, { role: "zoomOut" }, { role: "togglefullscreen" }] },
   ]));
+  registerIdeaIpc({ ipcMain, BrowserWindow, dialog, isTrusted: isLocal });
   mainWindow = await createWindow(runtime.url);
   mainWindow.on("closed", () => { mainWindow = null; });
   return { window: mainWindow, runtime };
