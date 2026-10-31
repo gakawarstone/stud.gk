@@ -1,7 +1,7 @@
 const { app, BrowserWindow } = require("electron");
 app.on("window-all-closed", () => {});
 const assert = require("node:assert/strict");
-const { mkdtemp, readFile, writeFile, rm } = require("node:fs/promises");
+const { mkdir, mkdtemp, readFile, writeFile, rm } = require("node:fs/promises");
 const { tmpdir } = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
@@ -129,7 +129,7 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   });
   const window = new BrowserWindow({ show: false, width: 1280, height: 850,
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } });
-  if (process.env.CAMPUS_SMOKE_PDF_SCREENSHOT || process.env.CAMPUS_SMOKE_SCREENSHOT || process.env.CAMPUS_SMOKE_CODE_SCREENSHOT
+  if (process.env.CAMPUS_SMOKE_PDF_WINDOW_DIR || process.env.CAMPUS_SMOKE_PDF_SCREENSHOT || process.env.CAMPUS_SMOKE_SCREENSHOT || process.env.CAMPUS_SMOKE_CODE_SCREENSHOT
     || process.env.CAMPUS_SMOKE_HISTORY_SCREENSHOT || process.env.CAMPUS_SMOKE_KOTLIN_DIFF_SCREENSHOT) window.showInactive();
   const rendererErrors = require("./renderer-errors.cjs")(window);
   await window.loadURL(runtime.url);
@@ -181,6 +181,31 @@ async function wheelOverDiff(window, deltaX, deltaY) {
   await waitFor(window, `document.querySelector('.pdf-page[data-page="1"] canvas') !== null && document.querySelector('.pdf-text-layer')?.textContent.includes('Software Engineering')`);
   assert.deepEqual(contentRequests, [{ path: "A04.pdf", ref: "main" }, { path: "A04.pdf", ref: "main" }]);
   assert.equal(await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Page number"]').max`), "2");
+  const screenshotDir = process.env.CAMPUS_SMOKE_PDF_WINDOW_DIR;
+  if (screenshotDir) {
+    await mkdir(screenshotDir, { recursive: true });
+    await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Open in separate window"]').focus()`);
+    await writeFile(path.join(screenshotDir, 'preview.png'), (await window.webContents.capturePage()).toPNG());
+  }
+  const detachedReady = new Promise(resolve => window.webContents.once('did-create-window', resolve));
+  await window.webContents.executeJavaScript(`document.querySelector('[aria-label="Open in separate window"]').click()`);
+  const detached = await detachedReady;
+  detached.setSize(1100, 850);
+  const detachedErrors = require('./renderer-errors.cjs')(detached);
+  await waitFor(detached, `document.querySelector('.pdf-text-layer')?.textContent.includes('Software Engineering')`);
+  await detached.webContents.executeJavaScript(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
+  assert.match(await detached.webContents.executeJavaScript(`document.querySelector('[aria-label="Download PDF"]').href`), /path=A04.pdf&ref=main&download=1$/);
+  assert.equal(await detached.webContents.executeJavaScript(`document.querySelector('.gitlab-repo-sidebar')`), null);
+  if (screenshotDir)
+    await writeFile(path.join(screenshotDir, 'separate-window.png'), (await detached.webContents.capturePage()).toPNG());
+  detached.webContents.reload();
+  await waitFor(detached, `document.querySelector('.pdf-text-layer')?.textContent.includes('Software Engineering')`);
+  detached.close();
+  window.show();
+  window.focus();
+  window.webContents.focus();
+  assert.deepEqual(detachedErrors, []);
+  assert.ok(await window.webContents.executeJavaScript(`!!document.querySelector('.pdf-viewer-embedded .pdf-page canvas')`));
   assert.ok(await window.webContents.executeJavaScript(`(() => {
     const pane = document.querySelector('.gitlab-preview-content').getBoundingClientRect();
     const viewer = document.querySelector('.pdf-viewer-embedded').getBoundingClientRect();

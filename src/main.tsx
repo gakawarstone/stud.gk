@@ -28,6 +28,7 @@ import { Login } from "./Login";
 import { NextcloudSection } from "./NextcloudSection";
 import { PdfFileIcon } from "./PdfFileIcon";
 import { PdfViewer } from "./PdfViewer";
+import { readPdfWindowState } from "./pdf-window";
 import { api, ApiError } from "./api";
 import { listFolder, type CourseFolders } from "./course-folders";
 import { courseIcon } from "./course-icons";
@@ -800,4 +801,18 @@ function App() {
     </div>
   );
 }
-render(() => <App />, document.getElementById("root")!);
+const detachedPdf = readPdfWindowState(location.hash, location.origin);
+if (detachedPdf) document.title = `${detachedPdf.title} | Stud.GK`;
+render(
+  () => detachedPdf ? (
+    <PdfViewer
+      title={detachedPdf.title}
+      contentUrl={detachedPdf.contentUrl}
+      downloadUrl={detachedPdf.downloadUrl}
+      initialView={detachedPdf}
+      detached
+      onClose={() => window.close()}
+    />
+  ) : <App />,
+  document.getElementById("root")!,
+);
