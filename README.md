@@ -37,7 +37,7 @@ Substitute the version of the file you downloaded. If your system does not have 
 
 The application starts its server on `127.0.0.1` only, selects an available port, and saves it for future launches. If that port is in use, it selects a new one. The course card order is tied to the address and resets if the port changes. Normal updates preserve the order. Course data and encrypted sessions are stored in `${XDG_CONFIG_HOME:-~/.config}/Campus/data`, and the window profile is stored in the `Campus` directory. The legacy directory name is retained so that upgrading to Stud.GK preserves sessions and settings. Data from the browser version's `.data` directory is not migrated automatically. Use the sign-in form in the desktop window to sign in.
 
-PDFs open in the existing viewer. Other formats open in a separate Stud.GK window with the same session. Downloads open the system save dialog. Closing all windows stops the application and its local server. Background checks run only while Stud.GK is open.
+PDFs open in the existing viewer. Use "Open in separate window" in its toolbar to open the PDF alongside your course, keeping the reading position, zoom and colors. This works for Stud.IP, GitLab and Nextcloud PDFs. The new window shares your session and can be reloaded or closed independently. In a browser, allow pop-ups for Stud.GK if prompted. Other formats open in a separate Stud.GK window with the same session. Downloads open the system save dialog. Closing all windows stops the application and its local server. Background checks run only while Stud.GK is open.
 
 To run from source and create an AppImage:
 

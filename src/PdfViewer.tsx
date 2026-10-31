@@ -3,6 +3,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  ExternalLink,
   LoaderCircle,
   Maximize2,
   Minimize2,
@@ -14,6 +15,7 @@ import {
 } from "lucide-solid";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from "pdfjs-dist";
 import { createEffect, createMemo, createSignal, createUniqueId, on, onCleanup } from "solid-js";
+import { pdfWindowUrl, type PdfViewState } from "./pdf-window";
 function PdfPage(props: {
   pdf: PDFDocumentProxy;
   number: number;
@@ -124,6 +126,8 @@ export function PdfViewer(
     onClose: () => void;
     onViewed?: () => void;
     embedded?: boolean;
+    detached?: boolean;
+    initialView?: PdfViewState;
   } & (
     | {
         remoteId: string;
@@ -144,18 +148,19 @@ export function PdfViewer(
   let pages: HTMLDivElement | null = null;
   let numberInput: HTMLInputElement | null = null;
   let scrollFrame: (number | null) | null = null;
-  let readingPosition = { page: 1, fraction: 0 };
+  let readingPosition = { page: props.initialView?.page ?? 1, fraction: props.initialView?.fraction ?? 0 };
   const [pdf, setPdf] = createSignal<PDFDocumentProxy | null>(null);
   const [failed, setFailed] = createSignal(false);
   const [attempt, setAttempt] = createSignal(0);
   const [page, setPage] = createSignal(1);
   const [pageInput, setPageInput] = createSignal("1");
-  const [zoom, setZoom] = createSignal(1);
-  const [themed, setThemed] = createSignal(true);
+  const [zoom, setZoom] = createSignal(props.initialView?.zoom ?? 1);
+  const [themed, setThemed] = createSignal(props.initialView?.themed ?? true);
   const [width, setWidth] = createSignal(800);
   const [initialRatio, setInitialRatio] = createSignal(1.4);
   const [fullscreen, setFullscreen] = createSignal(false);
   const [fullscreenError, setFullscreenError] = createSignal<string | null>(null);
+  const [windowError, setWindowError] = createSignal<string | null>(null);
   let enteredFullscreen = false;
   let viewed = false;
   const fileUrl = createMemo(() => `/api/files/${encodeURIComponent(props.remoteId || "")}`);
@@ -219,6 +224,15 @@ export function PdfViewer(
             const viewport = first.getViewport({ scale: 1 });
             setInitialRatio(viewport.height / viewport.width);
             setPdf(document);
+            if (props.initialView) {
+              const position = { ...readingPosition };
+              requestAnimationFrame(() => {
+                if (cancelled) return;
+                goToPage(position.page);
+                const target = pages?.children[page() - 1] as HTMLElement | undefined;
+                if (documentArea && target) documentArea.scrollTop += target.offsetHeight * position.fraction;
+              });
+            }
           })
           .catch(() => {
             if (!cancelled) setFailed(true);
@@ -276,11 +290,11 @@ export function PdfViewer(
       const top = area.scrollTop - list.offsetTop;
       const active = pageAtOffset(list, top + area.clientHeight * 0.3);
       setPage(active + 1);
-      const first = pageAtOffset(list, top);
+      const first = pageAtOffset(list, top + 12);
       const element = list.children[first] as HTMLElement;
       readingPosition = {
         page: first + 1,
-        fraction: Math.max(0, (top - element.offsetTop) / element.offsetHeight),
+        fraction: Math.max(0, Math.min(1, (top - element.offsetTop) / element.offsetHeight)),
       };
     });
   }
@@ -319,6 +333,26 @@ export function PdfViewer(
   function fitToWidth() {
     const area = documentArea;
     if (area) setZoom(Math.max(0.5, Math.min(3, (area.clientWidth - 48) / width())));
+  }
+  function openSeparateWindow() {
+    setWindowError(null);
+    try {
+      const child = window.open(pdfWindowUrl({
+        title: props.title,
+        contentUrl: previewUrl(),
+        downloadUrl: saveUrl(),
+        ...readingPosition,
+        zoom: zoom(),
+        themed: themed(),
+      }), "_blank", "popup,width=1100,height=850");
+      if (!child) {
+        setWindowError("The window could not open. Allow pop-ups for Stud.GK and try again.");
+        return;
+      }
+      child.opener = null;
+    } catch {
+      setWindowError("The window could not open. Try again.");
+    }
   }
   return (
     <Dynamic
@@ -430,6 +464,16 @@ export function PdfViewer(
             </div>
           </nav>
           <div class="pdf-viewer-actions">
+            {!props.detached && (
+              <button
+                class="pdf-viewer-action"
+                onClick={openSeparateWindow}
+                aria-label="Open in separate window"
+                title="Open in separate window"
+              >
+                <ExternalLink size={18} />
+              </button>
+            )}
             <button
               class="pdf-viewer-action"
               onClick={() => setThemed((value) => !value)}
@@ -447,9 +491,9 @@ export function PdfViewer(
             </button>
           </div>
         </header>
-        {fullscreenError() && (
+        {(fullscreenError() || windowError()) && (
           <div class="pdf-viewer-notice" role="alert">
-            {fullscreenError()}
+            {fullscreenError() || windowError()}
           </div>
         )}
         <div

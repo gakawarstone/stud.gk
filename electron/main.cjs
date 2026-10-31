@@ -48,6 +48,11 @@ function createWindow(url, parent) {
     },
   });
   window.once("ready-to-show", () => window.show());
+  secureWindow(window);
+  return window.loadURL(url).then(() => window);
+}
+
+function secureWindow(window) {
   window.webContents.on("will-navigate", (event, target) => {
     if (!isLocal(target)) {
       event.preventDefault();
@@ -58,15 +63,39 @@ function createWindow(url, parent) {
     if (!isLocal(target)) event.preventDefault();
   });
   window.webContents.on("will-attach-webview", (event) => event.preventDefault());
+  window.webContents.on("did-create-window", (child) => secureWindow(child));
   window.webContents.setWindowOpenHandler(({ url: target }) => {
     if (isLocal(target)) {
+      const url = new URL(target);
+      if (url.pathname === "/" && url.hash.startsWith("#pdf=")) {
+        return {
+          action: "allow",
+          outlivesOpener: true,
+          overrideBrowserWindowOptions: {
+            title: "PDF | Stud.GK",
+            width: 1100,
+            height: 850,
+            minWidth: 480,
+            minHeight: 480,
+            backgroundColor: "#1e1e2e",
+            icon: path.join(root, "build/icon.png"),
+            autoHideMenuBar: true,
+            webPreferences: {
+              session: desktopSession,
+              nodeIntegration: false,
+              contextIsolation: true,
+              sandbox: true,
+              webSecurity: true,
+            },
+          },
+        };
+      }
       void createWindow(target, mainWindow).catch(showError);
     } else {
       openExternal(target);
     }
     return { action: "deny" };
   });
-  return window.loadURL(url).then(() => window);
 }
 
 function showError(error) {

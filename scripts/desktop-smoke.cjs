@@ -361,7 +361,30 @@ async function nextcloudShareUrl(window) {
   const preview = await previewReady;
   assert.equal(preview.webContents.session, window.webContents.session);
   assert.equal(preview.webContents.getLastWebPreferences().sandbox, true);
+  // The PDF action gets a real WindowProxy so a successful desktop open is not
+  // mistaken for a browser pop-up blocker. It shares cookies and has no parent.
+  const pdfWindowUrl = '/#pdf=' + encodeURIComponent(JSON.stringify({
+    title: 'Window smoke.pdf', contentUrl: '/api/demo', downloadUrl: '/api/demo',
+    page: 1, fraction: 0, zoom: 1, themed: true,
+  }));
+  const pdfWindowReady = new Promise(resolve => app.once('browser-window-created', (_, child) => {
+    child.webContents.once('did-finish-load', () => resolve(child));
+  }));
+  assert.equal(await preview.webContents.executeJavaScript(`!!window.open(${JSON.stringify(pdfWindowUrl)}, '_blank', 'popup,width=1100,height=850')`), true);
+  const pdfWindow = await pdfWindowReady;
   preview.close();
+  assert.equal(pdfWindow.isDestroyed(), false);
+  assert.equal(pdfWindow.webContents.session, window.webContents.session);
+  assert.equal(pdfWindow.getParentWindow(), null);
+  const pdfPreferences = pdfWindow.webContents.getLastWebPreferences();
+  assert.equal(pdfPreferences.sandbox, true);
+  assert.equal(pdfPreferences.contextIsolation, true);
+  assert.equal(pdfPreferences.nodeIntegration, false);
+  await waitFor(pdfWindow, `document.querySelector('.pdf-viewer [role="alert"]') !== null`);
+  assert.equal(await pdfWindow.webContents.executeJavaScript(`document.title`), 'Window smoke.pdf | Stud.GK');
+  await pdfWindow.webContents.executeJavaScript(`window.open('file:///etc/passwd', '_blank')`);
+  assert.equal(BrowserWindow.getAllWindows().length, 2);
+  pdfWindow.close();
   // A non-web protocol must never create a window or reach the OS shell.
   await window.webContents.executeJavaScript(`window.open('file:///etc/passwd', '_blank')`);
   assert.equal(BrowserWindow.getAllWindows().length, 1);

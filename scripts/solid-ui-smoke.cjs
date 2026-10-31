@@ -2,7 +2,7 @@ const { app, BrowserWindow } = require("electron");
 // Teardown is awaited below; closing the last window must not exit early.
 app.on("window-all-closed", () => {});
 const assert = require("node:assert/strict");
-const { mkdtemp, rm, writeFile } = require("node:fs/promises");
+const { mkdir, mkdtemp, rm, writeFile } = require("node:fs/promises");
 const path = require("node:path");
 const { tmpdir } = require("node:os");
 const { pathToFileURL } = require("node:url");
@@ -197,6 +197,12 @@ function pdfFixture() {
       "[...document.querySelector('.pdf-page canvas').getContext('2d').getImageData(1,1,1,1).data].slice(0,3)",
     );
   const themed = await pixel();
+  const screenshotDir = process.env.CAMPUS_SMOKE_PDF_WINDOW_DIR;
+  if (screenshotDir) {
+    await mkdir(screenshotDir, { recursive: true });
+    await evaluate(window, `document.querySelector('[aria-label="Open in separate window"]').focus()`);
+    await writeFile(path.join(screenshotDir, "01-open-from-preview.png"), (await window.webContents.capturePage()).toPNG());
+  }
   await evaluate(window, "document.querySelector('.pdf-viewer [title*=\"colors\"]').click()");
   await waitFor(
     window,
@@ -246,6 +252,37 @@ function pdfFixture() {
   assert.deepEqual(Buffer.from(original), pdf, "Download keeps original PDF bytes");
   if (process.env.CAMPUS_SMOKE_PDF_SCREENSHOT)
     await writeFile(process.env.CAMPUS_SMOKE_PDF_SCREENSHOT, (await window.webContents.capturePage()).toPNG());
+  // A blocked pop-up keeps the source viewer usable and offers a retry.
+  await evaluate(window, `window.realOpen=window.open;window.open=()=>null;document.querySelector('[aria-label="Open in separate window"]').click()`);
+  assert.match(await evaluate(window, "document.querySelector('.pdf-viewer-notice').textContent"), /Allow pop-ups/);
+  assert.equal(await evaluate(window, "document.querySelector('.pdf-viewer').open"), true);
+  await evaluate(window, "void (window.open=window.realOpen)");
+  const childReady = new Promise(resolve => window.webContents.once("did-create-window", resolve));
+  await evaluate(window, `document.querySelector('[aria-label="Open in separate window"]').click()`);
+  const child = await childReady;
+  const childErrors = require("./renderer-errors.cjs")(child);
+  await waitFor(child, `document.querySelector('.pdf-page-number input')?.value === '10' && !!document.querySelector('[data-page="10"] canvas')`);
+  assert.equal(child.webContents.session, window.webContents.session);
+  assert.equal(await evaluate(child, "window.opener"), null);
+  assert.equal(await evaluate(child, "document.title"), "Fixture.pdf | Stud.GK");
+  assert.equal(await evaluate(child, "document.querySelector('.pdf-viewer').dataset.themed"), "false");
+  assert.equal(await evaluate(child, "document.querySelector('.pdf-zoom-value').textContent"), await evaluate(window, "document.querySelector('.pdf-zoom-value').textContent"));
+  assert.equal(await evaluate(child, `document.querySelector('[aria-label="Open in separate window"]')`), null);
+  assert.equal(await evaluate(window, "document.querySelector('.pdf-viewer-notice')"), null);
+  if (screenshotDir)
+    await writeFile(path.join(screenshotDir, "02-separate-window.png"), (await child.webContents.capturePage()).toPNG());
+  child.webContents.reload();
+  await waitFor(child, `document.querySelector('.pdf-page-number input')?.value === '10' && !!document.querySelector('[data-page="10"] canvas')`);
+  child.setSize(480, 640);
+  await frames(child);
+  assert.equal(await evaluate(child, `Array.from(document.querySelectorAll('.pdf-viewer-toolbar button,.pdf-viewer-toolbar a')).every(element=>{const r=element.getBoundingClientRect();return r.left>=0 && r.right<=innerWidth;})`), true);
+  await evaluate(child, `document.querySelector('[aria-label="Zoom out"]').click()`);
+  assert.notEqual(await evaluate(child, "document.querySelector('.pdf-zoom-value').textContent"), await evaluate(window, "document.querySelector('.pdf-zoom-value').textContent"));
+  const childClosed = new Promise(resolve => child.once("closed", resolve));
+  await evaluate(child, `document.querySelector('[aria-label="Close preview"]').click()`);
+  await childClosed;
+  errors.push(...childErrors);
+  assert.equal(await evaluate(window, "document.querySelector('.pdf-viewer').open"), true);
   await evaluate(window, "document.querySelector('.pdf-viewer-document').focus()");
   window.webContents.sendInputEvent({ type: "keyDown", keyCode: "Escape" });
   window.webContents.sendInputEvent({ type: "keyUp", keyCode: "Escape" });
@@ -305,7 +342,7 @@ function pdfFixture() {
     JSON.stringify({
       result: "passed",
       checks:
-        "keyed keyboard/mouse/touch reorder, PDF rendering/text/colors/fullscreen/zoom/page input/virtualization/download/Escape/focus/cleanup, snapshot reconciliation and reactive fields",
+        "keyed keyboard/mouse/touch reorder, PDF rendering/text/colors/fullscreen/zoom/page input/virtualization/download/Escape/focus/cleanup, separate PDF window/state/reload/blocked pop-up/independent close, snapshot reconciliation and reactive fields",
     }),
   );
   window.destroy();
