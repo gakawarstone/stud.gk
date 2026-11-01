@@ -48,7 +48,8 @@ async function screenshot(window, name) {
   await waitFor(window, "document.querySelectorAll('.course-card').length === 1");
   await evaluate(window, "location.hash = 'course=web'");
   await waitFor(window, "document.querySelectorAll('.archive-preview-entry').length === 10 && !!document.querySelector('.thumbnail-fallback')");
-  assert.equal(await evaluate(window, "document.querySelectorAll('.archive-preview-count')[0].textContent"), '9 entries');
+  assert.equal(await evaluate(window, "[...document.querySelectorAll('.archive-preview-format')].every(label => label.textContent === 'ZIP')"), true);
+  assert.equal(await evaluate(window, "document.querySelector('.archive-preview').textContent.includes('entries')"), false);
   assert.deepEqual(await evaluate(window, "document.querySelector('.archive-preview-entries').innerText.split('\\n')"), ['README.md', 'build.gradle.kts', 'src', 'main/kotlin', 'Main.kt']);
   assert.match(await evaluate(window, "document.querySelector('.thumbnail-fallback').textContent"), /Cannot preview/);
   assert.equal(await evaluate(window, "[...document.querySelectorAll('.file-type')].some(el => el.textContent === '7Z')"), true);

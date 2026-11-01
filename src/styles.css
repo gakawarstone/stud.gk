@@ -1734,5 +1734,6 @@ input::placeholder {
 .archive-preview-folder .archive-preview-entry-icon { color: var(--peach); }
 .archive-preview-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .archive-preview-empty { display: block; color: var(--muted); font-size: 12px; }
-.archive-preview-count { color: var(--muted); font-size: 10px; }
+.archive-preview-format { position: absolute; top: 15px; right: 12px; display: flex; align-items: center; gap: 4px; color: var(--peach); font-size: 10px; font-weight: 650; line-height: 16px; letter-spacing: .5px; }
+.archive-preview-entry:first-child { padding-right: 44px; }
 .archive-preview > .thumbnail-loading, .archive-preview > .thumbnail-fallback { margin: auto; }

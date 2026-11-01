@@ -25,6 +25,7 @@ export function ArchiveThumbnail(props: { id: string; version: string }) {
   });
   return (
     <div class="file-preview archive archive-preview" ref={container}>
+      <span class="archive-preview-format" aria-label="ZIP archive"><FileArchive size={13} aria-hidden="true" />ZIP</span>
       <Show when={!contents.error} fallback={<span class="thumbnail-fallback"><FileArchive size={28} /><span>{contents.error?.message || "Preview unavailable"}</span></span>}>
         <Show when={contents()} fallback={<LoaderCircle class="thumbnail-loading spin" size={20} aria-label="Loading archive contents" />}>
           {(listing) => {
@@ -42,7 +43,6 @@ export function ArchiveThumbnail(props: { id: string; version: string }) {
                 )}</For>
                 <Show when={!listing().entries.length}><span class="archive-preview-empty">Empty archive</span></Show>
               </div>
-              <span class="archive-preview-count">{listing().total} entries</span>
             </>;
           }}
         </Show>
