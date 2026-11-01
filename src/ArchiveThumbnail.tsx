@@ -1,5 +1,7 @@
-import { FileArchive, FileText, Folder, LoaderCircle } from "lucide-solid";
-import { createResource, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { ArrowUpRight, FileArchive, Folder, FolderOpen, LoaderCircle } from "lucide-solid";
+import { createMemo, createResource, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { archiveTree } from "./archive-tree";
+import { RepositoryFileIcon } from "./RepositoryFileIcon";
 import { api } from "./api";
 import type { ArchiveContents } from "../shared/archive";
 
@@ -23,21 +25,34 @@ export function ArchiveThumbnail(props: { id: string; version: string }) {
   });
   return (
     <div class="file-preview archive archive-preview" ref={container}>
-      <div class="archive-preview-heading"><FileArchive size={16} /><span>ZIP CONTENTS</span></div>
       <Show when={!contents.error} fallback={<span class="thumbnail-fallback"><FileArchive size={28} /><span>{contents.error?.message || "Preview unavailable"}</span></span>}>
         <Show when={contents()} fallback={<LoaderCircle class="thumbnail-loading spin" size={20} aria-label="Loading archive contents" />}>
-          {(listing) => <>
-            <div class="archive-preview-entries">
-              <For each={listing().entries.slice(0, 5)}>{(entry) => (
-                <div class="archive-preview-entry" title={entry.name}>
-                  {entry.directory ? <Folder size={14} /> : <FileText size={14} />}
-                  <span>{entry.name}</span>
-                </div>
-              )}</For>
-              <Show when={!listing().entries.length}><span class="archive-preview-empty">Empty archive</span></Show>
-            </div>
-            <span class="archive-preview-count">{listing().total} entries{listing().total > 5 ? ` · +${listing().total - 5} more` : ""}</span>
-          </>}
+          {(listing) => {
+            const tree = createMemo(() => archiveTree(listing()));
+            return <div class="archive-preview-window">
+              <div class="archive-preview-heading">
+                <FolderOpen size={15} aria-hidden="true" />
+                <span title={tree().folder}>{tree().folder || "Archive contents"}</span>
+                <span class="archive-preview-badge">ZIP</span>
+              </div>
+              <div class="archive-preview-entries">
+                <For each={tree().rows}>{(entry) => (
+                  <div class="archive-preview-entry" classList={{ "archive-preview-folder": entry.directory }} title={entry.path}
+                    style={{ "padding-left": `${8 + Math.min(entry.depth, 3) * 14}px` }}>
+                    <span class="archive-preview-entry-icon">
+                      {entry.directory ? <Folder size={15} /> : <RepositoryFileIcon name={entry.name} />}
+                    </span>
+                    <span class="archive-preview-name">{entry.name}</span>
+                  </div>
+                )}</For>
+                <Show when={!listing().entries.length}><span class="archive-preview-empty">Empty archive</span></Show>
+              </div>
+              <div class="archive-preview-footer">
+                <span>{listing().total} entries</span>
+                <span class="archive-preview-open">View all <ArrowUpRight size={13} aria-hidden="true" /></span>
+              </div>
+            </div>;
+          }}
         </Show>
       </Show>
     </div>

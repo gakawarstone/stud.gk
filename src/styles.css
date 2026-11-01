@@ -1721,17 +1721,44 @@ input::placeholder {
 
 .file-preview.archive-preview {
   align-items: stretch;
-  justify-content: flex-start;
-  padding: 12px;
-  gap: 8px;
-  min-height: 170px;
+  justify-content: center;
+  padding: 14px;
+  min-height: 232px;
   overflow: hidden;
+  background: color-mix(in srgb, var(--peach) 4%, var(--base));
 }
-.archive-preview-heading { display: flex; align-items: center; gap: 8px; font-size: 9px; font-weight: 750; letter-spacing: 1px; }
-.archive-preview-entries { display: flex; flex-direction: column; gap: 5px; min-height: 0; overflow: hidden; }
-.archive-preview-entry { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--subtext); font-size: 10px; line-height: 14px; }
-.archive-preview-entry svg { flex-shrink: 0; color: var(--peach); }
-.archive-preview-entry span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono, monospace); }
-.archive-preview-count, .archive-preview-empty { color: var(--muted); font-size: 10px; }
-.archive-preview-count { margin-top: auto; }
+.archive-preview-window {
+  width: 100%;
+  max-width: 360px;
+  margin: auto;
+  overflow: hidden;
+  border: 1px solid var(--surface0);
+  border-radius: 8px;
+  background: var(--mantle);
+  box-shadow: 0 4px 12px #0002;
+}
+.archive-preview-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 35px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--surface0);
+  color: var(--peach);
+  font-size: 12px;
+  font-weight: 600;
+}
+.archive-preview-heading > svg { flex-shrink: 0; }
+.archive-preview-heading > span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.archive-preview-badge { margin-left: auto; padding: 2px 5px; border-radius: 4px; background: var(--surface0); color: var(--subtext); font-size: 9px; letter-spacing: .5px; }
+.archive-preview-entries { padding: 6px; min-height: 132px; }
+.archive-preview-entry { display: flex; align-items: center; gap: 8px; height: 24px; min-width: 0; color: var(--text); font-size: 12px; line-height: 1.4; }
+.archive-preview-entry-icon { display: flex; align-items: center; flex: 0 0 16px; width: 16px; color: var(--subtext); }
+.archive-preview-entry-icon .gitlab-file-icon { width: 16px; height: 16px; }
+.archive-preview-folder .archive-preview-entry-icon { color: var(--peach); }
+.archive-preview-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.archive-preview-empty { display: block; padding: 12px 8px; color: var(--muted); font-size: 12px; }
+.archive-preview-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 30px; padding: 0 10px; border-top: 1px solid var(--surface0); color: var(--muted); font-size: 10px; }
+.archive-preview-open { display: flex; align-items: center; gap: 4px; color: var(--subtext); }
+.file-card-link:hover .archive-preview-open { color: var(--peach); }
 .archive-preview > .thumbnail-loading, .archive-preview > .thumbnail-fallback { margin: auto; }
