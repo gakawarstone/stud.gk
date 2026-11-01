@@ -2,7 +2,7 @@
 
 Screenshots use a local fixture account and the small ZIP in `scripts/fixtures/archive-preview.zip`. No university credentials or course materials are included.
 
-- `cards.png`: compact file trees in course cards, a damaged archive, and the existing icon for an unsupported archive format. Common enclosing folders appear once in the header, folder chains collapse, and files use their language icons.
+- `cards.png`: compact file trees in course cards, a damaged archive, and the existing icon for an unsupported archive format. File trees sit directly on the preview background, with no inner panel, header, or footer. Common enclosing folders are omitted, folder chains collapse, and files use their language icons.
 - `narrow.png`: course cards at 480 px.
 - `contents.png`: the complete archive listing and download action.
 - `contents-narrow.png`: the listing at 480 px.

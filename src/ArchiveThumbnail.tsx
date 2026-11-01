@@ -1,4 +1,4 @@
-import { ArrowUpRight, FileArchive, Folder, FolderOpen, LoaderCircle } from "lucide-solid";
+import { FileArchive, Folder, LoaderCircle } from "lucide-solid";
 import { createMemo, createResource, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { archiveTree } from "./archive-tree";
 import { RepositoryFileIcon } from "./RepositoryFileIcon";
@@ -29,16 +29,11 @@ export function ArchiveThumbnail(props: { id: string; version: string }) {
         <Show when={contents()} fallback={<LoaderCircle class="thumbnail-loading spin" size={20} aria-label="Loading archive contents" />}>
           {(listing) => {
             const tree = createMemo(() => archiveTree(listing()));
-            return <div class="archive-preview-window">
-              <div class="archive-preview-heading">
-                <FolderOpen size={15} aria-hidden="true" />
-                <span title={tree().folder}>{tree().folder || "Archive contents"}</span>
-                <span class="archive-preview-badge">ZIP</span>
-              </div>
+            return <>
               <div class="archive-preview-entries">
                 <For each={tree().rows}>{(entry) => (
                   <div class="archive-preview-entry" classList={{ "archive-preview-folder": entry.directory }} title={entry.path}
-                    style={{ "padding-left": `${8 + Math.min(entry.depth, 3) * 14}px` }}>
+                    style={{ "padding-left": `${Math.min(entry.depth, 3) * 14}px` }}>
                     <span class="archive-preview-entry-icon">
                       {entry.directory ? <Folder size={15} /> : <RepositoryFileIcon name={entry.name} />}
                     </span>
@@ -47,11 +42,8 @@ export function ArchiveThumbnail(props: { id: string; version: string }) {
                 )}</For>
                 <Show when={!listing().entries.length}><span class="archive-preview-empty">Empty archive</span></Show>
               </div>
-              <div class="archive-preview-footer">
-                <span>{listing().total} entries</span>
-                <span class="archive-preview-open">View all <ArrowUpRight size={13} aria-hidden="true" /></span>
-              </div>
-            </div>;
+              <span class="archive-preview-count">{listing().total} entries</span>
+            </>;
           }}
         </Show>
       </Show>
