@@ -27,6 +27,7 @@ import { FileSearch } from "./FileSearch";
 import { FolderExplorer } from "./FolderExplorer";
 import { GitlabProject } from "./GitlabProject";
 import { Login } from "./Login";
+import { MoodleSection } from "./MoodleSection";
 import { NextcloudSection } from "./NextcloudSection";
 import { PdfFileIcon } from "./PdfFileIcon";
 import { PdfViewer } from "./PdfViewer";
@@ -486,6 +487,10 @@ function App() {
                         toolbarTarget={gitlabToolbar()}
                       />
                     )}
+                  </Show>
+                ) : selectedTab() === "moodle" ? (
+                  <Show when={courseSettingsScope()} keyed>
+                    {(key) => <MoodleSection storageKey={`stud-gk-moodle:${key}`} demo={phase() === "demo"} />}
                   </Show>
                 ) : selectedTab() === "nextcloud" ? (
                   <Show when={courseSettingsScope()} keyed>

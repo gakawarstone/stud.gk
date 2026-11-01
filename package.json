@@ -19,7 +19,8 @@
     "test:session": "env -u ELECTRON_RUN_AS_NODE electron scripts/session-smoke.cjs",
     "test:ui": "env -u ELECTRON_RUN_AS_NODE electron scripts/solid-ui-smoke.cjs",
     "test:search": "env -u ELECTRON_RUN_AS_NODE electron scripts/file-search-smoke.cjs",
-    "benchmark:ui": "env -u ELECTRON_RUN_AS_NODE electron scripts/ui-benchmark.cjs"
+    "benchmark:ui": "env -u ELECTRON_RUN_AS_NODE electron scripts/ui-benchmark.cjs",
+    "test:moodle": "env -u ELECTRON_RUN_AS_NODE electron scripts/moodle-smoke.cjs"
   },
   "keywords": [],
   "author": "gakawarstone",

@@ -1,3 +1,4 @@
+import { moodleRoutes } from "./moodle-routes.js";
 import path from "node:path";
 import express from "express";
 import session from "express-session";
@@ -46,6 +47,7 @@ export async function createApp({
   getGitlabFile = createGitlabClient().file,
   getGitlabContent = createGitlabClient().content,
   nextcloudClient,
+  moodleClient,
   autoSync = true,
   sessionName = SESSION_NAME,
   fileCacheBytes,
@@ -262,6 +264,7 @@ export async function createApp({
     await save();
     res.json({ ok: true });
   });
+  app.use("/api/moodle", moodleRoutes(requireLogin, moodleClient));
   app.use("/api/nextcloud", nextcloudRoutes(nextcloudClient));
   app.use("/api", (req, res) =>
     res.status(404).json({ error: "Route not found." }),
