@@ -30,6 +30,8 @@ jobs:
       - run: npm run build
       - name: Check desktop navigation and file previews
         run: xvfb-run -a npm run test:desktop -- --no-sandbox --ozone-platform=x11
+      - name: Check Moodle integration
+        run: xvfb-run -a npm run test:moodle -- --no-sandbox --ozone-platform=x11
       - name: Check GitLab integration
         run: xvfb-run -a npm run test:gitlab -- --no-sandbox --ozone-platform=x11
       - name: Check opening local projects in IDEA

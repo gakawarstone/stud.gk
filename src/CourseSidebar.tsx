@@ -1,4 +1,4 @@
-import { CalendarDays, Cloud, FolderClosed, GitFork, Info, Megaphone, Plus, Trash2, X } from "lucide-solid";
+import { BookOpen, CalendarDays, Cloud, FolderClosed, GitFork, Info, Megaphone, Plus, Trash2, X } from "lucide-solid";
 import { batch, createEffect, createMemo, createSignal, For, on, onCleanup } from "solid-js";
 import { extraCourseTabs, isExtraCourseTab, type CourseTab, type ExtraCourseTab } from "./course-tabs";
 export const courseTabs = {
@@ -7,6 +7,7 @@ export const courseTabs = {
   schedule: { label: "Schedule", Icon: CalendarDays },
   course: { label: "Course info", Icon: Info },
   nextcloud: { label: "Nextcloud", Icon: Cloud },
+  moodle: { label: "Moodle", Icon: BookOpen },
   gitlab: { label: "GitLab", Icon: GitFork },
 };
 export function CourseSidebar(props: {
