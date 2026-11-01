@@ -22,6 +22,7 @@ import { Dynamic, render } from "solid-js/web";
 import type { Change, Material } from "../shared/studip";
 import { CourseSections } from "./CourseSections";
 import { CourseSidebar } from "./CourseSidebar";
+import { ArchiveThumbnail } from "./ArchiveThumbnail";
 import { FileThumbnail } from "./FileThumbnail";
 import { FileSearch } from "./FileSearch";
 import { FolderExplorer } from "./FolderExplorer";
@@ -676,6 +677,8 @@ function App() {
                                     aria-hidden="true"
                                   />
                                 </span>
+                              ) : phase() === "live" && file.remoteId && /\.zip$/i.test(file.title) ? (
+                                <ArchiveThumbnail id={file.remoteId} version={`${generation.current}:${file.updatedAt || file.createdAt || ""}`} />
                               ) : phase() === "live" &&
                                 file.remoteId &&
                                 (appearance().tone === "pdf" || appearance().tone === "image") ? (

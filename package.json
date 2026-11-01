@@ -19,7 +19,8 @@
     "test:session": "env -u ELECTRON_RUN_AS_NODE electron scripts/session-smoke.cjs",
     "test:ui": "env -u ELECTRON_RUN_AS_NODE electron scripts/solid-ui-smoke.cjs",
     "test:search": "env -u ELECTRON_RUN_AS_NODE electron scripts/file-search-smoke.cjs",
-    "benchmark:ui": "env -u ELECTRON_RUN_AS_NODE electron scripts/ui-benchmark.cjs"
+    "benchmark:ui": "env -u ELECTRON_RUN_AS_NODE electron scripts/ui-benchmark.cjs",
+    "test:archives": "env -u ELECTRON_RUN_AS_NODE electron scripts/archive-preview-smoke.cjs"
   },
   "keywords": [],
   "author": "gakawarstone",
@@ -40,7 +41,8 @@
     "remark-rehype": "^11.1.2",
     "solid-js": "^1.9.17",
     "tough-cookie": "^6.0.2",
-    "unified": "^11.0.5"
+    "unified": "^11.0.5",
+    "yauzl": "^3.4.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
