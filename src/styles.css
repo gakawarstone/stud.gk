@@ -1721,14 +1721,14 @@ input::placeholder {
 
 .file-preview.archive-preview {
   align-items: stretch;
-  justify-content: center;
-  gap: 12px;
-  padding: 20px;
-  min-height: 196px;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 12px;
+  min-height: 164px;
   overflow: hidden;
 }
 .archive-preview-entries { min-width: 0; }
-.archive-preview-entry { display: flex; align-items: center; gap: 8px; height: 24px; min-width: 0; color: var(--text); font-size: 12px; line-height: 1.4; }
+.archive-preview-entry { display: flex; align-items: center; gap: 6px; height: 22px; min-width: 0; color: var(--text); font-size: 12px; line-height: 1.4; }
 .archive-preview-entry-icon { display: flex; align-items: center; flex: 0 0 16px; width: 16px; color: var(--subtext); }
 .archive-preview-entry-icon .gitlab-file-icon { width: 16px; height: 16px; }
 .archive-preview-folder .archive-preview-entry-icon { color: var(--peach); }

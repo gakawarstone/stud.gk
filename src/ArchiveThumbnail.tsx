@@ -33,7 +33,7 @@ export function ArchiveThumbnail(props: { id: string; version: string }) {
               <div class="archive-preview-entries">
                 <For each={tree().rows}>{(entry) => (
                   <div class="archive-preview-entry" classList={{ "archive-preview-folder": entry.directory }} title={entry.path}
-                    style={{ "padding-left": `${Math.min(entry.depth, 3) * 14}px` }}>
+                    style={{ "padding-left": `${Math.min(entry.depth, 3) * 10}px` }}>
                     <span class="archive-preview-entry-icon">
                       {entry.directory ? <Folder size={15} /> : <RepositoryFileIcon name={entry.name} />}
                     </span>
