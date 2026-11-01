@@ -1,7 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;650;700;750;800&display=swap");
 :root {
   color-scheme: dark;
-  scrollbar-width: none;
   --base: #1e1e2e;
   --mantle: #181825;
   --surface: #242436;
@@ -25,6 +24,12 @@
 }
 * {
   box-sizing: border-box;
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 body {
   margin: 0;

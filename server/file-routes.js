@@ -14,7 +14,7 @@ function unavailablePreview(res, file, status = 415, message = "") {
     .status(status)
     .type("html")
     .send(
-    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>File preview</title><style>body{margin:0;padding:48px 24px;background:#1e1e2e;color:#cdd6f4;font:16px/1.6 system-ui}main{max-width:600px;margin:auto}h1{font-size:24px;overflow-wrap:anywhere}p{color:#a6adc8}a{display:inline-block;padding:10px 18px;border-radius:8px;background:#cba6f7;color:#181825;text-decoration:none}</style></head><body><main><h1>${title}</h1><p>The browser cannot preview this file format. ${escape(message)}</p><a href="/api/files/${encodeURIComponent(file.remoteId)}/download">Download file</a></main></body></html>`,
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>File preview</title><style>*{scrollbar-width:none}*::-webkit-scrollbar{display:none;width:0;height:0}body{margin:0;padding:48px 24px;background:#1e1e2e;color:#cdd6f4;font:16px/1.6 system-ui}main{max-width:600px;margin:auto}h1{font-size:24px;overflow-wrap:anywhere}p{color:#a6adc8}a{display:inline-block;padding:10px 18px;border-radius:8px;background:#cba6f7;color:#181825;text-decoration:none}</style></head><body><main><h1>${title}</h1><p>The browser cannot preview this file format. ${escape(message)}</p><a href="/api/files/${encodeURIComponent(file.remoteId)}/download">Download file</a></main></body></html>`,
     );
 }
 
