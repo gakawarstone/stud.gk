@@ -2,7 +2,21 @@ import { Router } from "express";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { StudipError } from "./studip.js";
+import { archiveContents, archivePage, isZip } from "./archive-preview.js";
 import { previewType } from "./file-preview.js";
+
+function unavailablePreview(res, file, status = 415, message = "") {
+  const escape = (text) => String(text).replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[char]);
+  const title = escape(file.title);
+  return res
+    .status(status)
+    .type("html")
+    .send(
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>File preview</title><style>body{margin:0;padding:48px 24px;background:#1e1e2e;color:#cdd6f4;font:16px/1.6 system-ui}main{max-width:600px;margin:auto}h1{font-size:24px;overflow-wrap:anywhere}p{color:#a6adc8}a{display:inline-block;padding:10px 18px;border-radius:8px;background:#cba6f7;color:#181825;text-decoration:none}</style></head><body><main><h1>${title}</h1><p>The browser cannot preview this file format. ${escape(message)}</p><a href="/api/files/${encodeURIComponent(file.remoteId)}/download">Download file</a></main></body></html>`,
+    );
+}
 
 /** @param {import('./types.js').RouteState & {
  * expire: (context: import('./types.js').Context) => Promise<void>,
@@ -38,10 +52,12 @@ export function fileRoutes({ state, save, expire, requireLogin, getFolders, getD
       "/files/:id/download",
       "/files/:id/preview",
       "/files/:id/content",
+      "/files/:id/contents",
     ],
     requireLogin,
     async (req, res) => {
-      const thumbnail = req.path.endsWith("/content");
+      const listing = req.path.endsWith("/contents");
+      const thumbnail = listing || req.path.endsWith("/content");
       const preview = thumbnail || req.path.endsWith("/preview");
       const context = req.context;
       const file = state.accounts[context.user.id]?.resources.find(
@@ -56,7 +72,7 @@ export function fileRoutes({ state, save, expire, requireLogin, getFolders, getD
       try {
         const options = {
           signal: controller.signal,
-          range: req.headers.range,
+          range: listing || (preview && isZip(file)) ? undefined : req.headers.range,
         };
         const load = (options) => getDownload(context.client, file, options);
         const unavailable = state.accounts[context.user.id].unavailableSources?.some(
@@ -68,28 +84,25 @@ export function fileRoutes({ state, save, expire, requireLogin, getFolders, getD
           await response.body.cancel();
           throw new StudipError("Your session has expired. Sign in again.", 401);
         }
+        if (listing || (preview && isZip(file))) {
+          if (!isZip(file)) {
+            await response.body.cancel();
+            throw new StudipError("Contents preview is available for ZIP files.", 415);
+          }
+          const contents = await archiveContents(response, controller.signal);
+          if (context.revoked || context.expiresAt <= Date.now())
+            throw new StudipError("Your session has expired. Sign in again.", 401);
+          res.set("Cache-Control", "no-store");
+          if (listing) return res.json(contents);
+          res.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
+          return res.type("html").send(archivePage(file, contents));
+        }
         const contentType = preview
           ? previewType(file, response)
           : "application/octet-stream";
         if (!contentType) {
           await response.body.cancel();
-          const title = file.title.replace(
-            /[&<>"']/g,
-            (char) =>
-              ({
-                "&": "&amp;",
-                "<": "&lt;",
-                ">": "&gt;",
-                '"': "&quot;",
-                "'": "&#39;",
-              })[char],
-          );
-          return res
-            .status(415)
-            .type("html")
-            .send(
-              `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>File preview</title><style>body{margin:0;padding:48px 24px;background:#1e1e2e;color:#cdd6f4;font:16px/1.6 system-ui}main{max-width:600px;margin:auto}h1{font-size:24px;overflow-wrap:anywhere}p{color:#a6adc8}a{display:inline-block;padding:10px 18px;border-radius:8px;background:#cba6f7;color:#181825;text-decoration:none}</style></head><body><main><h1>${title}</h1><p>The browser cannot preview this file format.</p><a href="/api/files/${encodeURIComponent(file.remoteId)}/download">Download file</a></main></body></html>`,
-            );
+          return unavailablePreview(res, file);
         }
         const filename =
           file.title.replace(/[\x00-\x1f\x7f/\\]/g, "_").slice(0, 200) ||
@@ -126,6 +139,8 @@ export function fileRoutes({ state, save, expire, requireLogin, getFolders, getD
         }
       } catch (error) {
         if (error.status === 401) await expire(context);
+        if (!listing && preview && isZip(file) && [413, 415].includes(error.status) && !controller.signal.aborted)
+          return unavailablePreview(res, file, error.status, error.message);
         if (!res.headersSent && !controller.signal.aborted) throw error;
         if (!res.destroyed) res.destroy();
       } finally {

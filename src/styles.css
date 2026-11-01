@@ -762,7 +762,7 @@ input::placeholder {
 .course-schedule { width: 100%; max-width: 1100px; margin-inline: auto; }
 .course-schedule-shared { display: flex; align-items: center; flex-wrap: wrap; gap: 18px 46px; padding: 0; margin: 0 0 32px; }
 .course-schedule-shared-field { min-width: 0; max-width: 100%; }
-.course-schedule-shared-field dt { margin: 0 0 5px; color: var(--subtext); font-size: 11px; font-weight: 400; }
+.course-schedule-shared-field dt { margin: 0 0 5px; color: var(--subtext); font-size: 10px; line-height: 14px; font-weight: 400; }
 .course-schedule-shared-field dd { margin: 0; color: var(--text); font-size: 28px; font-weight: 500; line-height: 1.25; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .course-schedule-shared-time { letter-spacing: -0.5px; }
 .course-timeline { list-style: none; padding: 0; margin: 0; }
@@ -774,10 +774,10 @@ input::placeholder {
 .course-timeline-event { display: grid; grid-template-columns: 45px minmax(0, 1fr); gap: 13px; align-items: start; min-height: 48px; padding: 8px 0; }
 .course-timeline-date { display: flex; flex-direction: column; align-items: start; }
 .course-timeline-date > span { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 9px; font-size: 19px; font-weight: 400; font-variant-numeric: tabular-nums; }
-.course-timeline-date small { color: var(--subtext); font-size: 11px; }
+.course-timeline-date small { color: var(--subtext); font-size: 10px; line-height: 14px; }
 .course-timeline-details { min-width: 0; }
 .course-timeline-date-label { color: var(--subtext); font-size: 13px; }
-.course-timeline-date-secondary { display: flex; align-items: center; flex-wrap: wrap; gap: 3px 6px; margin-top: 2px; color: var(--subtext); font-size: 11px; }
+.course-timeline-date-secondary { display: flex; align-items: center; flex-wrap: wrap; gap: 3px 6px; margin-top: 2px; color: var(--subtext); font-size: 10px; line-height: 14px; }
 .course-timeline-time { margin-top: 5px; font-size: 12px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .course-timeline-location { margin-top: 4px; color: var(--subtext); font-size: 12px; overflow-wrap: anywhere; }
 .course-timeline-title { margin: 5px 0 0; color: var(--subtext); font-size: 12px; font-weight: 400; overflow-wrap: anywhere; }
@@ -790,7 +790,7 @@ input::placeholder {
 .course-timeline-entry.is-next .course-timeline-date > span { width: 42px; height: 42px; background: var(--mauve); color: var(--mantle); font-size: 23px; font-weight: 500; }
 .course-timeline-entry.is-next .course-timeline-date-label { color: var(--text); }
 .course-weekly-schedule { max-width: 620px; display: flex; flex-direction: column; }
-.course-weekly-period { margin: 0 0 18px; color: var(--subtext); font-size: 11px; line-height: 1.8; }
+.course-weekly-period { margin: 0 0 18px; color: var(--subtext); font-size: 10px; line-height: 14px; line-height: 1.8; }
 .course-weekly-day { margin-bottom: 14px; }
 .course-weekly-day h2 { margin: 0 0 6px; font-size: 20px; font-weight: 500; letter-spacing: -0.3px; }
 .course-weekly-slots { max-width: 380px; padding: 0; margin: 0; }
@@ -809,7 +809,7 @@ input::placeholder {
 .course-weekly-exception-content { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 7px; min-width: 0; }
 .course-weekly-exception-time { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .course-weekly-exception-room { color: var(--subtext); overflow-wrap: anywhere; }
-.course-weekly-exception-note { color: var(--subtext); font-size: 11px; overflow-wrap: anywhere; }
+.course-weekly-exception-note { color: var(--subtext); font-size: 10px; line-height: 14px; overflow-wrap: anywhere; }
 .course-weekly-cancelled { color: var(--red); }
 .course-weekly-exception-title { flex-basis: 100%; color: var(--subtext); overflow-wrap: anywhere; }
 .course-weekly-exception-description { flex-basis: 100%; margin: 3px 0 0; color: var(--subtext); white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -1718,3 +1718,20 @@ input::placeholder {
 .nextcloud-viewer-body a { color: var(--mauve); }
 @media (max-width: 650px) { .nextcloud-files { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
 @media (max-width: 420px) { .nextcloud-files { grid-template-columns: minmax(0, 1fr); } }
+
+.file-preview.archive-preview {
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 12px;
+  gap: 8px;
+  min-height: 170px;
+  overflow: hidden;
+}
+.archive-preview-heading { display: flex; align-items: center; gap: 8px; font-size: 9px; font-weight: 750; letter-spacing: 1px; }
+.archive-preview-entries { display: flex; flex-direction: column; gap: 5px; min-height: 0; overflow: hidden; }
+.archive-preview-entry { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--subtext); font-size: 10px; line-height: 14px; }
+.archive-preview-entry svg { flex-shrink: 0; color: var(--peach); }
+.archive-preview-entry span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono, monospace); }
+.archive-preview-count, .archive-preview-empty { color: var(--muted); font-size: 10px; }
+.archive-preview-count { margin-top: auto; }
+.archive-preview > .thumbnail-loading, .archive-preview > .thumbnail-fallback { margin: auto; }
