@@ -384,7 +384,7 @@ function App() {
                 </div>
               </div>
             )}
-            {selectedTab() === "nextcloud" && <div class="nextcloud-toolbar" ref={setNextcloudToolbar} />}
+            {(selectedTab() === "nextcloud" || selectedTab() === "google-drive") && <div class="nextcloud-toolbar" ref={setNextcloudToolbar} />}
             {selectedTab() === "gitlab" && <div class="gitlab-toolbar" ref={setGitlabToolbar} />}
           </div>
         )}
@@ -490,7 +490,7 @@ function App() {
                     )}
                   </Show>
                 ) : selectedTab() === "google-drive" ? (
-                  <Show when={courseSettingsScope()} keyed>{(_key) => <GoogleDriveSection storageKey={`stud-gk-google-drive:${courseSettingsScope()}`} />}</Show>
+                  <Show when={courseSettingsScope()} keyed>{(_key) => <GoogleDriveSection storageKey={`stud-gk-google-drive:${courseSettingsScope()}`} toolbarTarget={nextcloudToolbar()} />}</Show>
                 ) : selectedTab() === "nextcloud" ? (
                   <Show when={courseSettingsScope()} keyed>
                     {(_key) => (
