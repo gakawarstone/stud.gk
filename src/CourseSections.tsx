@@ -85,7 +85,7 @@ function NewsPost(props: { item: CourseResource; onRead: (id: string) => void })
 }
 export function CourseSections(props: {
   course: CourseDetails;
-  tab: Exclude<ExtraCourseTab, "nextcloud">;
+  tab: Exclude<ExtraCourseTab, "nextcloud" | "google-drive">;
   resources: CourseResource[];
   unavailable: boolean;
   onRead: (id: string) => void;

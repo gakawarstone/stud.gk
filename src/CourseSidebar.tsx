@@ -1,11 +1,15 @@
 import { CalendarDays, Cloud, FolderClosed, GitFork, Info, Megaphone, Plus, Trash2, X } from "lucide-solid";
 import { batch, createEffect, createMemo, createSignal, For, on, onCleanup } from "solid-js";
 import { extraCourseTabs, isExtraCourseTab, type CourseTab, type ExtraCourseTab } from "./course-tabs";
+function GoogleDriveIcon(props: { size?: number; "stroke-width"?: number; "aria-hidden"?: boolean | "true" | "false" }) {
+  return <svg width={props.size} height={props.size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={props["stroke-width"]} stroke-linejoin="round" aria-hidden={props["aria-hidden"]}><path d="M8.5 3h5l9 15.5-2.5 3H4L1.5 18.5 10.5 3"/><path d="m8.5 3 9 15.5M1.5 18.5h16M4 21.5l8-13.8"/></svg>;
+}
 export const courseTabs = {
   files: { label: "Files", Icon: FolderClosed },
   news: { label: "Announcements", Icon: Megaphone },
   schedule: { label: "Schedule", Icon: CalendarDays },
   course: { label: "Course info", Icon: Info },
+  "google-drive": { label: "Google Drive", Icon: GoogleDriveIcon },
   nextcloud: { label: "Nextcloud", Icon: Cloud },
   gitlab: { label: "GitLab", Icon: GitFork },
 };

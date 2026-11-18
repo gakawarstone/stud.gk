@@ -28,6 +28,7 @@ import { FileSearch } from "./FileSearch";
 import { FolderExplorer } from "./FolderExplorer";
 import { GitlabProject } from "./GitlabProject";
 import { Login } from "./Login";
+import { GoogleDriveSection } from "./GoogleDriveSection";
 import { NextcloudSection } from "./NextcloudSection";
 import { PdfFileIcon } from "./PdfFileIcon";
 import { PdfViewer } from "./PdfViewer";
@@ -383,7 +384,7 @@ function App() {
                 </div>
               </div>
             )}
-            {selectedTab() === "nextcloud" && <div class="nextcloud-toolbar" ref={setNextcloudToolbar} />}
+            {(selectedTab() === "nextcloud" || selectedTab() === "google-drive") && <div class="nextcloud-toolbar" ref={setNextcloudToolbar} />}
             {selectedTab() === "gitlab" && <div class="gitlab-toolbar" ref={setGitlabToolbar} />}
           </div>
         )}
@@ -488,6 +489,8 @@ function App() {
                       />
                     )}
                   </Show>
+                ) : selectedTab() === "google-drive" ? (
+                  <Show when={courseSettingsScope()} keyed>{(_key) => <GoogleDriveSection storageKey={`stud-gk-google-drive:${courseSettingsScope()}`} toolbarTarget={nextcloudToolbar()} />}</Show>
                 ) : selectedTab() === "nextcloud" ? (
                   <Show when={courseSettingsScope()} keyed>
                     {(_key) => (

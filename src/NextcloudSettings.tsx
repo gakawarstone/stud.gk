@@ -1,6 +1,6 @@
 import { ExternalLink, Link, RefreshCw, Settings } from "lucide-solid";
 import { createEffect, createSignal, createUniqueId, on, onCleanup } from "solid-js";
-export function NextcloudSettings(props: { url: string; loading: boolean; onRefresh: () => void; onEdit: () => void }) {
+export function NextcloudSettings(props: { url: string; loading: boolean; onRefresh: () => void; onEdit: () => void; service?: string }) {
   const [open, setOpen] = createSignal(false);
   let container: HTMLDivElement | null = null;
   let button: HTMLButtonElement | null = null;
@@ -45,8 +45,8 @@ export function NextcloudSettings(props: { url: string; loading: boolean; onRefr
       <button
         ref={(element) => (button = element)}
         type="button"
-        aria-label="Nextcloud settings"
-        title="Nextcloud settings"
+        aria-label={`${props.service || "Nextcloud"} settings`}
+        title={`${props.service || "Nextcloud"} settings`}
         aria-haspopup="menu"
         aria-expanded={open()}
         aria-controls={open() ? menuId : undefined}
@@ -66,7 +66,7 @@ export function NextcloudSettings(props: { url: string; loading: boolean; onRefr
           id={menuId}
           class="nextcloud-settings-menu"
           role="menu"
-          aria-label="Nextcloud settings"
+          aria-label={`${props.service || "Nextcloud"} settings`}
           onKeyDown={(event) => {
             const items = [...menu!.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)')];
             const current = items.indexOf(document.activeElement as HTMLElement);
@@ -89,7 +89,7 @@ export function NextcloudSettings(props: { url: string; loading: boolean; onRefr
           <button
             type="button"
             role="menuitem"
-            aria-label="Refresh Nextcloud files"
+            aria-label={`Refresh ${props.service || "Nextcloud"} files`}
             disabled={props.loading}
             onClick={() => {
               close();
@@ -102,7 +102,7 @@ export function NextcloudSettings(props: { url: string; loading: boolean; onRefr
           <button
             type="button"
             role="menuitem"
-            aria-label="Edit Nextcloud link"
+            aria-label={`Edit ${props.service || "Nextcloud"} link`}
             onClick={() => {
               close(false);
               props.onEdit();
@@ -116,7 +116,7 @@ export function NextcloudSettings(props: { url: string; loading: boolean; onRefr
             href={props.url}
             target="_blank"
             rel="noreferrer"
-            aria-label="Open Nextcloud in browser"
+            aria-label={`Open ${props.service || "Nextcloud"} in browser`}
             onClick={() => close()}
           >
             <ExternalLink size={16} aria-hidden="true" />
