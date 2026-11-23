@@ -22,11 +22,13 @@ import { Dynamic, render } from "solid-js/web";
 import type { Change, Material } from "../shared/studip";
 import { CourseSections } from "./CourseSections";
 import { CourseSidebar } from "./CourseSidebar";
+import { ArchiveThumbnail } from "./ArchiveThumbnail";
 import { FileThumbnail } from "./FileThumbnail";
 import { FileSearch } from "./FileSearch";
 import { FolderExplorer } from "./FolderExplorer";
 import { GitlabProject } from "./GitlabProject";
 import { Login } from "./Login";
+import { GoogleDriveSection } from "./GoogleDriveSection";
 import { MoodleSection } from "./MoodleSection";
 import { NextcloudSection } from "./NextcloudSection";
 import { PdfFileIcon } from "./PdfFileIcon";
@@ -383,7 +385,7 @@ function App() {
                 </div>
               </div>
             )}
-            {selectedTab() === "nextcloud" && <div class="nextcloud-toolbar" ref={setNextcloudToolbar} />}
+            {(selectedTab() === "nextcloud" || selectedTab() === "google-drive") && <div class="nextcloud-toolbar" ref={setNextcloudToolbar} />}
             {selectedTab() === "gitlab" && <div class="gitlab-toolbar" ref={setGitlabToolbar} />}
           </div>
         )}
@@ -488,6 +490,8 @@ function App() {
                       />
                     )}
                   </Show>
+                ) : selectedTab() === "google-drive" ? (
+                  <Show when={courseSettingsScope()} keyed>{(_key) => <GoogleDriveSection storageKey={`stud-gk-google-drive:${courseSettingsScope()}`} toolbarTarget={nextcloudToolbar()} />}</Show>
                 ) : selectedTab() === "moodle" ? (
                   <Show when={courseSettingsScope()} keyed>
                     {(key) => <MoodleSection storageKey={`stud-gk-moodle:${key}`} demo={phase() === "demo"} />}
@@ -681,6 +685,8 @@ function App() {
                                     aria-hidden="true"
                                   />
                                 </span>
+                              ) : phase() === "live" && file.remoteId && /\.zip$/i.test(file.title) ? (
+                                <ArchiveThumbnail id={file.remoteId} version={`${generation.current}:${file.updatedAt || file.createdAt || ""}`} />
                               ) : phase() === "live" &&
                                 file.remoteId &&
                                 (appearance().tone === "pdf" || appearance().tone === "image") ? (

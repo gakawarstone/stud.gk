@@ -13,6 +13,7 @@ import {
 import { reconcile } from "./changes.js";
 import { createGitlabClient, GitlabError } from "./gitlab-client.js";
 import { createDemoFolders } from "./demo.js";
+import { googleDriveRoutes } from "./google-drive.js";
 import { nextcloudRoutes } from "./nextcloud-routes.js";
 import { createFileCache } from "./file-cache.js";
 
@@ -265,6 +266,7 @@ export async function createApp({
     res.json({ ok: true });
   });
   app.use("/api/moodle", moodleRoutes(requireLogin, moodleClient));
+  app.use("/api/google-drive", googleDriveRoutes());
   app.use("/api/nextcloud", nextcloudRoutes(nextcloudClient));
   app.use("/api", (req, res) =>
     res.status(404).json({ error: "Route not found." }),
