@@ -226,12 +226,10 @@ Palette: [Catppuccin](https://catppuccin.com/palette/). Icons: Lucide. Font: Man
 
 ### Moodle
 
-Add the **Moodle** tab from a course's sidebar. Sign in to Stud.IP, enter your Moodle HTTPS site URL and a personal web service token, then select an enrolled Moodle course. The selection is remembered separately for each Stud.IP course in this browser. Refresh reloads the course list and selected course contents.
-
-The Moodle site must enable the REST protocol and allow the token to call `core_webservice_get_site_info`, `core_enrol_get_users_courses` and `core_course_get_contents`. Tokens may be available under Moodle's **Preferences → Security keys**, depending on site configuration; otherwise ask the administrator. See the [Moodle web service client documentation](https://docs.moodle.org/dev/Creating_a_web_service_client).
+Add the **Moodle** tab from a course's sidebar. Sign in with the same Hochschule Flensburg username and password you use for Stud.IP, then select an enrolled Moodle course. The browser remembers the selection for each Stud.IP course. Refresh reloads the course list and the selected course contents.
 
 Stud.GK reads visible sections and activities. Activity links open Moodle in the browser, where a Moodle login may be required for files, assignments and quizzes. Submissions, grades, file downloads inside Stud.GK and automatic Moodle change notifications are not included.
 
-The token is sent in HTTPS POST bodies and saved only in the existing encrypted server session, never in browser storage or API responses. Only public HTTPS hosts on the default port are supported; redirects are rejected. Disconnect removes it from that session. Signing out or session expiry also ends the Moodle connection, so signing in again requires reconnecting. One Moodle site can be connected per Stud.GK session.
+Stud.GK sends the password to the university's Moodle mobile sign-in endpoint over HTTPS and does not store it. Moodle issues an API token automatically, which Stud.GK keeps in its encrypted server session. Disconnect, signing out of Stud.IP and session expiry end the local Moodle connection.
 
 The app's demo mode includes a labelled sample Moodle course without credentials or upstream requests.

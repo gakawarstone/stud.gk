@@ -7,8 +7,8 @@ export function MoodleSection(props: { storageKey: string; demo: boolean }) {
   const [catalog, setCatalog] = createSignal<MoodleCourses | null>(null);
   const [contents, setContents] = createSignal<MoodleContents | null>(null);
   const [course, setCourse] = createSignal("");
-  const [url, setUrl] = createSignal("");
-  const [token, setToken] = createSignal("");
+  const [username, setUsername] = createSignal("");
+  const [password, setPassword] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
   const controller = new AbortController();
@@ -47,20 +47,22 @@ export function MoodleSection(props: { storageKey: string; demo: boolean }) {
       <Show when={!catalog() && !props.demo}>
         <form class="nextcloud-form moodle-connect" onSubmit={e => {
           e.preventDefault();
+          if (busy()) return;
+          const credentials = { username: username().trim(), password: password() };
+          setPassword("");
           void run(async () => {
-            const data = await api<MoodleCourses>("/api/moodle/connect", { url: url(), token: token() }, controller.signal);
-            setToken(""); setCatalog(data); setContents(null); setCourse("");
+            const data = await api<MoodleCourses>("/api/moodle/connect", credentials, controller.signal);
+            setCatalog(data);
           });
         }}>
-          <h3>Connect your Moodle account</h3>
-          <p class="course-section-notice">Browse your enrolled courses and open activities in Moodle.</p>
-          <label for="moodle-url">Moodle site URL</label>
-          <input id="moodle-url" type="url" placeholder="https://moodle.example.edu" required value={url()} onInput={e => setUrl(e.currentTarget.value)} disabled={busy()} />
-          <label for="moodle-token">Web service token</label>
-          <input id="moodle-token" type="password" autocomplete="off" required value={token()} onInput={e => setToken(e.currentTarget.value)} disabled={busy()} />
-          <p class="course-section-notice">Find your token in Moodle under Preferences → Security keys, or ask your administrator. The site must enable REST web services.</p>
-          <button class="primary-button" disabled={busy()} type="submit">{busy() ? "Connecting…" : "Connect Moodle"}</button>
-          <p class="course-section-notice">Your token stays in the encrypted server session. This integration only reads courses and activities.</p>
+          <h3>Sign in to Moodle</h3>
+          <p class="course-section-notice">Use the same Hochschule Flensburg username and password as for Stud.IP.</p>
+          <label for="moodle-username">University username</label>
+          <input id="moodle-username" autocomplete="username" placeholder="abcd1234" required value={username()} onInput={e => setUsername(e.currentTarget.value)} disabled={busy()} />
+          <label for="moodle-password">University password</label>
+          <input id="moodle-password" type="password" autocomplete="current-password" required value={password()} onInput={e => setPassword(e.currentTarget.value)} disabled={busy()} />
+          <button class="primary-button" disabled={busy() || !username().trim() || !password()} type="submit">{busy() ? "Signing in…" : "Sign in to Moodle"}</button>
+          <p class="course-section-notice">Your password is sent to moodle.hs-flensburg.de to sign in and is not stored.</p>
         </form>
       </Show>
       <Show when={catalog()}>

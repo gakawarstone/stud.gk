@@ -27,6 +27,11 @@ async function waitFor(code) {
     authenticate: async () => ({ user: { id: "fixture", name: "Test Student" }, jar: new CookieJar() }),
     getSnapshot: async () => ({ courses: [{ id: "se", title: "Software engineering", color: "#fab387" }], resources: [] }),
     moodleClient: {
+      signIn: async (username, password) => {
+        assert.equal(username, "fixture");
+        assert.equal(password, "fixture-password");
+        return { url: "https://moodle.hs-flensburg.de/", token: "a".repeat(32) };
+      },
       courses: async () => ({ site: "Test Moodle", courses: moodleDemo.courses }),
       contents: async () => ({ sections: moodleDemo.sections }),
     },
@@ -35,23 +40,25 @@ async function waitFor(code) {
   await window.loadURL(runtime.url);
   await evaluate(`fetch('/api/auth/login', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'fixture',password:'fixture'})}).then(r=>{if(!r.ok)throw Error('login')})`);
   await window.loadURL(runtime.url + "/?fixture=1#course=se&tab=moodle");
-  await waitFor(`document.querySelector('#moodle-token') && !document.querySelector('#moodle-token').disabled`);
+  await waitFor(`document.querySelector('#moodle-password') && !document.querySelector('#moodle-password').disabled`);
   await evaluate(`
-    for (const [id,value] of [['moodle-url','https://moodle.example.edu'],['moodle-token','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa']]) {
+    for (const [id,value] of [['moodle-username','fixture'],['moodle-password','fixture-password']]) {
       const input=document.getElementById(id); input.value=value; input.dispatchEvent(new Event('input',{bubbles:true}));
     }
     document.querySelector('.moodle-connect').requestSubmit();
   `);
   await waitFor(`document.querySelector('#moodle-course') && !document.querySelector('#moodle-course').disabled`);
-  assert.equal(await evaluate(`document.querySelector('#moodle-token')`), null);
+  assert.equal(await evaluate(`document.querySelector('#moodle-password')`), null);
   await evaluate(`const select=document.querySelector('#moodle-course');select.value='42';select.dispatchEvent(new Event('change',{bubbles:true}));`);
   await waitFor(`document.querySelectorAll('.moodle-topic').length===2`);
   await window.reload();
   await waitFor(`document.querySelectorAll('.moodle-topic').length===2`);
   assert.equal(await evaluate(`document.querySelector('#moodle-course').value`), "42");
   assert.ok(!(await evaluate(`JSON.stringify(localStorage)`)).includes("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+  assert.ok(!(await evaluate(`JSON.stringify(localStorage)`)).includes("fixture-password"));
   await evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent==='Disconnect').click()`);
-  await waitFor(`document.querySelector('#moodle-token') && !document.querySelector('#moodle-token').disabled`);
+  await waitFor(`document.querySelector('#moodle-password') && !document.querySelector('#moodle-password').disabled`);
+  assert.equal(await evaluate(`document.querySelector('#moodle-password').value`), "");
   assert.equal(await evaluate(`fetch('/api/moodle/courses').then(r=>r.json()).then(d=>d.connected)`), false);
   console.log("Moodle UI passed: connect, course selection, reload, token privacy, disconnect");
 })().then(async () => {

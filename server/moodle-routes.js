@@ -1,5 +1,7 @@
 import { Router } from "express";
-import { createMoodleClient, moodleUrl, MoodleError } from "./moodle.js";
+import { rateLimit } from "express-rate-limit";
+import { createMoodleClient, MoodleError } from "./moodle.js";
+import { validateCredentials } from "./login.js";
 import { moodleDemo } from "../shared/moodle.js";
 import { call } from "./session-calls.js";
 
@@ -7,12 +9,25 @@ export function moodleRoutes(requireLogin, client = createMoodleClient()) {
   const router = Router();
   router.get("/demo", (req, res) => res.json(moodleDemo));
   router.use(requireLogin);
-  router.post("/connect", async (req, res) => {
-    const url = moodleUrl(req.body?.url).href;
-    const token = req.body?.token;
-    if (typeof token !== "string" || !/^[a-zA-Z0-9]{16,128}$/.test(token)) throw new MoodleError("Enter a valid Moodle web service token.", 400);
-    const connection = { url, token };
+  const signInLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+    message: { error: "Too many Moodle sign-in attempts. Try again in 15 minutes." },
+  });
+  router.post("/connect", signInLimiter, async (req, res) => {
+    let credentials;
+    try {
+      credentials = validateCredentials(req.body?.username, req.body?.password);
+    } catch {
+      throw new MoodleError("Enter your university username and password.", 400);
+    }
+    const connection = await client.signIn(credentials.username, credentials.password);
     const result = await client.courses(connection);
+    if (req.context.revoked || req.context.expiresAt <= Date.now())
+      throw new MoodleError("Your Stud.IP session has expired. Sign in again.", 401);
     req.session.moodle = connection;
     await call(req.session, "save");
     res.json(result);
