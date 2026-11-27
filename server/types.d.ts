@@ -37,6 +37,7 @@ export type AppOptions = {
   getGitlabCommit?: ReturnType<typeof createGitlabClient>["commit"];
   getGitlabFile?: ReturnType<typeof createGitlabClient>["file"];
   getGitlabContent?: ReturnType<typeof createGitlabClient>["content"];
+  moodleClient?: ReturnType<typeof import("./moodle.js").createMoodleClient>;
   nextcloudClient?: ReturnType<typeof createNextcloudClient>;
   autoSync?: boolean;
   sessionName?: string;
@@ -52,6 +53,7 @@ declare global {
 declare module "express-session" {
   interface SessionData {
     auth?: Auth;
+    moodle?: { url: string; token: string };
     /** Legacy tokens, migrated to the account store on startup. */
     gitlabTokens?: Record<string, string>;
   }

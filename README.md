@@ -223,3 +223,13 @@ The `test:session` check uses mock API responses and controlled timers. It check
 Tests cover form sign-in with CSRF, redirects and cookies, incorrect passwords, account isolation, session ID rotation, recovery after a restart, sign-out, expiry, encryption, sign-in rate limits, and change detection. Download checks cover account permissions, binary streaming, byte ranges, cancellation, and read marks. Cache checks cover file reuse, recovery after a restart, account separation, version and permission changes, eviction of old files, and cleanup of incomplete transfers. PDF color checks cover light and dark pages, mixed backgrounds, syntax colors, text antialiasing, and high pixel density.
 
 Palette: [Catppuccin](https://catppuccin.com/palette/). Icons: Lucide. Font: Manrope with a system fallback.
+
+### Moodle
+
+Add the **Moodle** tab from a course's sidebar and sign in with your Hochschule Flensburg credentials. Select an enrolled Moodle course and click **Link course**. The tab opens the linked materials automatically. To change or remove the link, open **Moodle settings** in the course toolbar. The browser saves each link separately for your Stud.IP account and course, including when you disconnect and sign in again.
+
+Stud.GK reads visible sections and activities. Activity links open Moodle in the browser, where a Moodle login may be required for files, assignments and quizzes. Submissions, grades, file downloads inside Stud.GK and automatic Moodle change notifications are not included.
+
+Stud.GK sends the password to the university's Moodle mobile sign-in endpoint over HTTPS and does not store it. Moodle issues an API token automatically, which Stud.GK keeps in its encrypted server session. Disconnect, signing out of Stud.IP and session expiry end the local Moodle connection.
+
+The app's demo mode includes a labelled sample Moodle course without credentials or upstream requests.

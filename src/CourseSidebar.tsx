@@ -1,4 +1,4 @@
-import { CalendarDays, Cloud, FolderClosed, GitFork, Info, Megaphone, Plus, Trash2, X } from "lucide-solid";
+import { BookOpen, CalendarDays, Cloud, FolderClosed, GitFork, Info, Megaphone, Plus, Trash2, X } from "lucide-solid";
 import { batch, createEffect, createMemo, createSignal, For, on, onCleanup } from "solid-js";
 import { extraCourseTabs, isExtraCourseTab, type CourseTab, type ExtraCourseTab } from "./course-tabs";
 function GoogleDriveIcon(props: { size?: number; "stroke-width"?: number; "aria-hidden"?: boolean | "true" | "false" }) {
@@ -11,6 +11,7 @@ export const courseTabs = {
   course: { label: "Course info", Icon: Info },
   "google-drive": { label: "Google Drive", Icon: GoogleDriveIcon },
   nextcloud: { label: "Nextcloud", Icon: Cloud },
+  moodle: { label: "Moodle", Icon: BookOpen },
   gitlab: { label: "GitLab", Icon: GitFork },
 };
 export function CourseSidebar(props: {

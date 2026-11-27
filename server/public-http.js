@@ -22,7 +22,7 @@ export function isPublicAddress(address) {
 
 // Pin a verified public address to the socket. Never follow redirects with tokens.
 /** @param {URL} url @param {import('./types.js').PublicRequestOptions} options @returns {Promise<Response>} */
-export async function publicRequest(url, { headers = {}, signal } = {}) {
+export async function publicRequest(url, { headers = {}, signal, method = "GET", body } = {}) {
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
   const addresses = isIP(hostname) ? [{ address: hostname, family: isIP(hostname) }]
     : await lookup(hostname, { all: true, verbatim: true });
@@ -31,7 +31,7 @@ export async function publicRequest(url, { headers = {}, signal } = {}) {
   const address = addresses.find((entry) => entry.family === 4) || addresses[0];
   return new Promise((resolve, reject) => {
     const request = (url.protocol === "https:" ? https : http).request(url, {
-      method: "GET", headers, signal, agent: false,
+      method, headers, signal, agent: false,
       lookup: (_hostname, options, callback) => options.all
         ? callback(null, [address]) : callback(null, address.address, address.family),
     }, (response) => {
@@ -40,8 +40,8 @@ export async function publicRequest(url, { headers = {}, signal } = {}) {
         if (value !== undefined) responseHeaders.set(name, Array.isArray(value) ? value.join(", ") : value);
       resolve(new Response(/** @type {ReadableStream<Uint8Array>} */ (Readable.toWeb(response)), { status: response.statusCode, headers: responseHeaders }));
     });
-    request.setTimeout(15000, () => request.destroy(new Error("GitLab timeout")));
+    request.setTimeout(15000, () => request.destroy(new Error("Upstream timeout")));
     request.on("error", reject);
-    request.end();
+    request.end(body);
   });
 }
