@@ -16,6 +16,13 @@ async function waitFor(code) {
   throw new Error(`Timed out: ${code}`);
 }
 const button = (label) => `[...document.querySelectorAll('button')].find(b => b.textContent.trim() === ${JSON.stringify(label)})`;
+const settingsButton = `document.querySelector('.course-toolbar button[aria-label="Moodle settings"]')`;
+async function useSettings(label) {
+  await waitFor(settingsButton);
+  await evaluate(`${settingsButton}.click()`);
+  await waitFor(button(label));
+  await evaluate(`${button(label)}.click()`);
+}
 async function signInToMoodle() {
   await waitFor(`document.querySelector('#moodle-password') && !document.querySelector('#moodle-password').disabled`);
   await evaluate(`
@@ -74,26 +81,28 @@ async function chooseCourse(id) {
   assert.equal(await evaluate(`document.querySelector('.moodle-topic')`), null);
   await evaluate(`${button("Link course")}.click()`);
   await waitFor(`document.querySelectorAll('.moodle-topic').length===2`);
-  assert.equal(await evaluate(`document.querySelector('.moodle-linked-course h3').textContent`), "Software Engineering");
+  assert.ok(await evaluate(`document.querySelector('.moodle-section').innerText.trim().startsWith('General')`));
   await window.reload();
   await waitFor(`document.querySelectorAll('.moodle-topic').length===2`);
   assert.equal(await evaluate(`document.querySelector('#moodle-course')`), null);
   await evaluate(`location.hash = "#course=db&tab=moodle"`);
   await chooseCourse(43);
-  assert.equal(await evaluate(`document.querySelector('.moodle-linked-course')`), null);
+  assert.equal(await evaluate(`document.querySelector('.moodle-topic')`), null);
   await evaluate(`${button("Link course")}.click()`);
   await waitFor(`document.querySelector('.moodle-topic h3')?.textContent === 'Relational models'`);
   await evaluate(`location.hash = "#course=se&tab=moodle"`);
   await waitFor(`document.querySelectorAll('.moodle-topic').length === 2`);
-  await evaluate(`${button("Change course")}.click()`);
+  await useSettings("Change course");
+  assert.equal(await evaluate(`document.activeElement.id`), "moodle-course");
+  assert.equal(await evaluate(`document.querySelector('#moodle-course').value`), "42");
   await chooseCourse(43);
   await evaluate(`${button("Cancel")}.click()`);
-  assert.equal(await evaluate(`document.querySelector('.moodle-linked-course h3').textContent`), "Software Engineering");
-  await evaluate(`${button("Change course")}.click()`);
+  assert.equal(await evaluate(`document.querySelector('.moodle-topic h3').textContent`), "General");
+  await useSettings("Change course");
   await chooseCourse(43);
   await evaluate(`${button("Link course")}.click()`);
   await waitFor(`document.querySelector('.moodle-topic h3')?.textContent === 'Relational models'`);
-  await evaluate(`${button("Unlink course")}.click()`);
+  await useSettings("Unlink course");
   await waitFor(`document.querySelector('#moodle-course') && !document.querySelector('.moodle-topic')`);
   await window.reload();
   await waitFor(`document.querySelector('#moodle-course') && !document.querySelector('.moodle-topic')`);
@@ -101,7 +110,7 @@ async function chooseCourse(id) {
   await waitFor(`document.querySelector('.moodle-topic h3')?.textContent === 'Relational models'`);
   assert.ok(!(await evaluate(`JSON.stringify(localStorage)`)).includes("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
   assert.ok(!(await evaluate(`JSON.stringify(localStorage)`)).includes("fixture-password"));
-  await evaluate(`${button("Disconnect Moodle")}.click()`);
+  await useSettings("Disconnect Moodle");
   await waitFor(`document.querySelector('#moodle-password') && !document.querySelector('#moodle-password').disabled`);
   assert.equal(await evaluate(`document.querySelector('#moodle-password').value`), "");
   assert.equal(await evaluate(`fetch('/api/moodle/courses').then(r=>r.json()).then(d=>d.connected)`), false);

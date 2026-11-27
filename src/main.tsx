@@ -106,7 +106,7 @@ function App() {
   } = createFeedSession(resetSessionUi);
   const [fileError, setFileError] = createSignal<string | null>(null);
   const [viewedPdf, setViewedPdf] = createSignal<Material | null>(null);
-  const [nextcloudToolbar, setNextcloudToolbar] = createSignal<HTMLDivElement | null>(null);
+  const [integrationToolbar, setIntegrationToolbar] = createSignal<HTMLDivElement | null>(null);
   const [gitlabToolbar, setGitlabToolbar] = createSignal<HTMLDivElement | null>(null);
   const [selectedCourseId, setSelectedCourseId] = createSignal(courseFromHash());
   const [selectedTab, setSelectedTab] = createSignal(courseTabFromHash());
@@ -385,7 +385,7 @@ function App() {
                 </div>
               </div>
             )}
-            {(selectedTab() === "nextcloud" || selectedTab() === "google-drive") && <div class="nextcloud-toolbar" ref={setNextcloudToolbar} />}
+            {(selectedTab() === "nextcloud" || selectedTab() === "google-drive" || selectedTab() === "moodle") && <div class="nextcloud-toolbar" ref={setIntegrationToolbar} />}
             {selectedTab() === "gitlab" && <div class="gitlab-toolbar" ref={setGitlabToolbar} />}
           </div>
         )}
@@ -491,17 +491,17 @@ function App() {
                     )}
                   </Show>
                 ) : selectedTab() === "google-drive" ? (
-                  <Show when={courseSettingsScope()} keyed>{(_key) => <GoogleDriveSection storageKey={`stud-gk-google-drive:${courseSettingsScope()}`} toolbarTarget={nextcloudToolbar()} />}</Show>
+                  <Show when={courseSettingsScope()} keyed>{(_key) => <GoogleDriveSection storageKey={`stud-gk-google-drive:${courseSettingsScope()}`} toolbarTarget={integrationToolbar()} />}</Show>
                 ) : selectedTab() === "moodle" ? (
                   <Show when={courseSettingsScope()} keyed>
-                    {(key) => <MoodleSection storageKey={`stud-gk-moodle:${key}`} demo={phase() === "demo"} />}
+                    {(key) => <MoodleSection storageKey={`stud-gk-moodle:${key}`} demo={phase() === "demo"} toolbarTarget={integrationToolbar()} />}
                   </Show>
                 ) : selectedTab() === "nextcloud" ? (
                   <Show when={courseSettingsScope()} keyed>
                     {(_key) => (
                       <NextcloudSection
                         storageKey={`stud-gk-nextcloud:${courseSettingsScope()}`}
-                        toolbarTarget={nextcloudToolbar()}
+                        toolbarTarget={integrationToolbar()}
                       />
                     )}
                   </Show>

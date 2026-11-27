@@ -1,9 +1,11 @@
-import { BookOpen, ExternalLink, FileText, RefreshCw } from "lucide-solid";
+import { ExternalLink, FileText, Link, LogOut, RefreshCw, Unlink } from "lucide-solid";
 import { createSignal, For, onMount, onCleanup, Show } from "solid-js";
+import { Portal } from "solid-js/web";
 import { api, ApiError } from "./api";
+import { CourseSettingsMenu } from "./CourseSettingsMenu";
 import type { MoodleContents, MoodleCourses } from "../shared/moodle";
 
-export function MoodleSection(props: { storageKey: string; demo: boolean }) {
+export function MoodleSection(props: { storageKey: string; demo: boolean; toolbarTarget: HTMLElement | null }) {
   const [catalog, setCatalog] = createSignal<MoodleCourses | null>(null);
   const [contents, setContents] = createSignal<MoodleContents | null>(null);
   const [linkedId, setLinkedId] = createSignal<string | null>((() => {
@@ -18,6 +20,7 @@ export function MoodleSection(props: { storageKey: string; demo: boolean }) {
   const [password, setPassword] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
+  let coursePicker: HTMLSelectElement | undefined;
   const controller = new AbortController();
   onCleanup(() => controller.abort());
   async function run(action: () => Promise<void>) {
@@ -47,10 +50,7 @@ export function MoodleSection(props: { storageKey: string; demo: boolean }) {
   }
   async function refresh() {
     if (props.demo) {
-      const data = await api<MoodleCourses & MoodleContents>("/api/moodle/demo", undefined, controller.signal);
-      setCatalog(data);
-      setLinkedId(data.courses[0] ? String(data.courses[0].id) : null);
-      setContents(data);
+      setContents(await api<MoodleContents>("/api/moodle/demo", undefined, controller.signal));
       return;
     }
     let data;
@@ -62,14 +62,50 @@ export function MoodleSection(props: { storageKey: string; demo: boolean }) {
     }
     await showCatalog(data.connected ? data : null);
   }
+  async function disconnect() {
+    await api("/api/moodle/disconnect", {}, controller.signal);
+    setDraftId("");
+    setEditing(false);
+    await showCatalog(null);
+  }
   onMount(() => void run(refresh));
   return (
     <section class="course-section moodle-section" aria-label="Moodle">
-      <header class="moodle-heading">
-        <div><span class="moodle-eyebrow">COURSE INTEGRATION</span><h2><BookOpen size={24} /> Moodle</h2></div>
-        <Show when={catalog()}><button class="text-button" disabled={busy()} onClick={() => void run(refresh)} aria-label="Refresh Moodle"><RefreshCw size={16} /> Refresh</button></Show>
-      </header>
-      <Show when={props.demo}><p class="moodle-demo">Demo preview · Sample materials. Sign in to connect your Moodle account.</p></Show>
+      <Show when={catalog() && props.toolbarTarget}>
+        {target => (
+          <Portal mount={target()}>
+            <CourseSettingsMenu label="Moodle settings">
+              {close => <>
+                <button type="button" role="menuitem" disabled={busy()} onClick={() => {
+                  close();
+                  void run(refresh);
+                }}><RefreshCw size={16} aria-hidden="true" /> Refresh materials</button>
+                <Show when={linkedCourse() && !editing()}>
+                  <button type="button" role="menuitem" disabled={busy()} onClick={() => {
+                    close(false);
+                    setError("");
+                    setDraftId(linkedId() || "");
+                    setEditing(true);
+                    coursePicker?.focus();
+                  }}><Link size={16} aria-hidden="true" /> Change course</button>
+                </Show>
+                <Show when={linkedId()}>
+                  <button type="button" role="menuitem" disabled={busy()} onClick={() => {
+                    close();
+                    saveLink(null);
+                    setContents(null);
+                    setError("");
+                  }}><Unlink size={16} aria-hidden="true" /> Unlink course</button>
+                </Show>
+                <button type="button" role="menuitem" disabled={busy()} onClick={() => {
+                  close();
+                  void run(disconnect);
+                }}><LogOut size={16} aria-hidden="true" /> Disconnect Moodle</button>
+              </>}
+            </CourseSettingsMenu>
+          </Portal>
+        )}
+      </Show>
       <Show when={error()}><p class="form-error" role="alert">{error()}</p></Show>
       <Show when={!catalog() && !props.demo}>
         <form class="nextcloud-form moodle-connect" onSubmit={e => {
@@ -82,55 +118,23 @@ export function MoodleSection(props: { storageKey: string; demo: boolean }) {
             await showCatalog(data);
           });
         }}>
-          <h3>Sign in to Moodle</h3>
-          <p class="course-section-notice">Use the same Hochschule Flensburg username and password as for Stud.IP.</p>
-          <label for="moodle-username">University username</label>
+          <label for="moodle-username">Moodle username</label>
           <input id="moodle-username" autocomplete="username" placeholder="abcd1234" required value={username()} onInput={e => setUsername(e.currentTarget.value)} disabled={busy()} />
-          <label for="moodle-password">University password</label>
+          <label for="moodle-password">Moodle password</label>
           <input id="moodle-password" type="password" autocomplete="current-password" required value={password()} onInput={e => setPassword(e.currentTarget.value)} disabled={busy()} />
-          <button class="primary-button" disabled={busy() || !username().trim() || !password()} type="submit">{busy() ? "Signing in…" : "Sign in to Moodle"}</button>
-          <p class="course-section-notice">Your password is sent to moodle.hs-flensburg.de to sign in and is not stored.</p>
+          <p class="course-section-notice">Use the same Hochschule Flensburg username and password as for Stud.IP.</p>
+          <div class="nextcloud-actions">
+            <button class="nextcloud-save" disabled={busy() || !username().trim() || !password()} type="submit">{busy() ? "Signing in…" : "Sign in to Moodle"}</button>
+          </div>
         </form>
       </Show>
       <Show when={catalog()}>
-        <div class="moodle-connection">
-          <div><span class="moodle-eyebrow">{props.demo ? "SAMPLE SITE" : "CONNECTED SITE"}</span><p>{catalog()!.site || "Moodle"}</p></div>
-          <Show when={!props.demo}><button class="text-button" disabled={busy()} onClick={() => void run(async () => {
-            await api("/api/moodle/disconnect", {}, controller.signal);
-            setDraftId("");
-            setEditing(false);
-            await showCatalog(null);
-          })}>Disconnect Moodle</button></Show>
-        </div>
-        <Show when={linkedCourse()}>
-          {course => <div class="moodle-linked-course">
-            <div>
-              <span class="moodle-eyebrow">{props.demo ? "Sample linked course" : "Linked Moodle course"}</span>
-              <h3>{course().title}</h3>
-              <Show when={course().shortname}><p>{course().shortname}</p></Show>
-            </div>
-            <Show when={!props.demo && !editing()}>
-              <div class="moodle-course-actions">
-                <button type="button" class="text-button" disabled={busy()} onClick={() => {
-                  setError("");
-                  setEditing(true);
-                }}>Change course</button>
-                <button type="button" class="text-button" disabled={busy()} onClick={() => {
-                  saveLink(null);
-                  setContents(null);
-                  setError("");
-                }}>Unlink course</button>
-              </div>
-            </Show>
-          </div>}
-        </Show>
-        <Show when={!props.demo && (editing() || !linkedCourse())}>
+        <Show when={editing() || !linkedCourse()}>
           <Show when={linkedId() && !linkedCourse()}>
             <p class="course-section-notice" role="status">The linked course is unavailable in this Moodle account.</p>
-            <button type="button" class="text-button" disabled={busy()} onClick={() => saveLink(null)}>Unlink course</button>
           </Show>
           <Show when={catalog()!.courses.length} fallback={<p class="course-section-notice">No enrolled courses were returned by Moodle.</p>}>
-            <form class="moodle-course-picker" onSubmit={event => {
+            <form class="nextcloud-form moodle-course-picker" onSubmit={event => {
               event.preventDefault();
               const course = catalog()?.courses.find(course => String(course.id) === draftId());
               if (!course || draftId() === linkedId()) return;
@@ -141,17 +145,17 @@ export function MoodleSection(props: { storageKey: string; demo: boolean }) {
                 setContents(result);
               });
             }}>
-              <label class="moodle-course-label" for="moodle-course">Moodle course to link</label>
-              <select id="moodle-course" value={draftId()} required disabled={busy()} onChange={event => setDraftId(event.currentTarget.value)}>
+              <label for="moodle-course">Moodle course to link</label>
+              <select ref={coursePicker} id="moodle-course" value={draftId()} required disabled={busy()} onChange={event => setDraftId(event.currentTarget.value)}>
                 <option value="">Choose an enrolled course</option>
                 <For each={catalog()!.courses}>{course =>
                   <option value={course.id}>{course.title}{course.shortname ? ` · ${course.shortname}` : ""}</option>
                 }</For>
               </select>
-              <div class="moodle-course-actions">
-                <button class="primary-button" type="submit" disabled={busy() || !draftId() || draftId() === linkedId()}>Link course</button>
+              <div class="nextcloud-actions">
+                <button class="nextcloud-save" type="submit" disabled={busy() || !draftId() || draftId() === linkedId()}>Link course</button>
                 <Show when={editing()}>
-                  <button type="button" class="text-button" disabled={busy()} onClick={() => {
+                  <button type="button" disabled={busy()} onClick={() => {
                     setDraftId("");
                     setEditing(false);
                     setError("");
@@ -169,7 +173,7 @@ export function MoodleSection(props: { storageKey: string; demo: boolean }) {
           <Show when={section.summary}><p class="moodle-summary">{section.summary}</p></Show>
           <For each={section.modules}>{module => <div class="moodle-module">
             <span class="moodle-module-icon"><FileText size={20} /></span>
-            <div><span class="moodle-eyebrow">{module.kind}</span><h4><Show when={module.url} fallback={module.title}><a href={module.url!} target="_blank" rel="noreferrer">{module.title}<ExternalLink size={13} /></a></Show></h4><Show when={module.description}><p>{module.description}</p></Show></div>
+            <div><span class="moodle-module-kind">{module.kind}</span><h4><Show when={module.url} fallback={module.title}><a href={module.url!} target="_blank" rel="noreferrer">{module.title}<ExternalLink size={13} /></a></Show></h4><Show when={module.description}><p>{module.description}</p></Show></div>
           </div>}</For>
           <Show when={!section.modules.length}><p class="course-section-notice">No activities in this section.</p></Show>
         </article>}</For>

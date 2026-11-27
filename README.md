@@ -226,7 +226,7 @@ Palette: [Catppuccin](https://catppuccin.com/palette/). Icons: Lucide. Font: Man
 
 ### Moodle
 
-Add the **Moodle** tab from a course's sidebar and sign in with your Hochschule Flensburg credentials. Select an enrolled Moodle course and click **Link course**. That Stud.IP course's Moodle tab opens the linked materials automatically. Use **Change course** or **Unlink course** to update the link. The browser saves each link separately for your Stud.IP account and course, including when you disconnect and sign in again.
+Add the **Moodle** tab from a course's sidebar and sign in with your Hochschule Flensburg credentials. Select an enrolled Moodle course and click **Link course**. The tab opens the linked materials automatically. To change or remove the link, open **Moodle settings** in the course toolbar. The browser saves each link separately for your Stud.IP account and course, including when you disconnect and sign in again.
 
 Stud.GK reads visible sections and activities. Activity links open Moodle in the browser, where a Moodle login may be required for files, assignments and quizzes. Submissions, grades, file downloads inside Stud.GK and automatic Moodle change notifications are not included.
 

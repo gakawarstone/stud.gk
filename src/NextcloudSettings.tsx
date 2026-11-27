@@ -1,95 +1,16 @@
-import { ExternalLink, Link, RefreshCw, Settings } from "lucide-solid";
-import { createEffect, createSignal, createUniqueId, on, onCleanup } from "solid-js";
+import { ExternalLink, Link, RefreshCw } from "lucide-solid";
+import { CourseSettingsMenu } from "./CourseSettingsMenu";
+
 export function NextcloudSettings(props: { url: string; loading: boolean; onRefresh: () => void; onEdit: () => void; service?: string }) {
-  const [open, setOpen] = createSignal(false);
-  let container: HTMLDivElement | null = null;
-  let button: HTMLButtonElement | null = null;
-  let menu: HTMLDivElement | null = null;
-  const menuId = createUniqueId();
-  function close(restoreFocus = true) {
-    setOpen(false);
-    if (restoreFocus) button?.focus();
-  }
-  createEffect(
-    on(
-      () => [open()],
-      () => {
-        if (!open()) return;
-        menu?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')?.focus();
-        function outside(event: PointerEvent) {
-          if (!container?.contains(event.target as Node)) setOpen(false);
-        }
-        function escape(event: KeyboardEvent) {
-          if (event.key !== "Escape") return;
-          event.preventDefault();
-          setOpen(false);
-          button?.focus();
-        }
-        document.addEventListener("pointerdown", outside);
-        document.addEventListener("keydown", escape);
-        onCleanup(() => {
-          document.removeEventListener("pointerdown", outside);
-          document.removeEventListener("keydown", escape);
-        });
-      },
-    ),
-  );
+  const service = () => props.service || "Nextcloud";
   return (
-    <div
-      class="nextcloud-tools"
-      ref={(element) => (container = element)}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
-      }}
-    >
-      <button
-        ref={(element) => (button = element)}
-        type="button"
-        aria-label={`${props.service || "Nextcloud"} settings`}
-        title={`${props.service || "Nextcloud"} settings`}
-        aria-haspopup="menu"
-        aria-expanded={open()}
-        aria-controls={open() ? menuId : undefined}
-        onClick={() => setOpen(!open())}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-            event.preventDefault();
-            setOpen(true);
-          }
-        }}
-      >
-        <Settings size={17} aria-hidden="true" />
-      </button>
-      {open() && (
-        <div
-          ref={(element) => (menu = element)}
-          id={menuId}
-          class="nextcloud-settings-menu"
-          role="menu"
-          aria-label={`${props.service || "Nextcloud"} settings`}
-          onKeyDown={(event) => {
-            const items = [...menu!.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)')];
-            const current = items.indexOf(document.activeElement as HTMLElement);
-            const next =
-              event.key === "ArrowDown"
-                ? (current + 1) % items.length
-                : event.key === "ArrowUp"
-                  ? (current - 1 + items.length) % items.length
-                  : event.key === "Home"
-                    ? 0
-                    : event.key === "End"
-                      ? items.length - 1
-                      : null;
-            if (next !== null) {
-              event.preventDefault();
-              items[next]?.focus();
-            }
-          }}
-        >
+    <CourseSettingsMenu label={`${service()} settings`}>
+      {(close) => (
+        <>
           <button
             type="button"
             role="menuitem"
-            aria-label={`Refresh ${props.service || "Nextcloud"} files`}
+            aria-label={`Refresh ${service()} files`}
             disabled={props.loading}
             onClick={() => {
               close();
@@ -102,7 +23,7 @@ export function NextcloudSettings(props: { url: string; loading: boolean; onRefr
           <button
             type="button"
             role="menuitem"
-            aria-label={`Edit ${props.service || "Nextcloud"} link`}
+            aria-label={`Edit ${service()} link`}
             onClick={() => {
               close(false);
               props.onEdit();
@@ -116,14 +37,14 @@ export function NextcloudSettings(props: { url: string; loading: boolean; onRefr
             href={props.url}
             target="_blank"
             rel="noreferrer"
-            aria-label={`Open ${props.service || "Nextcloud"} in browser`}
+            aria-label={`Open ${service()} in browser`}
             onClick={() => close()}
           >
             <ExternalLink size={16} aria-hidden="true" />
             <span>Open in browser</span>
           </a>
-        </div>
+        </>
       )}
-    </div>
+    </CourseSettingsMenu>
   );
 }
